@@ -51,4 +51,18 @@ public class PropertiesCredentialProvider implements CredentialProvider {
 		String key = supermarket.toLowerCase() + ".password";
 		return properties.getProperty(key);
 	}
+
+	/**
+	 * Saves credentials for a supermarket back to the secrets.properties file.
+	 */
+	public synchronized void saveCredentials(String supermarket, String username, String password) {
+		properties.setProperty(supermarket.toLowerCase() + ".username", username);
+		properties.setProperty(supermarket.toLowerCase() + ".password", password);
+		try (java.io.FileOutputStream fos = new java.io.FileOutputStream(secretsPath)) {
+			properties.store(fos, "Saved via Web UI");
+			log.info("Successfully saved credentials for {} to {}", supermarket, secretsPath);
+		} catch (IOException e) {
+			log.error("Failed to save credentials for {} to {}", supermarket, secretsPath, e);
+		}
+	}
 }

@@ -9,9 +9,6 @@ import com.autobuy.repository.ProductMappingRepository;
 import com.autobuy.repository.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,9 +18,7 @@ import java.util.Scanner;
 /**
  * CLI Orchestrator for the Supermarket Auto-Buy tool.
  */
-@Component
-@Profile("!test")
-public class AutoBuyCommandLineRunner implements CommandLineRunner {
+public class AutoBuyCommandLineRunner {
 
 	private static final Logger log = LoggerFactory.getLogger(AutoBuyCommandLineRunner.class);
 
@@ -46,8 +41,20 @@ public class AutoBuyCommandLineRunner implements CommandLineRunner {
 		this.shoppingListProvider = shoppingListProvider;
 	}
 
-	@Override
 	public void run(String... args) {
+		boolean isCliMode = false;
+		for (String arg : args) {
+			if (arg.equalsIgnoreCase("--cli")) {
+				isCliMode = true;
+				break;
+			}
+		}
+
+		if (!isCliMode) {
+			log.info("CLI mode not requested (--cli flag not present). Skipping CLI execution.");
+			return;
+		}
+
 		log.info("Starting Supermarket Auto-Buy execution...");
 
 		// 1. Parse Arguments

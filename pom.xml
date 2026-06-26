@@ -28,6 +28,10 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
@@ -103,6 +107,7 @@
                             <excludes>
                                 <exclude>com/autobuy/driver/**</exclude>
                                 <exclude>com/autobuy/cli/**</exclude>
+                                <exclude>com/autobuy/web/**</exclude>
                                 <exclude>com/autobuy/SupermarketAutobuyApplication.class</exclude>
                             </excludes>
                         </configuration>

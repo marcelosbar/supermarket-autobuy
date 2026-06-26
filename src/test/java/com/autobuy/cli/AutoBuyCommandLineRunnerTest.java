@@ -144,7 +144,7 @@ class AutoBuyCommandLineRunnerTest {
 				priceHistoryRepository, List.of(driver), credentialProvider, shoppingListProvider);
 
 		// Act & Assert
-		assertDoesNotThrow(() -> runner.run());
+		assertDoesNotThrow(() -> runner.run("--cli"));
 		assertFalse(driver.isInitialized());
 	}
 
@@ -162,7 +162,7 @@ class AutoBuyCommandLineRunnerTest {
 				priceHistoryRepository, List.of(driver), credentialProvider, shoppingListProvider);
 
 		// Act & Assert
-		assertDoesNotThrow(() -> runner.run("--supermarket=CONTINENTE"));
+		assertDoesNotThrow(() -> runner.run("--supermarket=CONTINENTE", "--cli"));
 		assertFalse(driver.isInitialized());
 	}
 
@@ -191,7 +191,7 @@ class AutoBuyCommandLineRunnerTest {
 
 		// Act
 		// We pass --headless to avoid any user prompt block
-		assertDoesNotThrow(() -> runner.run("--headless"));
+		assertDoesNotThrow(() -> runner.run("--headless", "--cli"));
 
 		// Assert
 		assertTrue(driver.isInitialized());
@@ -224,7 +224,7 @@ class AutoBuyCommandLineRunnerTest {
 				priceHistoryRepository, List.of(driver), credentialProvider, shoppingListProvider);
 
 		// Act & Assert
-		assertDoesNotThrow(() -> runner.run());
+		assertDoesNotThrow(() -> runner.run("--cli"));
 		assertTrue(driver.isClosed()); // Ensure driver is closed on failure
 	}
 }

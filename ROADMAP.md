@@ -27,9 +27,15 @@ This document outlines the backlog of features planned for future iterations. Th
   * Match products to the database and write to `PriceHistory` and `Order` tables.
   * Optional: Connect to an IMAP folder to automatically pull new order confirmation emails.
 
-## 4. Price History Analytics & Web Dashboard
+## 4. Web Dashboard (Simple UI)
+* **Goal:** Provide a local web-based interface to manage the shopping list, view mappings, and execute/monitor the auto-buy scraper interactively.
+* **Details:**
+  * Add a Spring Boot Web server serving a Single Page Application (SPA).
+  * Expose REST endpoints to read/update the shopping list (`shopping-list.json`), manage database product mappings, and monitor active runs.
+  * Implement background runner pausing and UI prompting to select products when a mapping is missing.
+
+## 5. Price History Analytics & Checkout Alerts
 * **Goal:** Provide visual analytics and warning systems if item prices increase.
 * **Details:**
-  * Add a Spring Boot Web / Thymeleaf interface or a local REST API.
-  * Generate charts of specific products showing price trends.
-  * Implement an alert system in the checkout CLI runner: if a product is more than 10% more expensive than its average historical price, print a warning in the terminal asking for approval.
+  * Generate charts of specific products showing price trends in the dashboard.
+  * Implement an alert system in the auto-buy runner: if a product is more than 10% more expensive than its average historical price, trigger a warning in the UI/terminal asking for approval.

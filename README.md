@@ -47,18 +47,23 @@ Copy the template `shopping-list-example.json` to `shopping-list.json` in the ro
 ```
 
 ### 3. Run the Application
-Run the application using the Maven Wrapper:
 
+#### Web UI Mode (Default)
+By default, launching the application will start the local Web server:
 ```powershell
-# On Windows PowerShell
+# Start the Web UI server
 .\mvnw.cmd spring-boot:run
-
-# Specifying custom list path, supermarket, or headless mode
-.\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments="--list=custom-list.json --supermarket=CONTINENTE"
 ```
+Then, open your browser and navigate to:
+**`http://localhost:8080`**
 
-*   **Interactive Mapping:** On your first run, the terminal will ask you to select the correct product index from the top results. Once selected, the mapping is saved, and subsequent runs will buy the item hands-free.
-*   **Final Review:** Once all items are added, the terminal will pause. You can visually review the cart in the open browser window and proceed with payment manually. Pressing **ENTER** in the terminal will close the browser and complete execution.
+From this premium single-page dashboard, you can:
+* Manage items in your shopping list directly with instant saving.
+* Configure and save credentials securely without manual properties file edits.
+* View and delete product mappings from the local database.
+* Execute active shopping runs, monitor progress via logs, select product matches interactively via modal cards, and close the session when done.
+
+
 
 ---
 

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supermarket Auto-Buy Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="main-header">
+            <div class="logo-area">
+                <span class="logo-icon">🛒</span>
+                <div class="logo-text">
+                    <h1>Supermarket Auto-Buy</h1>
+                    <p class="tagline">Interactive Grocery Shopping Automation</p>
+                </div>
+            </div>
+            <div class="credentials-badge-card" id="credentials-badge">
+                <div class="status-indicator-dot" id="cred-status-dot"></div>
+                <div class="cred-info">
+                    <span class="cred-label">Continente Online Credentials</span>
+                    <span class="cred-status-text" id="cred-status-text">Checking...</span>
+                </div>
+                <button class="btn btn-secondary btn-small" id="btn-open-creds">Configure</button>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <main class="dashboard-grid">
+            
+            <!-- COLUMN 1: SHOPPING LIST EDITOR -->
+            <section class="card shopping-list-card">
+                <div class="card-header">
+                    <h2>Shopping List</h2>
+                    <span class="badge" id="list-count-badge">0 items</span>
+                </div>
+                <div class="card-body">
+                    <!-- Quick Add Item Form -->
+                    <form id="add-item-form" class="quick-add-form">
+                        <div class="form-group flex-grow">
+                            <input type="text" id="new-item-query" placeholder="e.g. Mimosa Leite Meio Gordo 1L" required autocomplete="off">
+                        </div>
+                        <div class="form-group qty-group">
+                            <input type="number" id="new-item-qty" value="1" min="1" max="100" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-icon">+</button>
+                    </form>
+
+                    <!-- Items Container -->
+                    <div class="list-container" id="shopping-list-items">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                <div class="card-footer" style="text-align: center; color: var(--text-muted); font-size: 0.8125rem; font-weight: 500; padding: 1rem 1.5rem;">
+                    <span>✓ Changes are automatically saved</span>
+                </div>
+            </section>
+
+            <!-- COLUMN 2: EXECUTION CONTROL & CONSOLE -->
+            <section class="card execution-card">
+                <div class="card-header">
+                    <h2>Scraper Control Panel</h2>
+                    <span class="status-badge state-idle" id="execution-state-badge">IDLE</span>
+                </div>
+                <div class="card-body execution-body">
+                    <!-- Run Settings -->
+                    <div class="run-settings-panel" id="run-settings-panel">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="run-supermarket">Supermarket</label>
+                                <select id="run-supermarket">
+                                    <option value="CONTINENTE">Continente Online</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-row align-center justify-between headless-toggle-group">
+                                <label for="run-headless" class="label-checkbox">
+                                    <span>Headless Mode (Hide Browser)</span>
+                                    <input type="checkbox" id="run-headless">
+                                    <span class="custom-checkbox"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <button class="btn btn-accent btn-full btn-large" id="btn-start-run">
+                            <span class="btn-icon">⚡</span> Run Auto-Buy Scraper
+                        </button>
+                    </div>
+
+                    <!-- Active Run Details -->
+                    <div class="active-run-panel" id="active-run-panel" style="display: none;">
+                        <div class="current-task-box">
+                            <p class="task-label" id="current-task-label">Processing Items</p>
+                            <h3 class="task-details" id="current-task-details">Mimosa Leite Meio Gordo 1L (x6)</h3>
+                        </div>
+                        <div class="run-actions">
+                            <button class="btn btn-danger btn-full" id="btn-cancel-run">Cancel Execution</button>
+                        </div>
+                    </div>
+
+                    <!-- Console Logs -->
+                    <div class="console-box">
+                        <div class="console-header">
+                            <span>Execution Log Terminal</span>
+                            <button class="btn-clear" id="btn-clear-logs">Clear</button>
+                        </div>
+                        <div class="console-logs" id="console-log-lines">
+                            <div class="log-line log-info">System ready. Click "Run Auto-Buy Scraper" to begin.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COLUMN 3: SAVED MAPPINGS -->
+            <section class="card mappings-card">
+                <div class="card-header">
+                    <h2>Product SKU Mappings</h2>
+                    <div class="search-box-wrapper">
+                        <input type="text" id="mapping-search-input" placeholder="Search mappings..." autocomplete="off">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mappings-container" id="mappings-list-container">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- CREDENTIALS CONFIG MODAL -->
+    <div class="modal-overlay" id="creds-modal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Configure Supermarket Credentials</h2>
+                <button class="modal-close" id="btn-close-creds-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="creds-form">
+                    <div class="form-group">
+                        <label for="cred-supermarket">Supermarket</label>
+                        <select id="cred-supermarket" disabled>
+                            <option value="CONTINENTE">Continente Online</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cred-username">Username / Email</label>
+                        <input type="email" id="cred-username" placeholder="name@example.com" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="cred-password">Password</label>
+                        <input type="password" id="cred-password" placeholder="••••••••••••" required autocomplete="current-password">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-creds">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Credentials</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESOLVE MAPPING MODAL (INTERACTIVE PROMPT) -->
+    <div class="modal-overlay" id="resolve-modal" style="display: none;">
+        <div class="modal-card modal-large">
+            <div class="modal-header">
+                <h2>Choose Product Match</h2>
+                <span class="modal-subtitle" id="resolve-query-title">No mapping found for query: "Banana"</span>
+            </div>
+            <div class="modal-body">
+                <p class="resolve-desc">Playwright searched the store and found the following top results. Please choose the correct product to map it permanently and continue the run.</p>
+                
+                <div class="product-selection-grid" id="resolve-products-grid">
+                    <!-- Cards will be populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-skip-mapping">Skip & Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FINAL REVIEW OVERLAY / POPUP -->
+    <div class="modal-overlay" id="review-modal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Cart Verification</h2>
+            </div>
+            <div class="modal-body align-center">
+                <div class="success-checkmark-icon">🎉</div>
+                <h3>All items added to cart!</h3>
+                <p class="review-desc">Please review your shopping cart inside the opened browser window. You can complete the checkout manually if desired.</p>
+                <p class="review-warning">Once you are ready, click "Complete Run" to close the automation browser safely.</p>
+            </div>
+            <div class="modal-footer flex-center">
+                <button class="btn btn-accent btn-large" id="btn-complete-run">Complete Run & Close Browser</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
