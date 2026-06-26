@@ -21,14 +21,14 @@ Supermarket Auto-Buy is a modular, AI-first Java console application powered by 
 * **Internet Connection:** Playwright will automatically download browser binaries (Chromium) on the first run.
 
 ### 1. Setup Credentials
-Create a file named `secrets.properties` in the root directory of the project (this file is excluded from Git). Add your Continente Online credentials:
+Copy the template `secrets-example.properties` to `secrets.properties` in the root directory of the project (this file is excluded from Git to keep your credentials private) and fill in your actual credentials:
 
 ```properties
 continente.username=your-email@example.com
 continente.password=your-password
 ```
 
-*Note: If these properties are empty or the file is missing, the application will prompt you securely in the terminal at runtime.*
+*Note: If these properties are empty or the file is missing, the application will prompt you in the Web UI (or terminal at runtime in CLI mode).*
 
 ### 2. Create your Shopping List
 Copy the template `shopping-list-example.json` to `shopping-list.json` in the root directory (this file is excluded from Git to keep your personal shopping list private):
