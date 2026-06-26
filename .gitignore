@@ -10,15 +10,8 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
-# H2 Database & Backups
-*.db
-data/*.db
-data/*.trace.db
-data/backups/
-
-# Diagnostics & Local Logs
-data/*.html
-data/*.png
+# Local data directory (database, backups, and diagnostics)
+data/
 
 # Secrets / User Configuration
 secrets.properties
