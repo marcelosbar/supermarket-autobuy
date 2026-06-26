@@ -1,0 +1,40 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.next
+pom.xml.versionsBackup
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# H2 Database & Backups
+*.db
+data/*.db
+data/*.trace.db
+data/backups/
+
+# Diagnostics & Local Logs
+data/*.html
+data/*.png
+
+# Secrets / User Configuration
+secrets.properties
+application-secrets.properties
+shopping-list.json
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
