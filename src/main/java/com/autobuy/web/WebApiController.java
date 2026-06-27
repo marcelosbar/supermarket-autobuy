@@ -3,9 +3,11 @@ package com.autobuy.web;
 import com.autobuy.model.ProductMapping;
 import com.autobuy.model.ShoppingItem;
 import com.autobuy.provider.CredentialProvider;
-import com.autobuy.provider.PropertiesCredentialProvider;
 import com.autobuy.provider.ShoppingListProvider;
-import com.autobuy.repository.ProductMappingRepository;
+import com.autobuy.web.dto.AutoBuyStatusResponse;
+import com.autobuy.web.dto.CredentialsRequest;
+import com.autobuy.web.dto.ResolveRequest;
+import com.autobuy.web.dto.RunRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,19 +30,21 @@ public class WebApiController {
 	private static final Logger log = LoggerFactory.getLogger(WebApiController.class);
 
 	private final AutoBuyWebService autoBuyWebService;
-	private final ProductMappingRepository productMappingRepository;
+	private final com.autobuy.service.ProductService productService;
 	private final CredentialProvider credentialProvider;
 	private final ShoppingListProvider shoppingListProvider;
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper;
 
 	private static final String DEFAULT_LIST_PATH = "shopping-list.json";
 
-	public WebApiController(AutoBuyWebService autoBuyWebService, ProductMappingRepository productMappingRepository,
-			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider) {
+	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
+			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider,
+			ObjectMapper objectMapper) {
 		this.autoBuyWebService = autoBuyWebService;
-		this.productMappingRepository = productMappingRepository;
+		this.productService = productService;
 		this.credentialProvider = credentialProvider;
 		this.shoppingListProvider = shoppingListProvider;
+		this.objectMapper = objectMapper;
 	}
 
 	// 1. Shopping List Endpoints
@@ -67,13 +71,13 @@ public class WebApiController {
 
 	@GetMapping("/mappings")
 	public ResponseEntity<List<ProductMapping>> getMappings() {
-		return ResponseEntity.ok(productMappingRepository.findAll());
+		return ResponseEntity.ok(productService.findAllMappings());
 	}
 
 	@DeleteMapping("/mappings/{id}")
 	public ResponseEntity<Void> deleteMapping(@PathVariable Long id) {
-		if (productMappingRepository.existsById(id)) {
-			productMappingRepository.deleteById(id);
+		if (productService.findMappingById(id).isPresent()) {
+			productService.deleteMapping(id);
 			log.info("Deleted product mapping ID {}", id);
 			return ResponseEntity.noContent().build();
 		}
@@ -98,18 +102,23 @@ public class WebApiController {
 
 	@PostMapping("/credentials")
 	public ResponseEntity<Map<String, Object>> saveCredentials(@RequestBody CredentialsRequest request) {
-		if (credentialProvider instanceof PropertiesCredentialProvider propertiesProvider) {
-			propertiesProvider.saveCredentials(request.supermarket(), request.username(), request.password());
+		try {
+			credentialProvider.saveCredentials(request.supermarket(), request.username(), request.password());
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", true);
 			response.put("message", "Credentials saved successfully.");
 			return ResponseEntity.ok(response);
-		} else {
-			log.error(
-					"SOLID Exception: CredentialProvider is not an instance of PropertiesCredentialProvider. Cannot save dynamically.");
+		} catch (UnsupportedOperationException e) {
+			log.error("SOLID Exception: CredentialProvider does not support saving credentials dynamically.", e);
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", false);
 			response.put("message", "Database/properties credentials saving not supported in this profile.");
+			return ResponseEntity.internalServerError().body(response);
+		} catch (com.autobuy.exception.CredentialException e) {
+			log.error("Failed to save credentials", e);
+			Map<String, Object> response = new HashMap<>();
+			response.put("success", false);
+			response.put("message", "Failed to save credentials: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(response);
 		}
 	}
@@ -137,7 +146,7 @@ public class WebApiController {
 	}
 
 	@GetMapping("/autobuy/status")
-	public ResponseEntity<AutoBuyWebService.AutoBuyStatus> getStatus() {
+	public ResponseEntity<AutoBuyStatusResponse> getStatus() {
 		return ResponseEntity.ok(autoBuyWebService.getStatus());
 	}
 
@@ -186,11 +195,4 @@ public class WebApiController {
 		}
 	}
 
-	// Helper Records (DTOs)
-	public record CredentialsRequest(String supermarket, String username, String password) {
-	}
-	public record RunRequest(String supermarket, Boolean headless) {
-	}
-	public record ResolveRequest(String externalId) {
-	}
 }

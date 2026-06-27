@@ -4,9 +4,9 @@ import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.*;
 import com.autobuy.provider.CredentialProvider;
 import com.autobuy.provider.ShoppingListProvider;
-import com.autobuy.repository.PriceHistoryRepository;
-import com.autobuy.repository.ProductMappingRepository;
-import com.autobuy.repository.ProductRepository;
+import com.autobuy.service.PriceHistoryService;
+import com.autobuy.service.ProductService;
+import com.autobuy.web.dto.AutoBuyStatusResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -26,9 +26,8 @@ public class AutoBuyWebService {
 
 	private static final Logger log = LoggerFactory.getLogger(AutoBuyWebService.class);
 
-	private final ProductRepository productRepository;
-	private final ProductMappingRepository productMappingRepository;
-	private final PriceHistoryRepository priceHistoryRepository;
+	private final ProductService productService;
+	private final PriceHistoryService priceHistoryService;
 	private final List<SupermarketDriver> drivers;
 	private final CredentialProvider credentialProvider;
 	private final ShoppingListProvider shoppingListProvider;
@@ -47,12 +46,11 @@ public class AutoBuyWebService {
 	private Thread executionThread = null;
 	private SupermarketDriver activeDriver = null;
 
-	public AutoBuyWebService(ProductRepository productRepository, ProductMappingRepository productMappingRepository,
-			PriceHistoryRepository priceHistoryRepository, List<SupermarketDriver> drivers,
-			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider) {
-		this.productRepository = productRepository;
-		this.productMappingRepository = productMappingRepository;
-		this.priceHistoryRepository = priceHistoryRepository;
+	public AutoBuyWebService(ProductService productService, PriceHistoryService priceHistoryService,
+			List<SupermarketDriver> drivers, CredentialProvider credentialProvider,
+			ShoppingListProvider shoppingListProvider) {
+		this.productService = productService;
+		this.priceHistoryService = priceHistoryService;
 		this.drivers = drivers;
 		this.credentialProvider = credentialProvider;
 		this.shoppingListProvider = shoppingListProvider;
@@ -62,30 +60,11 @@ public class AutoBuyWebService {
 		IDLE, RUNNING, AWAITING_MAPPING, AWAITING_FINAL_REVIEW, SUCCESS, FAILED
 	}
 
-	public static class AutoBuyStatus {
-		public final AutoBuyState state;
-		public final String currentItemQuery;
-		public final int currentItemQuantity;
-		public final List<SearchResult> searchResults;
-		public final List<String> logs;
-		public final String error;
-
-		public AutoBuyStatus(AutoBuyState state, String currentItemQuery, int currentItemQuantity,
-				List<SearchResult> searchResults, List<String> logs, String error) {
-			this.state = state;
-			this.currentItemQuery = currentItemQuery;
-			this.currentItemQuantity = currentItemQuantity;
-			this.searchResults = searchResults;
-			this.logs = logs;
-			this.error = error;
-		}
-	}
-
 	/**
 	 * Gets the current status of the auto-buy thread.
 	 */
-	public synchronized AutoBuyStatus getStatus() {
-		return new AutoBuyStatus(state, currentItemQuery, currentItemQuantity, new ArrayList<>(searchResults),
+	public synchronized AutoBuyStatusResponse getStatus() {
+		return new AutoBuyStatusResponse(state, currentItemQuery, currentItemQuantity, new ArrayList<>(searchResults),
 				new ArrayList<>(MemoryAppender.getLogs()), errorMsg);
 	}
 
@@ -242,8 +221,8 @@ public class AutoBuyWebService {
 
 				log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
 
-				Optional<ProductMapping> mappingOpt = productMappingRepository
-						.findBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
+				Optional<ProductMapping> mappingOpt = productService
+						.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
 
 				SearchResult selectedProduct = null;
 
@@ -364,15 +343,11 @@ public class AutoBuyWebService {
 
 	private void saveMapping(String query, String supermarket, SearchResult result) {
 		try {
-			Product product = productRepository.findByExternalIdAndSupermarket(result.externalId(), supermarket)
-					.orElseGet(() -> {
-						Product newProduct = new Product(result.externalId(), supermarket, result.name(),
-								result.brand(), result.url(), result.category());
-						return productRepository.save(newProduct);
-					});
+			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
+					result.brand(), result.url(), result.category());
 
 			ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
-			productMappingRepository.save(mapping);
+			productService.saveMapping(mapping);
 			log.info("Saved product mapping: '{}' -> SKU: {}", query, result.externalId());
 		} catch (Exception e) {
 			log.error("Failed to save product mapping: {}", e.getMessage());
@@ -381,15 +356,10 @@ public class AutoBuyWebService {
 
 	private void logPrice(SearchResult result, String supermarket) {
 		try {
-			Product product = productRepository.findByExternalIdAndSupermarket(result.externalId(), supermarket)
-					.orElseGet(() -> {
-						Product newProduct = new Product(result.externalId(), supermarket, result.name(),
-								result.brand(), result.url(), result.category());
-						return productRepository.save(newProduct);
-					});
+			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
+					result.brand(), result.url(), result.category());
 
-			PriceHistory history = new PriceHistory(product, result.price(), LocalDateTime.now(), "SCRAPE");
-			priceHistoryRepository.save(history);
+			priceHistoryService.logPrice(product, result.price(), LocalDateTime.now());
 			log.info("Logged price for {}: {} €", product.getName(), result.price());
 		} catch (Exception e) {
 			log.error("Failed to log price history: {}", e.getMessage());
