@@ -4,11 +4,11 @@ import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.*;
 import com.autobuy.provider.CredentialProvider;
 import com.autobuy.provider.ShoppingListProvider;
-import com.autobuy.repository.PriceHistoryRepository;
-import com.autobuy.repository.ProductMappingRepository;
-import com.autobuy.repository.ProductRepository;
+import com.autobuy.service.PriceHistoryService;
+import com.autobuy.service.ProductService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,24 +18,22 @@ import java.util.Scanner;
 /**
  * CLI Orchestrator for the Supermarket Auto-Buy tool.
  */
-public class AutoBuyCommandLineRunner {
+@Component
+public class AutoBuyCommandLineRunner implements org.springframework.boot.CommandLineRunner {
 
 	private static final Logger log = LoggerFactory.getLogger(AutoBuyCommandLineRunner.class);
 
-	private final ProductRepository productRepository;
-	private final ProductMappingRepository productMappingRepository;
-	private final PriceHistoryRepository priceHistoryRepository;
+	private final ProductService productService;
+	private final PriceHistoryService priceHistoryService;
 	private final List<SupermarketDriver> drivers;
 	private final CredentialProvider credentialProvider;
 	private final ShoppingListProvider shoppingListProvider;
 
-	public AutoBuyCommandLineRunner(ProductRepository productRepository,
-			ProductMappingRepository productMappingRepository, PriceHistoryRepository priceHistoryRepository,
+	public AutoBuyCommandLineRunner(ProductService productService, PriceHistoryService priceHistoryService,
 			List<SupermarketDriver> drivers, CredentialProvider credentialProvider,
 			ShoppingListProvider shoppingListProvider) {
-		this.productRepository = productRepository;
-		this.productMappingRepository = productMappingRepository;
-		this.priceHistoryRepository = priceHistoryRepository;
+		this.productService = productService;
+		this.priceHistoryService = priceHistoryService;
 		this.drivers = drivers;
 		this.credentialProvider = credentialProvider;
 		this.shoppingListProvider = shoppingListProvider;
@@ -127,8 +125,8 @@ public class AutoBuyCommandLineRunner {
 		for (ShoppingItem item : shoppingList) {
 			log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
 
-			Optional<ProductMapping> mappingOpt = productMappingRepository
-					.findBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
+			Optional<ProductMapping> mappingOpt = productService
+					.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
 
 			SearchResult selectedProduct = null;
 
@@ -234,18 +232,11 @@ public class AutoBuyCommandLineRunner {
 
 	private void saveMapping(String query, String supermarket, SearchResult result) {
 		try {
-			// Ensure product is saved in products table
-			Product product = productRepository.findByExternalIdAndSupermarket(result.externalId(), supermarket)
-					.orElseGet(() -> {
-						Product newProduct = new Product(result.externalId(), supermarket, result.name(),
-								result.brand(), result.url(), result.category());
-						return productRepository.save(newProduct);
-					});
+			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
+					result.brand(), result.url(), result.category());
 
-			// Save the query mapping
 			ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
-
-			productMappingRepository.save(mapping);
+			productService.saveMapping(mapping);
 			log.info("Saved product mapping: '{}' -> SKU: {}", query, result.externalId());
 		} catch (Exception e) {
 			log.error("Failed to save product mapping: {}", e.getMessage());
@@ -254,16 +245,10 @@ public class AutoBuyCommandLineRunner {
 
 	private void logPrice(SearchResult result, String supermarket) {
 		try {
-			Product product = productRepository.findByExternalIdAndSupermarket(result.externalId(), supermarket)
-					.orElseGet(() -> {
-						Product newProduct = new Product(result.externalId(), supermarket, result.name(),
-								result.brand(), result.url(), result.category());
-						return productRepository.save(newProduct);
-					});
+			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
+					result.brand(), result.url(), result.category());
 
-			PriceHistory history = new PriceHistory(product, result.price(), LocalDateTime.now(), "SCRAPE");
-
-			priceHistoryRepository.save(history);
+			priceHistoryService.logPrice(product, result.price(), LocalDateTime.now());
 			log.info("Logged price for {}: {} €", product.getName(), result.price());
 		} catch (Exception e) {
 			log.error("Failed to log price history: {}", e.getMessage());
