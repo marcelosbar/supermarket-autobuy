@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Console appender for general log output -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- In-memory appender for the Web UI — disabled during tests -->
+    <springProfile name="!test">
+        <appender name="WEB_MEMORY_APPENDER" class="com.autobuy.web.MemoryAppender"/>
+
+        <logger name="com.autobuy" level="INFO" additivity="true">
+            <appender-ref ref="WEB_MEMORY_APPENDER"/>
+        </logger>
+    </springProfile>
+
+    <!-- com.autobuy logger (INFO level) — applies in all profiles -->
+    <logger name="com.autobuy" level="INFO"/>
+
+    <!-- Root logger: WARN level, output to console -->
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>
