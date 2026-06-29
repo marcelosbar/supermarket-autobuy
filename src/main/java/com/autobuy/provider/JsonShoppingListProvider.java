@@ -20,7 +20,11 @@ public class JsonShoppingListProvider implements ShoppingListProvider {
 
 	private static final Logger log = LoggerFactory.getLogger(JsonShoppingListProvider.class);
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper;
+
+	public JsonShoppingListProvider(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
+	}
 
 	@Override
 	public List<ShoppingItem> getShoppingList(String sourcePath) {

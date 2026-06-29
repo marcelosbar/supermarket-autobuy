@@ -15,7 +15,7 @@ public class PriceHistory {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@ManyToOne(optional = false, fetch = FetchType.EAGER)
+	@ManyToOne(optional = false, fetch = FetchType.LAZY)
 	@JoinColumn(name = "product_id", nullable = false)
 	private Product product;
 
@@ -77,7 +77,7 @@ public class PriceHistory {
 
 	@Override
 	public String toString() {
-		return "PriceHistory{" + "id=" + id + ", product=" + product + ", price=" + price + ", recordedAt=" + recordedAt
-				+ ", source='" + source + '\'' + '}';
+		return "PriceHistory{" + "id=" + id + ", product=" + (product == null ? null : product.getId()) + ", price="
+				+ price + ", recordedAt=" + recordedAt + ", source='" + source + '\'' + '}';
 	}
 }
