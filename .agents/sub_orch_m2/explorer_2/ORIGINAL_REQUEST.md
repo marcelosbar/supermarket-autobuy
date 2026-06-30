@@ -1,0 +1,8 @@
+## 2026-06-27T20:52:02Z
+You are Explorer 2. Your working directory is C:\Users\marce\.gemini\antigravity\worktrees\supermarket-autobuy\review-application-architecture-standards\.agents\sub_orch_m2\explorer_2\.
+Please investigate the codebase to determine the requirements for Milestone 2 (Web, Exception & Log Refactoring), which covers:
+1. R4: Extract `CredentialsRequest`, `RunRequest`, `ResolveRequest`, and `AutoBuyStatusResponse` from inner classes in the controller/web service into standalone Java records in the `web/dto/` package. Find where they are currently defined and how they are used.
+2. R6: Replace the static initializer block in `MemoryAppender` and replace it with declarative configuration in a new `logback-spring.xml` file. Use a bounded `ConcurrentLinkedDeque` instead of `CopyOnWriteArrayList` in `MemoryAppender`. Find the implementation of `MemoryAppender` and how logs are currently gathered/read.
+3. R7: Create a custom unchecked exception hierarchy (`AutoBuyException` as base, and sub-exceptions `DriverException`, `CredentialException`, `ShoppingListException`). Create a `@ControllerAdvice` (`GlobalExceptionHandler`) to catch exceptions and return structured JSON responses. Add a integration test verifying `GlobalExceptionHandler` converts exceptions to structured JSON. Find where existing custom exceptions are, what controllers throw exceptions, and how integration tests are structured.
+
+Suggest a concrete refactoring and implementation plan. Write your analysis and proposed design to handoff.md in your working directory, then send a message back to the parent indicating completion.

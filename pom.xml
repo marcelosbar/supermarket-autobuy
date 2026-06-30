@@ -46,6 +46,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Database Migrations -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
         <!-- Browser Automation -->
         <dependency>
             <groupId>com.microsoft.playwright</groupId>

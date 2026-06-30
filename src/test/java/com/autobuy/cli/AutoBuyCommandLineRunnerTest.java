@@ -7,6 +7,8 @@ import com.autobuy.provider.ShoppingListProvider;
 import com.autobuy.repository.PriceHistoryRepository;
 import com.autobuy.repository.ProductMappingRepository;
 import com.autobuy.repository.ProductRepository;
+import com.autobuy.service.PriceHistoryService;
+import com.autobuy.service.ProductService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -26,11 +28,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class AutoBuyCommandLineRunnerTest {
 
 	private InputStream originalIn;
+	private ProductService productService;
+	private PriceHistoryService priceHistoryService;
 
 	@BeforeEach
 	void setUp() {
 		originalIn = System.in;
 		System.setIn(new ByteArrayInputStream("\n\n\n\n\n\n\n\n\n".getBytes()));
+		productService = new ProductService(productRepository, productMappingRepository);
+		priceHistoryService = new PriceHistoryService(priceHistoryRepository);
 	}
 
 	@AfterEach
@@ -140,8 +146,8 @@ class AutoBuyCommandLineRunnerTest {
 		StubShoppingListProvider shoppingListProvider = new StubShoppingListProvider(Collections.emptyList());
 		StubSupermarketDriver driver = new StubSupermarketDriver("CONTINENTE");
 
-		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productRepository, productMappingRepository,
-				priceHistoryRepository, List.of(driver), credentialProvider, shoppingListProvider);
+		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productService, priceHistoryService,
+				List.of(driver), credentialProvider, shoppingListProvider);
 
 		// Act & Assert
 		assertDoesNotThrow(() -> runner.run("--cli"));
@@ -158,8 +164,8 @@ class AutoBuyCommandLineRunnerTest {
 		// No driver registered for CONTINENTE (only ALDI)
 		StubSupermarketDriver driver = new StubSupermarketDriver("ALDI");
 
-		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productRepository, productMappingRepository,
-				priceHistoryRepository, List.of(driver), credentialProvider, shoppingListProvider);
+		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productService, priceHistoryService,
+				List.of(driver), credentialProvider, shoppingListProvider);
 
 		// Act & Assert
 		assertDoesNotThrow(() -> runner.run("--supermarket=CONTINENTE", "--cli"));
@@ -186,8 +192,8 @@ class AutoBuyCommandLineRunnerTest {
 				"Milk");
 		driver.addSearchResult(result);
 
-		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productRepository, productMappingRepository,
-				priceHistoryRepository, List.of(driver), credentialProvider, shoppingListProvider);
+		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productService, priceHistoryService,
+				List.of(driver), credentialProvider, shoppingListProvider);
 
 		// Act
 		// We pass --headless to avoid any user prompt block
@@ -220,8 +226,8 @@ class AutoBuyCommandLineRunnerTest {
 			}
 		};
 
-		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productRepository, productMappingRepository,
-				priceHistoryRepository, List.of(driver), credentialProvider, shoppingListProvider);
+		AutoBuyCommandLineRunner runner = new AutoBuyCommandLineRunner(productService, priceHistoryService,
+				List.of(driver), credentialProvider, shoppingListProvider);
 
 		// Act & Assert
 		assertDoesNotThrow(() -> runner.run("--cli"));

@@ -14,7 +14,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JsonShoppingListProviderTest {
 
-	private final JsonShoppingListProvider provider = new JsonShoppingListProvider();
+	private final JsonShoppingListProvider provider = new JsonShoppingListProvider(
+			new com.fasterxml.jackson.databind.ObjectMapper());
 
 	@Test
 	void testGetShoppingList_Success(@TempDir Path tempDir) throws IOException {

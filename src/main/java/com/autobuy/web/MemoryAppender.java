@@ -1,39 +1,25 @@
 package com.autobuy.web;
 
-import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
-import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * Custom Logback appender that stores application logs in memory to be read by
- * the Web UI.
+ * the Web UI. Logback instantiates and registers this appender via
+ * {@code logback-spring.xml} — no manual registration is needed.
  */
 public class MemoryAppender extends AppenderBase<ILoggingEvent> {
 
-	private static final List<String> logs = new CopyOnWriteArrayList<>();
+	private static final int MAX_SIZE = 500;
 
-	static {
-		try {
-			LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
-			MemoryAppender appender = new MemoryAppender();
-			appender.setContext(context);
-			appender.setName("WEB_MEMORY_APPENDER");
-			appender.start();
-
-			// Add appender to the autobuy root logger package
-			ch.qos.logback.classic.Logger rootLogger = context.getLogger("com.autobuy");
-			rootLogger.addAppender(appender);
-		} catch (Exception e) {
-			System.err.println("Failed to initialize Web MemoryAppender: " + e.getMessage());
-		}
-	}
+	private static final ConcurrentLinkedDeque<String> logs = new ConcurrentLinkedDeque<>();
 
 	public static List<String> getLogs() {
-		return logs;
+		return new ArrayList<>(logs);
 	}
 
 	public static void clear() {
@@ -44,9 +30,9 @@ public class MemoryAppender extends AppenderBase<ILoggingEvent> {
 	protected void append(ILoggingEvent eventObject) {
 		String formatted = String.format("%s - %s", eventObject.getLevel().toString(),
 				eventObject.getFormattedMessage());
-		logs.add(formatted);
-		if (logs.size() > 500) {
-			logs.remove(0);
+		logs.addLast(formatted);
+		if (logs.size() > MAX_SIZE) {
+			logs.pollFirst();
 		}
 	}
 }

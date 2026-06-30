@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
+import com.autobuy.exception.CredentialException;
 
 /**
  * Implementation of CredentialProvider that loads credentials from a local
@@ -55,7 +56,19 @@ public class PropertiesCredentialProvider implements CredentialProvider {
 	/**
 	 * Saves credentials for a supermarket back to the secrets.properties file.
 	 */
-	public synchronized void saveCredentials(String supermarket, String username, String password) {
+	@Override
+	public synchronized void saveCredentials(String supermarket, String username, String password)
+			throws CredentialException {
+		if (supermarket == null || supermarket.trim().isEmpty()) {
+			throw new CredentialException("Supermarket name cannot be null or empty");
+		}
+		if (username == null || username.trim().isEmpty()) {
+			throw new CredentialException("Username cannot be null or empty");
+		}
+		if (password == null || password.trim().isEmpty()) {
+			throw new CredentialException("Password cannot be null or empty");
+		}
+
 		properties.setProperty(supermarket.toLowerCase() + ".username", username);
 		properties.setProperty(supermarket.toLowerCase() + ".password", password);
 		try (java.io.FileOutputStream fos = new java.io.FileOutputStream(secretsPath)) {
@@ -63,6 +76,7 @@ public class PropertiesCredentialProvider implements CredentialProvider {
 			log.info("Successfully saved credentials for {} to {}", supermarket, secretsPath);
 		} catch (IOException e) {
 			log.error("Failed to save credentials for {} to {}", supermarket, secretsPath, e);
+			throw new CredentialException("Failed to save credentials for " + supermarket, e);
 		}
 	}
 }
