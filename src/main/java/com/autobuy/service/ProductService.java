@@ -2,6 +2,7 @@ package com.autobuy.service;
 
 import com.autobuy.model.Product;
 import com.autobuy.model.ProductMapping;
+import com.autobuy.model.SearchResult;
 import com.autobuy.repository.ProductMappingRepository;
 import com.autobuy.repository.ProductRepository;
 import org.springframework.stereotype.Service;
@@ -62,5 +63,14 @@ public class ProductService {
 
 	public List<ProductMapping> findAllMappings() {
 		return productMappingRepository.findAll();
+	}
+
+	@Transactional
+	public void saveMapping(String query, String supermarket, SearchResult result) {
+		findOrCreateProduct(result.externalId(), supermarket, result.name(), result.brand(), result.url(),
+				result.category());
+
+		ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
+		saveMapping(mapping);
 	}
 }

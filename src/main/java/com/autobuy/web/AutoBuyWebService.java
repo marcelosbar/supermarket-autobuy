@@ -12,10 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.core.task.AsyncTaskExecutor;
 
-import java.time.LocalDateTime;
 import java.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -319,6 +317,21 @@ public class AutoBuyWebService {
 		}
 	}
 
+	private <T> T awaitFuture(CompletableFuture<T> future, String operationName) throws InterruptedException {
+		try {
+			return future.get();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw e;
+		} catch (java.util.concurrent.ExecutionException e) {
+			log.error("Error during {}", operationName, e);
+			throw new RuntimeException("Error during " + operationName, e);
+		} catch (java.util.concurrent.CancellationException _) {
+			log.warn("{} was cancelled.", operationName);
+			throw new InterruptedException(operationName + " cancelled.");
+		}
+	}
+
 	private SearchResult pauseAndResolveMapping(String query, int quantity, List<SearchResult> results)
 			throws InterruptedException {
 		CompletableFuture<SearchResult> future;
@@ -334,16 +347,7 @@ public class AutoBuyWebService {
 
 		SearchResult selected = null;
 		try {
-			selected = future.get();
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw e;
-		} catch (java.util.concurrent.ExecutionException e) {
-			log.error("Error during mapping resolution", e);
-			throw new RuntimeException("Error during mapping resolution", e);
-		} catch (java.util.concurrent.CancellationException _) {
-			log.warn("Mapping resolution was cancelled.");
-			throw new InterruptedException("Mapping resolution cancelled.");
+			selected = awaitFuture(future, "Mapping resolution");
 		} finally {
 			synchronized (this) {
 				this.searchResults.clear();
@@ -363,16 +367,7 @@ public class AutoBuyWebService {
 		}
 
 		try {
-			future.get();
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw e;
-		} catch (java.util.concurrent.ExecutionException e) {
-			log.error("Error during final review", e);
-			throw new RuntimeException("Error during final review", e);
-		} catch (java.util.concurrent.CancellationException _) {
-			log.warn("Final review was cancelled.");
-			throw new InterruptedException("Final review cancelled.");
+			awaitFuture(future, "Final review");
 		} finally {
 			synchronized (this) {
 				this.finalReviewFuture = null;
@@ -388,11 +383,7 @@ public class AutoBuyWebService {
 
 	private void saveMapping(String query, String supermarket, SearchResult result) {
 		try {
-			productService.findOrCreateProduct(result.externalId(), supermarket, result.name(), result.brand(),
-					result.url(), result.category());
-
-			ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
-			productService.saveMapping(mapping);
+			productService.saveMapping(query, supermarket, result);
 			log.info("Saved product mapping: '{}' -> SKU: {}", query, result.externalId());
 		} catch (Exception e) {
 			log.error("Failed to save product mapping: {}", e.getMessage());
@@ -401,11 +392,8 @@ public class AutoBuyWebService {
 
 	private void logPrice(SearchResult result, String supermarket) {
 		try {
-			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
-					result.brand(), result.url(), result.category());
-
-			priceHistoryService.logPrice(product, result.price(), LocalDateTime.now(ZoneId.systemDefault()));
-			log.info("Logged price for {}: {} €", product.getName(), result.price());
+			priceHistoryService.logPrice(result, supermarket);
+			log.info("Logged price for {}: {} €", result.name(), result.price());
 		} catch (Exception e) {
 			log.error("Failed to log price history: {}", e.getMessage());
 		}
