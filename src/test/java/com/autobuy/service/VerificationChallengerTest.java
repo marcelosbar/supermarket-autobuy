@@ -187,20 +187,20 @@ class VerificationChallengerTest {
 		System.out.println("Initially initialized: " + isInitializedInitially);
 
 		// Access the ID via getId() getter
-		Long id = proxyProduct.getId();
+		proxyProduct.getId();
 		boolean isInitializedAfterGetId = org.hibernate.Hibernate.isInitialized(proxyProduct);
 		System.out.println("Initialized after getId(): " + isInitializedAfterGetId);
 		assertFalse(isInitializedAfterGetId, "Calling getId() on the proxy should NOT trigger initialization");
 
 		// Call toString() and check if it triggers initialization
-		String toStringResult = loadedHistory.toString();
+		loadedHistory.toString();
 		boolean isInitializedAfterToString = org.hibernate.Hibernate.isInitialized(proxyProduct);
 		System.out.println("Initialized after toString(): " + isInitializedAfterToString);
 		assertFalse(isInitializedAfterToString,
 				"Calling toString() on PriceHistory should NOT initialize the Product proxy because it only accesses the ID.");
 
 		// Access another field (name) via getName() getter
-		String name = proxyProduct.getName();
+		proxyProduct.getName();
 		boolean isInitializedAfterGetName = org.hibernate.Hibernate.isInitialized(proxyProduct);
 		System.out.println("Initialized after getName(): " + isInitializedAfterGetName);
 		System.out.println("------------------------------");

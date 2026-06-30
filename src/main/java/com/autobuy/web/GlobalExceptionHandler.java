@@ -5,6 +5,7 @@ import com.autobuy.exception.DriverException;
 import com.autobuy.exception.ShoppingListException;
 import com.autobuy.web.dto.ErrorResponse;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -19,40 +20,40 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(CredentialException.class)
 	public ResponseEntity<ErrorResponse> handleCredential(CredentialException ex) {
 		log.warn("Credential error: {}", ex.getMessage());
-		return ResponseEntity.badRequest()
-				.body(new ErrorResponse(ex.getMessage(), "CREDENTIAL_ERROR", LocalDateTime.now()));
+		return ResponseEntity.badRequest().body(
+				new ErrorResponse(ex.getMessage(), "CREDENTIAL_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(ShoppingListException.class)
 	public ResponseEntity<ErrorResponse> handleShoppingList(ShoppingListException ex) {
 		log.warn("Shopping list error: {}", ex.getMessage());
-		return ResponseEntity.badRequest()
-				.body(new ErrorResponse(ex.getMessage(), "SHOPPING_LIST_ERROR", LocalDateTime.now()));
+		return ResponseEntity.badRequest().body(
+				new ErrorResponse(ex.getMessage(), "SHOPPING_LIST_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(DriverException.class)
 	public ResponseEntity<ErrorResponse> handleDriver(DriverException ex) {
 		log.error("Driver error: {}", ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-				.body(new ErrorResponse(ex.getMessage(), "DRIVER_ERROR", LocalDateTime.now()));
+				.body(new ErrorResponse(ex.getMessage(), "DRIVER_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(IllegalStateException.class)
 	public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
-				.body(new ErrorResponse(ex.getMessage(), "STATE_ERROR", LocalDateTime.now()));
+				.body(new ErrorResponse(ex.getMessage(), "STATE_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleIllegalArg(IllegalArgumentException ex) {
-		return ResponseEntity.badRequest()
-				.body(new ErrorResponse(ex.getMessage(), "VALIDATION_ERROR", LocalDateTime.now()));
+		return ResponseEntity.badRequest().body(
+				new ErrorResponse(ex.getMessage(), "VALIDATION_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
 		log.error("Unexpected error", ex);
 		return ResponseEntity.internalServerError()
-				.body(new ErrorResponse(ex.getMessage(), "INTERNAL_ERROR", LocalDateTime.now()));
+				.body(new ErrorResponse(ex.getMessage(), "INTERNAL_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 }

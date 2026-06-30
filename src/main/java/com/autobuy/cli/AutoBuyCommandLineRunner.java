@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
@@ -232,8 +233,8 @@ public class AutoBuyCommandLineRunner implements org.springframework.boot.Comman
 
 	private void saveMapping(String query, String supermarket, SearchResult result) {
 		try {
-			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
-					result.brand(), result.url(), result.category());
+			productService.findOrCreateProduct(result.externalId(), supermarket, result.name(), result.brand(),
+					result.url(), result.category());
 
 			ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
 			productService.saveMapping(mapping);
@@ -248,7 +249,7 @@ public class AutoBuyCommandLineRunner implements org.springframework.boot.Comman
 			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
 					result.brand(), result.url(), result.category());
 
-			priceHistoryService.logPrice(product, result.price(), LocalDateTime.now());
+			priceHistoryService.logPrice(product, result.price(), LocalDateTime.now(ZoneId.systemDefault()));
 			log.info("Logged price for {}: {} €", product.getName(), result.price());
 		} catch (Exception e) {
 			log.error("Failed to log price history: {}", e.getMessage());

@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -343,8 +344,8 @@ public class AutoBuyWebService {
 
 	private void saveMapping(String query, String supermarket, SearchResult result) {
 		try {
-			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
-					result.brand(), result.url(), result.category());
+			productService.findOrCreateProduct(result.externalId(), supermarket, result.name(), result.brand(),
+					result.url(), result.category());
 
 			ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
 			productService.saveMapping(mapping);
@@ -359,7 +360,7 @@ public class AutoBuyWebService {
 			Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
 					result.brand(), result.url(), result.category());
 
-			priceHistoryService.logPrice(product, result.price(), LocalDateTime.now());
+			priceHistoryService.logPrice(product, result.price(), LocalDateTime.now(ZoneId.systemDefault()));
 			log.info("Logged price for {}: {} €", product.getName(), result.price());
 		} catch (Exception e) {
 			log.error("Failed to log price history: {}", e.getMessage());
