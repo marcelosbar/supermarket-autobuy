@@ -341,7 +341,7 @@ public class AutoBuyWebService {
 		} catch (java.util.concurrent.ExecutionException e) {
 			log.error("Error during mapping resolution", e);
 			throw new RuntimeException("Error during mapping resolution", e);
-		} catch (java.util.concurrent.CancellationException e) {
+		} catch (java.util.concurrent.CancellationException _) {
 			log.warn("Mapping resolution was cancelled.");
 			throw new InterruptedException("Mapping resolution cancelled.");
 		} finally {
@@ -370,7 +370,7 @@ public class AutoBuyWebService {
 		} catch (java.util.concurrent.ExecutionException e) {
 			log.error("Error during final review", e);
 			throw new RuntimeException("Error during final review", e);
-		} catch (java.util.concurrent.CancellationException e) {
+		} catch (java.util.concurrent.CancellationException _) {
 			log.warn("Final review was cancelled.");
 			throw new InterruptedException("Final review cancelled.");
 		} finally {
