@@ -2,20 +2,21 @@
 
 ## 1. Project Directory Layout
 * `src/main/java/com/autobuy/`
-  * `cli/`: CommandLineRunner interface loops.
-  * `config/`: Spring Configuration beans.
+  * `config/`: Spring Configuration beans (contains `AppConfig`).
   * `driver/`: `SupermarketDriver` and scraper implementations (e.g. Playwright).
+  * `exception/`: Custom unchecked exception hierarchy (`AutoBuyException`, etc.).
   * `model/`: JPA Entities and core data classes.
-  * `provider/`: credential and shopping list loading services.
+  * `provider/`: Credential provider and shopping list loading services.
   * `repository/`: Spring Data JPA interfaces.
-  * `service/`: Core transactional services (backup, logging).
+  * `service/`: Core transactional services (`DatabaseBackupService`, `ProductService`, `PriceHistoryService`).
+  * `web/`: Controller and web services.
+    * `dto/`: Request/response DTO records.
 * `secrets.properties`: (Excluded from git) local key-value store for passwords.
 
 ## 2. CLI Commands
 * **Build & Package:** `.\mvnw.cmd clean package`
 * **Run Tests:** `.\mvnw.cmd test` (enforces 80% instruction coverage gate via JaCoCo)
-* **Run App:** `.\mvnw.cmd spring-boot:run`
-* **Custom Execution:** `.\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments="--list=shopping-list.json --supermarket=CONTINENTE"`
+* **Run App:** `.\mvnw.cmd spring-boot:run` (Starts the Web UI and automatically executes Flyway baseline/migrations)
 * **Auto-format Code:** `.\mvnw.cmd spotless:apply` (automatically applies Eclipse JDT 4-space indent style)
 
 ## 3. Coding Guidelines & Standards
