@@ -10,8 +10,11 @@ import com.autobuy.web.dto.AutoBuyStatusResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.core.task.AsyncTaskExecutor;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +36,8 @@ public class AutoBuyWebService {
 	private final CredentialProvider credentialProvider;
 	private final ShoppingListProvider shoppingListProvider;
 
+	private final AsyncTaskExecutor taskExecutor;
+
 	// State fields
 	private AutoBuyState state = AutoBuyState.IDLE;
 	private String currentItemQuery = "";
@@ -41,20 +46,21 @@ public class AutoBuyWebService {
 	private String errorMsg = "";
 
 	// Execution synchronization
-	private final Object lock = new Object();
-	private boolean resolved = false;
 	private SearchResult userSelectedProduct = null;
-	private Thread executionThread = null;
 	private SupermarketDriver activeDriver = null;
+	private Future<?> currentExecutionFuture = null;
+	private CompletableFuture<SearchResult> currentMappingFuture = null;
+	private CompletableFuture<Void> finalReviewFuture = null;
 
 	public AutoBuyWebService(ProductService productService, PriceHistoryService priceHistoryService,
 			List<SupermarketDriver> drivers, CredentialProvider credentialProvider,
-			ShoppingListProvider shoppingListProvider) {
+			ShoppingListProvider shoppingListProvider, AsyncTaskExecutor autoBuyTaskExecutor) {
 		this.productService = productService;
 		this.priceHistoryService = priceHistoryService;
 		this.drivers = drivers;
 		this.credentialProvider = credentialProvider;
 		this.shoppingListProvider = shoppingListProvider;
+		this.taskExecutor = autoBuyTaskExecutor;
 	}
 
 	public enum AutoBuyState {
@@ -87,52 +93,53 @@ public class AutoBuyWebService {
 
 		log.info("Starting background auto-buy run for {}...", targetSupermarket);
 
-		executionThread = new Thread(() -> runExecutionFlow(listPath, targetSupermarket, headless), "AutoBuy-Executor");
-		executionThread.start();
+		currentExecutionFuture = taskExecutor.submit(() -> runExecutionFlow(listPath, targetSupermarket, headless));
 	}
 
 	/**
 	 * Resolves a missing mapping by specifying a chosen search result.
 	 */
-	public void resolveMapping(String externalId) {
-		synchronized (lock) {
-			if (state != AutoBuyState.AWAITING_MAPPING) {
-				throw new IllegalStateException("Not currently waiting for product mapping resolution.");
-			}
-
-			if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
-				this.userSelectedProduct = null;
-				this.resolved = true;
-				this.state = AutoBuyState.RUNNING;
-				lock.notifyAll();
-				return;
-			}
-
-			SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId)).findFirst()
-					.orElse(null);
-
-			if (selected == null) {
-				throw new IllegalArgumentException("Selected externalId not found in current search results.");
-			}
-
-			this.userSelectedProduct = selected;
-			this.resolved = true;
-			this.state = AutoBuyState.RUNNING;
-			lock.notifyAll();
+	public synchronized void resolveMapping(String externalId) {
+		if (state != AutoBuyState.AWAITING_MAPPING) {
+			throw new IllegalStateException("Not currently waiting for product mapping resolution.");
 		}
+
+		CompletableFuture<SearchResult> future = this.currentMappingFuture;
+		if (future == null) {
+			return;
+		}
+
+		if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
+			this.state = AutoBuyState.RUNNING;
+			this.currentMappingFuture = null;
+			future.complete(null);
+			return;
+		}
+
+		SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId)).findFirst()
+				.orElse(null);
+
+		if (selected == null) {
+			throw new IllegalArgumentException("Selected externalId not found in current search results.");
+		}
+
+		this.state = AutoBuyState.RUNNING;
+		this.currentMappingFuture = null;
+		future.complete(selected);
 	}
 
 	/**
 	 * Completes the execution, closing the driver window.
 	 */
-	public void completeRun() {
-		synchronized (lock) {
-			if (state != AutoBuyState.AWAITING_FINAL_REVIEW) {
-				throw new IllegalStateException("Not currently waiting for final review.");
-			}
-			this.resolved = true;
-			this.state = AutoBuyState.SUCCESS;
-			lock.notifyAll();
+	public synchronized void completeRun() {
+		if (state != AutoBuyState.AWAITING_FINAL_REVIEW) {
+			throw new IllegalStateException("Not currently waiting for final review.");
+		}
+		this.state = AutoBuyState.SUCCESS;
+		CompletableFuture<Void> future = this.finalReviewFuture;
+		this.finalReviewFuture = null;
+		if (future != null) {
+			future.complete(null);
 		}
 	}
 
@@ -150,15 +157,20 @@ public class AutoBuyWebService {
 			activeDriver = null;
 		}
 
-		synchronized (lock) {
-			this.state = AutoBuyState.FAILED;
-			this.errorMsg = "Execution canceled by user.";
-			this.resolved = true;
-			lock.notifyAll();
-		}
+		this.state = AutoBuyState.FAILED;
+		this.errorMsg = "Execution canceled by user.";
 
-		if (executionThread != null && executionThread.isAlive()) {
-			executionThread.interrupt();
+		if (currentMappingFuture != null) {
+			currentMappingFuture.cancel(true);
+			currentMappingFuture = null;
+		}
+		if (finalReviewFuture != null) {
+			finalReviewFuture.cancel(true);
+			finalReviewFuture = null;
+		}
+		if (currentExecutionFuture != null) {
+			currentExecutionFuture.cancel(true);
+			currentExecutionFuture = null;
 		}
 	}
 
@@ -301,6 +313,7 @@ public class AutoBuyWebService {
 				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
 					state = AutoBuyState.SUCCESS;
 				}
+				currentExecutionFuture = null;
 			}
 			log.info("Auto-buy background thread completed.");
 		}
@@ -308,30 +321,61 @@ public class AutoBuyWebService {
 
 	private SearchResult pauseAndResolveMapping(String query, int quantity, List<SearchResult> results)
 			throws InterruptedException {
-		synchronized (lock) {
+		CompletableFuture<SearchResult> future;
+		synchronized (this) {
 			this.searchResults = results;
 			this.state = AutoBuyState.AWAITING_MAPPING;
-			this.resolved = false;
 			this.userSelectedProduct = null;
-
-			log.info("PAUSED: Awaiting product mapping resolution from the Web UI for '{}'...", query);
-
-			while (!resolved && state == AutoBuyState.AWAITING_MAPPING) {
-				lock.wait();
-			}
-
-			this.searchResults.clear();
-			return userSelectedProduct;
+			this.currentMappingFuture = new CompletableFuture<>();
+			future = this.currentMappingFuture;
 		}
+
+		log.info("PAUSED: Awaiting product mapping resolution from the Web UI for '{}'...", query);
+
+		SearchResult selected = null;
+		try {
+			selected = future.get();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw e;
+		} catch (java.util.concurrent.ExecutionException e) {
+			log.error("Error during mapping resolution", e);
+			throw new RuntimeException("Error during mapping resolution", e);
+		} catch (java.util.concurrent.CancellationException e) {
+			log.warn("Mapping resolution was cancelled.");
+			throw new InterruptedException("Mapping resolution cancelled.");
+		} finally {
+			synchronized (this) {
+				this.searchResults.clear();
+				this.currentMappingFuture = null;
+			}
+		}
+
+		return selected;
 	}
 
 	private void pauseForFinalReview() throws InterruptedException {
-		synchronized (lock) {
+		CompletableFuture<Void> future;
+		synchronized (this) {
 			this.state = AutoBuyState.AWAITING_FINAL_REVIEW;
-			this.resolved = false;
+			this.finalReviewFuture = new CompletableFuture<>();
+			future = this.finalReviewFuture;
+		}
 
-			while (!resolved && state == AutoBuyState.AWAITING_FINAL_REVIEW) {
-				lock.wait();
+		try {
+			future.get();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw e;
+		} catch (java.util.concurrent.ExecutionException e) {
+			log.error("Error during final review", e);
+			throw new RuntimeException("Error during final review", e);
+		} catch (java.util.concurrent.CancellationException e) {
+			log.warn("Final review was cancelled.");
+			throw new InterruptedException("Final review cancelled.");
+		} finally {
+			synchronized (this) {
+				this.finalReviewFuture = null;
 			}
 		}
 	}
