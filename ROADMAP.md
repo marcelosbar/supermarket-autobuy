@@ -17,7 +17,7 @@ This document outlines the backlog of features planned for future iterations. Th
 * **Details:**
   * Define `BitwardenCredentialProvider` implementing `CredentialProvider`.
   * Execute background CLI commands using Java's `ProcessBuilder` (e.g., `bw get password "Continente Online"`).
-  * Handle session keys (`BW_SESSION` environment variable) and prompt the user to unlock the vault in the CLI if locked.
+  * Handle session keys (`BW_SESSION` environment variable) and prompt the user to unlock the vault in the Web UI if locked.
 
 ## 3. Continente Email Order Confirmation Parser
 * **Goal:** Seed the database with years of historical pricing data using old order email confirmations.
@@ -27,7 +27,7 @@ This document outlines the backlog of features planned for future iterations. Th
   * Match products to the database and write to `PriceHistory` and `Order` tables.
   * Optional: Connect to an IMAP folder to automatically pull new order confirmation emails.
 
-## 4. Web Dashboard (Simple UI)
+## 4. Web Dashboard (Simple UI) ✅
 * **Goal:** Provide a local web-based interface to manage the shopping list, view mappings, and execute/monitor the auto-buy scraper interactively.
 * **Details:**
   * Add a Spring Boot Web server serving a Single Page Application (SPA).
@@ -38,4 +38,4 @@ This document outlines the backlog of features planned for future iterations. Th
 * **Goal:** Provide visual analytics and warning systems if item prices increase.
 * **Details:**
   * Generate charts of specific products showing price trends in the dashboard.
-  * Implement an alert system in the auto-buy runner: if a product is more than 10% more expensive than its average historical price, trigger a warning in the UI/terminal asking for approval.
+  * Implement an alert system in the auto-buy runner: if a product is more than 10% more expensive than its average historical price, trigger a warning in the Web UI asking for approval.

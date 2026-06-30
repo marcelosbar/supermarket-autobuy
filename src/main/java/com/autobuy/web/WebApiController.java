@@ -22,6 +22,10 @@ import java.util.Map;
 /**
  * REST Controller exposing endpoints to manage shopping list, mappings,
  * credentials, and autobuy execution.
+ *
+ * <p>
+ * Uses constructor injection to adhere to the Dependency Inversion Principle
+ * (DIP).
  */
 @RestController
 @RequestMapping("/api")

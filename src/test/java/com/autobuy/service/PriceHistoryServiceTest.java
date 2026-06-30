@@ -3,6 +3,7 @@ package com.autobuy.service;
 import com.autobuy.model.PriceHistory;
 import com.autobuy.model.Product;
 import com.autobuy.repository.PriceHistoryRepository;
+import com.autobuy.repository.ProductMappingRepository;
 import com.autobuy.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,13 +23,17 @@ class PriceHistoryServiceTest {
 	private ProductRepository productRepository;
 
 	@Autowired
+	private ProductMappingRepository productMappingRepository;
+
+	@Autowired
 	private PriceHistoryRepository priceHistoryRepository;
 
 	private PriceHistoryService priceHistoryService;
 
 	@BeforeEach
 	void setUp() {
-		priceHistoryService = new PriceHistoryService(priceHistoryRepository);
+		ProductService productService = new ProductService(productRepository, productMappingRepository);
+		priceHistoryService = new PriceHistoryService(priceHistoryRepository, productService);
 	}
 
 	@Test

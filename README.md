@@ -1,13 +1,13 @@
 # Supermarket Auto-Buy
 
-Supermarket Auto-Buy is a modular, AI-first Java console application powered by **Spring Boot** and **Microsoft Playwright**. It automates online grocery shopping (starting with **Continente Online**) by reading a structured shopping list, logging into the store, searching for items, mapping search queries to exact product SKUs, logging price history in a local H2 database, and adding the items to the shopping cart.
+Supermarket Auto-Buy is a modular, AI-first Spring Boot web application powered by **Microsoft Playwright**. It automates online grocery shopping (starting with **Continente Online**) by reading a structured shopping list, logging into the store, searching for items, mapping search queries to exact product SKUs, logging price history in a local H2 database, and adding the items to the shopping cart.
 
 ---
 
 ## Features
 
 1. **Robust Playwright Automation:** Automates logging in, accepting cookies, performing product queries, and managing cart additions on Continente Online.
-2. **Interactive Match Mapping:** If a shopping list item doesn't have an exact SKU mapped in the database, the CLI queries the store, presents the top matches, and lets you choose the correct product. Your choice is saved for subsequent runs.
+2. **Interactive Match Mapping:** If a shopping list item doesn't have an exact SKU mapped in the database, the Web UI queries the store, presents the top matches, and lets you choose the correct product. Your choice is saved for subsequent runs.
 3. **Price Tracking & H2 Storage:** Keeps historical records of all item prices from each run in a local, file-persisted H2 database (`data/db.mv.db`).
 4. **OneDrive-Safe Snapshot Backups:** Automatically dumps a compressed ZIP/SQL backup of the database to a configured folder (e.g. your OneDrive folder) on application shutdown to avoid live file-locking issues.
 5. **AI-First & SOLID Compliance:** Modular architecture using clean interfaces (`SupermarketDriver`, `CredentialProvider`, `ShoppingListProvider`) and type-safety. Exposes instructions for AI development in `AGENTS.md` and a backlog roadmap in `ROADMAP.md`.
@@ -28,7 +28,7 @@ continente.username=your-email@example.com
 continente.password=your-password
 ```
 
-*Note: If these properties are empty or the file is missing, the application will prompt you in the Web UI (or terminal at runtime in CLI mode).*
+*Note: If these properties are empty or the file is missing, the application will prompt you in the Web UI.*
 
 ### 2. Create your Shopping List
 Copy the template `shopping-list-example.json` to `shopping-list.json` in the root directory (this file is excluded from Git to keep your personal shopping list private):
@@ -48,10 +48,9 @@ Copy the template `shopping-list-example.json` to `shopping-list.json` in the ro
 
 ### 3. Run the Application
 
-#### Web UI Mode (Default)
-By default, launching the application will start the local Web server:
+Launch the application to start the local web server:
 ```powershell
-# Start the Web UI server
+# Start the Web application
 .\mvnw.cmd spring-boot:run
 ```
 Then, open your browser and navigate to:
@@ -62,8 +61,6 @@ From this premium single-page dashboard, you can:
 * Configure and save credentials securely without manual properties file edits.
 * View and delete product mappings from the local database.
 * Execute active shopping runs, monitor progress via logs, select product matches interactively via modal cards, and close the session when done.
-
-
 
 ---
 
@@ -78,6 +75,36 @@ autobuy.backup-dir=C:/Users/your-username/OneDrive/SupermarketBackup
 
 ---
 
+## Application Architecture
+
+The application is built using a **Layered Architecture** style, ensuring clear separation of concerns, easy testing, and SOLID compliance:
+
+```mermaid
+graph TD
+    UI[Web UI HTML/JS] <--> Controller[Controller: WebApiController]
+    Controller --> Service[Service Layer: AutoBuyWebService, ProductService, PriceHistoryService]
+    Service --> Repo[Repository Layer: JPA/H2]
+    Service --> Driver[Driver Layer: Playwright]
+```
+
+1. **Controller Layer (`web/`):** Handles REST API requests, translates input parameters into DTOs (`web/dto/`), and delegates orchestration to services. Caught exceptions are processed globally by `GlobalExceptionHandler`.
+2. **Service Layer (`service/`):** Manages core business logic and transactional boundaries. Methods modifying persistent state are decorated with `@Transactional` (e.g., in `ProductService` and `PriceHistoryService`).
+3. **Repository Layer (`repository/` & `model/`):** Utilizes Spring Data JPA for H2 database access. Entity relations (such as `PriceHistory.product`) are configured with `FetchType.LAZY` for performance.
+4. **Driver Layer (`driver/`):** Contains the automated scraper implementations (e.g., Playwright driving browser sessions on supermarket websites).
+
+---
+
+## Database Migrations (Flyway)
+
+The local H2 database schema is versioned and managed incrementally using **Flyway**:
+
+* **Migration Scripts:** Located in [src/main/resources/db/migration/](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/src/main/resources/db/migration/).
+* **Automatic Baselining:** On startup, Flyway checks the database state. If the database is not empty, it applies a baseline (Version 0) to avoid re-running legacy creation scripts and prevent conflicts.
+* **Incremental Migrations:** Any new migration scripts (e.g., `V1__baseline_schema.sql`, etc.) are automatically applied in sequence during application startup (`.\mvnw.cmd spring-boot:run`).
+* **JPA Validation:** Hibernate's DDL auto-generation is set to `validate` to ensure that entities strictly match the Flyway-managed schema without making automatic modifications.
+
+---
+
 ## Running Tests
 Run the JUnit unit and integration tests using:
 
@@ -85,10 +112,10 @@ Run the JUnit unit and integration tests using:
 .\mvnw.cmd test
 ```
 
-*   **Code Coverage Gate:** The project uses JaCoCo to enforce a **minimum instruction coverage of 80%** on all core logic (excluding drivers and CLI entry points). If your edits cause the coverage to fall below 80%, the Maven test phase will fail.
+*   **Code Coverage Gate:** The project uses JaCoCo to enforce a **minimum instruction coverage of 80%** on all core logic (excluding drivers, CLI, and web package). If your edits cause the coverage to fall below 80%, the Maven test phase will fail.
 
 ---
 
 ## AI Agent & Roadmap Contexts
-*   Refer to [AGENTS.md](file:///c:/git/supermarket-autobuy/AGENTS.md) for code styling guidelines, SOLID rules, and compiler requirements.
-*   Refer to [ROADMAP.md](file:///c:/git/supermarket-autobuy/ROADMAP.md) for the backlog of future integrations (e.g. Google Keep/Tasks, Bitwarden, email invoice parsing, etc.).
+*   Refer to [AGENTS.md](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/AGENTS.md) for code styling guidelines, SOLID rules, and compiler requirements.
+*   Refer to [ROADMAP.md](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/ROADMAP.md) for the backlog of future integrations (e.g. Google Keep/Tasks, Bitwarden, email invoice parsing, etc.).
