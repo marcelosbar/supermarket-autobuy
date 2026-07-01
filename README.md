@@ -31,8 +31,9 @@ continente.password=your-password
 *Note: If these properties are empty or the file is missing, the application will prompt you in the Web UI.*
 
 ### 2. Create your Shopping List
-Copy the template `shopping-list-example.json` to `shopping-list.json` in the root directory (this file is excluded from Git to keep your personal shopping list private):
+You can manage and update your shopping list directly via the **Web UI dashboard**. Saving the list in the Web UI will automatically create and update the local `shopping-list.json` file in your root folder.
 
+Alternatively, you can manually create a `shopping-list.json` file (which is gitignored) with this format:
 ```json
 [
   {

@@ -134,7 +134,7 @@ public class WebApiController {
 	@PostMapping("/autobuy/run")
 	public ResponseEntity<Map<String, Object>> runAutoBuy(@RequestBody RunRequest request) {
 		try {
-			boolean headless = Boolean.TRUE.equals(request.headless());
+			boolean headless = false; // Always run headfully to allow visual mapping/checkout review
 			String supermarket = request.supermarket() != null ? request.supermarket() : "CONTINENTE";
 
 			autoBuyWebService.startAutoBuy(DEFAULT_LIST_PATH, supermarket, headless);

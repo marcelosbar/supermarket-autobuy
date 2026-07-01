@@ -17,7 +17,6 @@
 * **Build & Package:** `.\mvnw.cmd clean package`
 * **Run Tests:** `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`. During active development, add `-Dtest=TestClassName` for targeted test execution. Always use piping to filter verbose output and save LLM token context. Run the whole test suite for final verification only.
 * **Run App:** `.\mvnw.cmd spring-boot:run` (Starts the Web UI and automatically executes Flyway baseline/migrations)
-* **Custom Execution:** `.\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments="--list=shopping-list.json --supermarket=CONTINENTE"`
 * **Auto-format Code:** `.\mvnw.cmd spotless:apply` (automatically applies Eclipse JDT 4-space indent style)
 
 ## 3. Coding Guidelines & Standards
