@@ -67,7 +67,10 @@ From this premium single-page dashboard, you can:
 ## Database Snapshot Backup
 By default, the database is persisted locally in `./data/db.mv.db`. On shutdown, a zipped backup is written to `./data/backups/backup_[timestamp].zip`.
 
-To sync your backups automatically to **OneDrive**, configure the backup directory in your `application.properties` (or add it directly in `secrets.properties` to keep paths private):
+To sync your backups automatically to **OneDrive**, configure the backup directory in your `application.properties` (or add it directly in `secrets.properties` to keep paths private). 
+
+> [!IMPORTANT]
+> **Windows Path Formatting:** Always use forward slashes (`/`) or double backslashes (`\\`) in `.properties` files (e.g. `C:/Users/...`). Single backslashes (`\`) are parsed as escape characters and will corrupt the path.
 
 ```properties
 autobuy.backup-dir=C:/Users/your-username/OneDrive/SupermarketBackup
