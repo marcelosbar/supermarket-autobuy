@@ -25,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(properties = {"autobuy.secrets-path=target/test-secrets.properties"})
 @ActiveProfiles("test")
-@Import(ArchitectureStandardsVerificationTest.TestHelperService.class)
-public class ArchitectureStandardsVerificationTest {
+@Import(ArchitectureStandardsVerificationIT.TestHelperService.class)
+public class ArchitectureStandardsVerificationIT {
 
 	@Autowired
 	private TestHelperService testHelperService;

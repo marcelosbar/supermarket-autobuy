@@ -9,7 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles("test") // Enable the 'test' profile to exclude the CLI runner from executing
-class SupermarketAutobuyApplicationTests {
+class SupermarketAutobuyApplicationIT {
 
 	@Test
 	void contextLoads() {

@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class GlobalExceptionHandlerTest {
+class GlobalExceptionHandlerIT {
 
 	@Autowired
 	private MockMvc mockMvc;
