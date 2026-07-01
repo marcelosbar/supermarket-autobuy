@@ -73,11 +73,8 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 	private void handleCookies() {
 		try {
 			log.info("Checking for cookie consent banner...");
-			if (tryAcceptCookieById()) {
-				return;
-			}
-			if (tryAcceptCookieByText()) {
-				return;
+			if (!tryAcceptCookieById()) {
+				tryAcceptCookieByText();
 			}
 		} catch (Exception e) {
 			log.warn("Cookie handling skipped or encountered error: {}", e.getMessage());
@@ -247,12 +244,7 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 			log.info("Direct API call finished. Reloading page to update minicart...");
 			page.navigate(BASE_URL);
 			page.waitForLoadState();
-			try {
-				page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
-						new Page.WaitForLoadStateOptions().setTimeout(4000));
-			} catch (Exception e) {
-				log.debug("Network idle wait timed out: {}", e.getMessage());
-			}
+			waitForNetworkIdle(4000);
 
 			int remainingCount = getCartQuantityFallback(qtyBadge);
 			if (remainingCount == 0) {
@@ -438,10 +430,7 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 
 			// Wait for product tiles to appear
 			Locator tiles = page.locator("div.product[data-pid], div.product-tile[data-pid]");
-			try {
-				tiles.first().waitFor(new Locator.WaitForOptions().setTimeout(8000));
-			} catch (Exception e) {
-				log.warn("No product tiles loaded for search '{}' within timeout.", query);
+			if (!waitForProductTiles(tiles, query)) {
 				return results;
 			}
 
@@ -640,10 +629,8 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 				qtyText = qtyInput.innerText().trim();
 			}
 		}
-		if (qtyText == null || qtyText.isEmpty()) {
-			if (qtyDisplay.count() > 0) {
-				qtyText = qtyDisplay.innerText().trim();
-			}
+		if ((qtyText == null || qtyText.isEmpty()) && qtyDisplay.count() > 0) {
+			qtyText = qtyDisplay.innerText().trim();
 		}
 		return qtyText;
 	}
@@ -667,24 +654,28 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 				qtyInput.press("Enter");
 				log.info("Directly set quantity to {} via text input.", quantity);
 
-				// Verify it updated (wait up to 1 second)
-				for (int attempt = 0; attempt < 10; attempt++) {
-					page.waitForTimeout(100);
-					String val = qtyInput.getAttribute(VALUE_ATTR);
-					if (val == null || val.isEmpty()) {
-						val = qtyInput.getAttribute(ARIA_VALUENOW_ATTR);
-					}
-					try {
-						if (Integer.parseInt(val.replaceAll(NON_DIGIT_REGEX, "")) == quantity) {
-							return true;
-						}
-					} catch (Exception _) {
-						// Ignore parse errors during verification
-					}
-				}
+				return verifyDirectInputUpdate(qtyInput, quantity);
 			}
 		} catch (Exception e) {
 			log.info("Could not set quantity directly via input: {}. Falling back to click loop...", e.getMessage());
+		}
+		return false;
+	}
+
+	private boolean verifyDirectInputUpdate(Locator qtyInput, int quantity) {
+		for (int attempt = 0; attempt < 10; attempt++) {
+			page.waitForTimeout(100);
+			String val = qtyInput.getAttribute(VALUE_ATTR);
+			if (val == null || val.isEmpty()) {
+				val = qtyInput.getAttribute(ARIA_VALUENOW_ATTR);
+			}
+			try {
+				if (Integer.parseInt(val.replaceAll(NON_DIGIT_REGEX, "")) == quantity) {
+					return true;
+				}
+			} catch (Exception _) {
+				// Ignore parse errors during verification
+			}
 		}
 		return false;
 	}
@@ -698,21 +689,7 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 				plusBtn.click();
 
 				// Wait up to 2 seconds for the UI text or input value to update to (i + 1)
-				boolean updated = false;
-				int targetVal = i + 1;
-				for (int attempt = 0; attempt < 20; attempt++) {
-					page.waitForTimeout(100);
-					String currentText = readRawQuantityText(qtyInput, qtyDisplay);
-					try {
-						int val = Integer.parseInt(currentText.replaceAll(NON_DIGIT_REGEX, ""));
-						if (val == targetVal) {
-							updated = true;
-							break;
-						}
-					} catch (Exception _) {
-						// Ignore parse errors
-					}
-				}
+				boolean updated = waitForQuantityUpdate(qtyInput, qtyDisplay, i + 1);
 				if (!updated) {
 					// Fallback: sleep to let the server process the request
 					page.waitForTimeout(800);
@@ -720,6 +697,41 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 			}
 		} catch (Exception e) {
 			log.error("Click-loop adjustment failed: {}", e.getMessage());
+		}
+	}
+
+	private boolean waitForQuantityUpdate(Locator qtyInput, Locator qtyDisplay, int targetVal) {
+		for (int attempt = 0; attempt < 20; attempt++) {
+			page.waitForTimeout(100);
+			String currentText = readRawQuantityText(qtyInput, qtyDisplay);
+			try {
+				int val = Integer.parseInt(currentText.replaceAll(NON_DIGIT_REGEX, ""));
+				if (val == targetVal) {
+					return true;
+				}
+			} catch (Exception _) {
+				// Ignore parse errors
+			}
+		}
+		return false;
+	}
+
+	private void waitForNetworkIdle(int timeoutMs) {
+		try {
+			page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
+					new Page.WaitForLoadStateOptions().setTimeout(timeoutMs));
+		} catch (Exception e) {
+			log.debug("Network idle wait timed out: {}", e.getMessage());
+		}
+	}
+
+	private boolean waitForProductTiles(Locator tiles, String query) {
+		try {
+			tiles.first().waitFor(new Locator.WaitForOptions().setTimeout(8000));
+			return true;
+		} catch (Exception _) {
+			log.warn("No product tiles loaded for search '{}' within timeout.", query);
+			return false;
 		}
 	}
 

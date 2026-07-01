@@ -204,18 +204,7 @@ public class AutoBuyWebService {
 		}
 
 		// 4. Initialize Driver & Log In
-		try {
-			log.info("Initializing supermarket driver for {}...", targetSupermarket);
-			driver.initialize(username, password, !headless);
-		} catch (Exception e) {
-			log.error("Failed to initialize driver", e);
-			updateStateFailure("Failed to initialize driver: " + e.getMessage());
-			try {
-				driver.close();
-			} catch (Exception ex) {
-				log.debug("Ignored exception during driver close on failure", ex);
-			}
-			activeDriver = null;
+		if (!initializeDriverAndLogin(driver, targetSupermarket, username, password, headless)) {
 			return;
 		}
 
@@ -301,7 +290,7 @@ public class AutoBuyWebService {
 			}
 
 			// Pause and wait for Web UI selection
-			selectedProduct = pauseAndResolveMapping(item.query(), item.quantity(), searchResultsList);
+			selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
 			if (selectedProduct == null) {
 				log.info("Skipped item '{}' on user mapping prompt.", item.query());
 				return;
@@ -338,8 +327,7 @@ public class AutoBuyWebService {
 		}
 	}
 
-	private SearchResult pauseAndResolveMapping(String query, int quantity, List<SearchResult> results)
-			throws InterruptedException {
+	private SearchResult pauseAndResolveMapping(String query, List<SearchResult> results) throws InterruptedException {
 		CompletableFuture<SearchResult> future;
 		synchronized (this) {
 			this.searchResults = results;
@@ -362,6 +350,25 @@ public class AutoBuyWebService {
 		}
 
 		return selected;
+	}
+
+	private boolean initializeDriverAndLogin(SupermarketDriver driver, String targetSupermarket, String username,
+			String password, boolean headless) {
+		try {
+			log.info("Initializing supermarket driver for {}...", targetSupermarket);
+			driver.initialize(username, password, !headless);
+			return true;
+		} catch (Exception e) {
+			log.error("Failed to initialize driver", e);
+			updateStateFailure("Failed to initialize driver: " + e.getMessage());
+			try {
+				driver.close();
+			} catch (Exception ex) {
+				log.debug("Ignored exception during driver close on failure", ex);
+			}
+			activeDriver = null;
+			return false;
+		}
 	}
 
 	private void pauseForFinalReview() throws InterruptedException {
