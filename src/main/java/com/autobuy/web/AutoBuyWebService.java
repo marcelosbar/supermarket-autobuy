@@ -212,7 +212,8 @@ public class AutoBuyWebService {
 			updateStateFailure("Failed to initialize driver: " + e.getMessage());
 			try {
 				driver.close();
-			} catch (Exception ignored) {
+			} catch (Exception ex) {
+				log.debug("Ignored exception during driver close on failure", ex);
 			}
 			activeDriver = null;
 			return;
@@ -224,62 +225,7 @@ public class AutoBuyWebService {
 				if (Thread.currentThread().isInterrupted() || state == AutoBuyState.FAILED) {
 					break;
 				}
-
-				synchronized (this) {
-					this.currentItemQuery = item.query();
-					this.currentItemQuantity = item.quantity();
-				}
-
-				log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
-
-				Optional<ProductMapping> mappingOpt = productService
-						.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
-
-				SearchResult selectedProduct = null;
-
-				if (mappingOpt.isPresent()) {
-					ProductMapping mapping = mappingOpt.get();
-					log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
-
-					// Search SKU to get current price/details
-					List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
-					if (!skuResults.isEmpty()) {
-						selectedProduct = skuResults.get(0);
-					} else {
-						log.warn("Product SKU {} not found on search. Performing generic search...",
-								mapping.getExternalProductId());
-					}
-				}
-
-				if (selectedProduct == null) {
-					log.info("No mapping found for query '{}'. Performing store search...", item.query());
-					List<SearchResult> searchResultsList = driver.searchProduct(item.query());
-					if (searchResultsList.isEmpty()) {
-						log.warn("No products found for query '{}'. Skipping.", item.query());
-						continue;
-					}
-
-					// Pause and wait for Web UI selection
-					selectedProduct = pauseAndResolveMapping(item.query(), item.quantity(), searchResultsList);
-					if (selectedProduct == null) {
-						log.info("Skipped item '{}' on user mapping prompt.", item.query());
-						continue;
-					}
-
-					// Save new mapping and product details
-					saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
-				}
-
-				// Log Price and Add to Cart
-				if (selectedProduct != null) {
-					logPrice(selectedProduct, targetSupermarket);
-					boolean success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
-					if (success) {
-						log.info("SUCCESS: Added {}x '{}' to cart.", item.quantity(), selectedProduct.name());
-					} else {
-						log.error("ERROR: Failed to add '{}' to cart.", selectedProduct.name());
-					}
-				}
+				processShoppingItem(driver, item, targetSupermarket);
 			}
 
 			// 6. Complete Automation and hold session for manual review
@@ -289,8 +235,9 @@ public class AutoBuyWebService {
 				pauseForFinalReview();
 			}
 
-		} catch (InterruptedException e) {
+		} catch (InterruptedException _) {
 			log.warn("Auto-buy thread interrupted.");
+			Thread.currentThread().interrupt();
 			synchronized (this) {
 				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_MAPPING) {
 					state = AutoBuyState.FAILED;
@@ -314,6 +261,65 @@ public class AutoBuyWebService {
 				currentExecutionFuture = null;
 			}
 			log.info("Auto-buy background thread completed.");
+		}
+	}
+
+	private void processShoppingItem(SupermarketDriver driver, ShoppingItem item, String targetSupermarket)
+			throws InterruptedException {
+		synchronized (this) {
+			this.currentItemQuery = item.query();
+			this.currentItemQuantity = item.quantity();
+		}
+
+		log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
+
+		Optional<ProductMapping> mappingOpt = productService
+				.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
+
+		SearchResult selectedProduct = null;
+
+		if (mappingOpt.isPresent()) {
+			ProductMapping mapping = mappingOpt.get();
+			log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
+
+			// Search SKU to get current price/details
+			List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
+			if (!skuResults.isEmpty()) {
+				selectedProduct = skuResults.get(0);
+			} else {
+				log.warn("Product SKU {} not found on search. Performing generic search...",
+						mapping.getExternalProductId());
+			}
+		}
+
+		if (selectedProduct == null) {
+			log.info("No mapping found for query '{}'. Performing store search...", item.query());
+			List<SearchResult> searchResultsList = driver.searchProduct(item.query());
+			if (searchResultsList.isEmpty()) {
+				log.warn("No products found for query '{}'. Skipping.", item.query());
+				return;
+			}
+
+			// Pause and wait for Web UI selection
+			selectedProduct = pauseAndResolveMapping(item.query(), item.quantity(), searchResultsList);
+			if (selectedProduct == null) {
+				log.info("Skipped item '{}' on user mapping prompt.", item.query());
+				return;
+			}
+
+			// Save new mapping and product details
+			saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
+		}
+
+		// Log Price and Add to Cart
+		if (selectedProduct != null) {
+			logPrice(selectedProduct, targetSupermarket);
+			boolean success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
+			if (success) {
+				log.info("SUCCESS: Added {}x '{}' to cart.", item.quantity(), selectedProduct.name());
+			} else {
+				log.error("ERROR: Failed to add '{}' to cart.", selectedProduct.name());
+			}
 		}
 	}
 

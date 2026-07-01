@@ -269,7 +269,7 @@ body {
 
 .badge {
     background: rgba(58, 134, 255, 0.15);
-    color: #818cf8;
+    color: #a5b4fc;
     font-size: 0.75rem;
     font-weight: 600;
     padding: 0.25rem 0.75rem;
@@ -329,7 +329,7 @@ select {
     font-family: var(--font-sans);
     font-size: 0.9375rem;
     padding: 0.625rem 0.875rem;
-    background-color: rgba(255, 255, 255, 0.04);
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-sm);
     color: #ffffff;
@@ -933,7 +933,7 @@ input:focus, select:focus {
     100% { transform: scale(1); opacity: 1; }
 }
 
-.align-center {
+.text-center {
     text-align: center;
 }
 
