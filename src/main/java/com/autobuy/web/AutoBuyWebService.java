@@ -269,47 +269,10 @@ public class AutoBuyWebService {
 
 		log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
 
-		Optional<ProductMapping> mappingOpt = productService
-				.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
-
-		SearchResult selectedProduct = null;
-
-		if (mappingOpt.isPresent()) {
-			ProductMapping mapping = mappingOpt.get();
-			log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
-
-			// Search SKU to get current price/details
-			List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
-			if (!skuResults.isEmpty()) {
-				selectedProduct = skuResults.get(0);
-			} else {
-				log.warn("Product SKU {} not found on search. Performing generic search...",
-						mapping.getExternalProductId());
-			}
-		}
+		SearchResult selectedProduct = findProductByMapping(driver, item, targetSupermarket);
 
 		if (selectedProduct == null) {
-			log.info("No mapping found for query '{}'. Performing store search...", item.query());
-			List<SearchResult> searchResultsList = driver.searchProduct(item.query());
-			if (searchResultsList.isEmpty()) {
-				log.warn("No products found for query '{}'. Skipping.", item.query());
-				return;
-			}
-
-			// Pause and wait for Web UI selection
-			selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
-			if (selectedProduct == null) {
-				log.info("Skipped item '{}' on user mapping prompt.", item.query());
-				return;
-			}
-
-			// Save new mapping and product details
-			try {
-				productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
-				log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
-			} catch (Exception e) {
-				log.error("Failed to save product mapping", e);
-			}
+			selectedProduct = resolveMappingInteractive(driver, item, targetSupermarket);
 		}
 
 		// Log Price and Add to Cart
@@ -327,6 +290,53 @@ public class AutoBuyWebService {
 				log.error("ERROR: Failed to add '{}' to cart.", selectedProduct.name());
 			}
 		}
+	}
+
+	private SearchResult findProductByMapping(SupermarketDriver driver, ShoppingItem item, String targetSupermarket) {
+		Optional<ProductMapping> mappingOpt = productService
+				.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
+		if (mappingOpt.isEmpty()) {
+			return null;
+		}
+
+		ProductMapping mapping = mappingOpt.get();
+		log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
+
+		// Search SKU to get current price/details
+		List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
+		if (!skuResults.isEmpty()) {
+			return skuResults.get(0);
+		} else {
+			log.warn("Product SKU {} not found on search. Performing generic search...",
+					mapping.getExternalProductId());
+			return null;
+		}
+	}
+
+	private SearchResult resolveMappingInteractive(SupermarketDriver driver, ShoppingItem item,
+			String targetSupermarket) throws InterruptedException {
+		log.info("No mapping found for query '{}'. Performing store search...", item.query());
+		List<SearchResult> searchResultsList = driver.searchProduct(item.query());
+		if (searchResultsList.isEmpty()) {
+			log.warn("No products found for query '{}'. Skipping.", item.query());
+			return null;
+		}
+
+		// Pause and wait for Web UI selection
+		SearchResult selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
+		if (selectedProduct == null) {
+			log.info("Skipped item '{}' on user mapping prompt.", item.query());
+			return null;
+		}
+
+		// Save new mapping and product details
+		try {
+			productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
+			log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
+		} catch (Exception e) {
+			log.error("Failed to save product mapping", e);
+		}
+		return selectedProduct;
 	}
 
 	private <T> T awaitFuture(CompletableFuture<T> future, String operationName) throws InterruptedException {
