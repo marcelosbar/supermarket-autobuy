@@ -301,7 +301,7 @@ public class AutoBuyWebService {
 				productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
 				log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
 			} catch (Exception e) {
-				log.error("Failed to save product mapping: {}", e.getMessage());
+				log.error("Failed to save product mapping", e);
 			}
 		}
 
@@ -311,7 +311,7 @@ public class AutoBuyWebService {
 				priceHistoryService.logPrice(selectedProduct, targetSupermarket);
 				log.info("Logged price for {}: {} €", selectedProduct.name(), selectedProduct.price());
 			} catch (Exception e) {
-				log.error("Failed to log price history: {}", e.getMessage());
+				log.error("Failed to log price history", e);
 			}
 			boolean success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
 			if (success) {
