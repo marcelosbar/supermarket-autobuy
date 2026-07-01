@@ -15,8 +15,9 @@
 
 ## 2. CLI Commands
 * **Build & Package:** `.\mvnw.cmd clean package`
-* **Run Tests:** `.\mvnw.cmd test` (enforces 80% instruction coverage gate via JaCoCo)
+* **Run Tests:** `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"` (enforces 80% instruction coverage gate via JaCoCo). Use piping to filter verbose output and save LLM token context. During the active coding phase, always run targeted tests (e.g. `.\mvnw.cmd test -Dtest=TestClassName | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`) and leave the whole test suite execution for the final verification.
 * **Run App:** `.\mvnw.cmd spring-boot:run` (Starts the Web UI and automatically executes Flyway baseline/migrations)
+* **Custom Execution:** `.\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments="--list=shopping-list.json --supermarket=CONTINENTE"`
 * **Auto-format Code:** `.\mvnw.cmd spotless:apply` (automatically applies Eclipse JDT 4-space indent style)
 
 ## 3. Coding Guidelines & Standards

@@ -40,6 +40,8 @@ public class WebApiController {
 	private final ObjectMapper objectMapper;
 
 	private static final String DEFAULT_LIST_PATH = "shopping-list.json";
+	private static final String SUCCESS_KEY = "success";
+	private static final String MESSAGE_KEY = "message";
 
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
 			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider,
@@ -109,20 +111,20 @@ public class WebApiController {
 		try {
 			credentialProvider.saveCredentials(request.supermarket(), request.username(), request.password());
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "Credentials saved successfully.");
+			response.put(SUCCESS_KEY, true);
+			response.put(MESSAGE_KEY, "Credentials saved successfully.");
 			return ResponseEntity.ok(response);
 		} catch (UnsupportedOperationException e) {
 			log.error("SOLID Exception: CredentialProvider does not support saving credentials dynamically.", e);
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "Database/properties credentials saving not supported in this profile.");
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, "Database/properties credentials saving not supported in this profile.");
 			return ResponseEntity.internalServerError().body(response);
 		} catch (com.autobuy.exception.CredentialException e) {
 			log.error("Failed to save credentials", e);
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "Failed to save credentials: " + e.getMessage());
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, "Failed to save credentials: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(response);
 		}
 	}
@@ -132,19 +134,19 @@ public class WebApiController {
 	@PostMapping("/autobuy/run")
 	public ResponseEntity<Map<String, Object>> runAutoBuy(@RequestBody RunRequest request) {
 		try {
-			boolean headless = request.headless() != null ? request.headless() : false;
+			boolean headless = Boolean.TRUE.equals(request.headless());
 			String supermarket = request.supermarket() != null ? request.supermarket() : "CONTINENTE";
 
 			autoBuyWebService.startAutoBuy(DEFAULT_LIST_PATH, supermarket, headless);
 
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "Auto-Buy started successfully.");
+			response.put(SUCCESS_KEY, true);
+			response.put(MESSAGE_KEY, "Auto-Buy started successfully.");
 			return ResponseEntity.ok(response);
 		} catch (IllegalStateException e) {
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", e.getMessage());
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
 			return ResponseEntity.badRequest().body(response);
 		}
 	}
@@ -159,12 +161,12 @@ public class WebApiController {
 		try {
 			autoBuyWebService.resolveMapping(request.externalId());
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
+			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", e.getMessage());
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
 			return ResponseEntity.badRequest().body(response);
 		}
 	}
@@ -174,12 +176,12 @@ public class WebApiController {
 		try {
 			autoBuyWebService.completeRun();
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
+			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", e.getMessage());
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
 			return ResponseEntity.badRequest().body(response);
 		}
 	}
@@ -189,12 +191,12 @@ public class WebApiController {
 		try {
 			autoBuyWebService.cancel();
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
+			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", e.getMessage());
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
 			return ResponseEntity.badRequest().body(response);
 		}
 	}

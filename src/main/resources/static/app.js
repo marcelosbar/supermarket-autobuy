@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Failed to save credentials: ' + (data.message || 'Unknown error'));
             }
         } catch (err) {
+            console.error('Credentials submission failed:', err);
             alert('Error communication with backend credentials API.');
         }
     });
@@ -169,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    window.adjustItemQty = (index, delta) => {
+    globalThis.adjustItemQty = (index, delta) => {
         const item = shoppingList[index];
         const newQty = item.quantity + delta;
         if (newQty >= 1) {
@@ -179,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.removeShoppingItem = (index) => {
+    globalThis.removeShoppingItem = (index) => {
         shoppingList.splice(index, 1);
         renderShoppingList();
         saveShoppingListToServer();
@@ -188,19 +189,19 @@ document.addEventListener('DOMContentLoaded', () => {
     addItemForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const query = newItemQuery.value.trim();
-        const quantity = parseInt(newItemQty.value, 10);
+        const quantity = Number.parseInt(newItemQty.value, 10);
 
         if (!query) return;
 
         // Check if item query already exists
         const existingIdx = shoppingList.findIndex(item => item.query.toLowerCase() === query.toLowerCase());
-        if (existingIdx !== -1) {
+        if (existingIdx === -1) {
+            shoppingList.push({ query, quantity });
+        } else {
             shoppingList[existingIdx] = {
                 ...shoppingList[existingIdx],
                 quantity: shoppingList[existingIdx].quantity + quantity
             };
-        } else {
-            shoppingList.push({ query, quantity });
         }
 
         newItemQuery.value = '';
@@ -246,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = mappingSearchInput.value.trim().toLowerCase();
         const filtered = allMappings.filter(m => 
             m.searchText.toLowerCase().includes(query) || 
-            (m.productName && m.productName.toLowerCase().includes(query)) ||
+            m.productName?.toLowerCase().includes(query) ||
             m.externalProductId.toLowerCase().includes(query)
         );
 
@@ -273,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    window.deleteMapping = async (id) => {
+    globalThis.deleteMapping = async (id) => {
         if (!confirm('Are you sure you want to delete this product SKU mapping?')) return;
         try {
             const res = await fetch(`/api/mappings/${id}`, { method: 'DELETE' });
@@ -341,6 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnStartRun.disabled = false;
             }
         } catch (err) {
+            console.error('Launch execution failed:', err);
             alert('Failed to trigger execution.');
             btnStartRun.disabled = false;
         }
@@ -385,14 +387,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUIWithStatus(status) {
-        // 1. Update Badge
-        executionStateBadge.textContent = status.state;
-        executionStateBadge.className = `status-badge state-${status.state.toLowerCase()}`;
+        updateExecutionBadge(status.state);
+        updateConsoleLogs(status.logs);
+        handleExecutionStatePanels(status);
+        handleModals(status);
+        lastState = status.state;
+    }
 
-        // 2. Render Logs
-        if (status.logs && status.logs.length > 0) {
+    function updateExecutionBadge(state) {
+        executionStateBadge.textContent = state;
+        executionStateBadge.className = `status-badge state-${state.toLowerCase()}`;
+    }
+
+    function updateConsoleLogs(logs) {
+        if (logs && logs.length > 0) {
             consoleLogLines.innerHTML = '';
-            status.logs.forEach(logLine => {
+            logs.forEach(logLine => {
                 const parts = logLine.split(' - ');
                 const level = parts[0] || 'INFO';
                 const msg = parts.slice(1).join(' - ');
@@ -404,15 +414,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             consoleLogLines.scrollTop = consoleLogLines.scrollHeight;
         }
+    }
 
-        // 3. Handle state transitions
+    function handleExecutionStatePanels(status) {
         if (status.state === 'IDLE' || status.state === 'SUCCESS' || status.state === 'FAILED') {
             runSettingsPanel.style.display = 'block';
             activeRunPanel.style.display = 'none';
             btnStartRun.disabled = false;
             stopStatusPolling();
             
-            // Reload mappings if just finished successfully
             if (lastState !== status.state && status.state === 'SUCCESS') {
                 loadMappings();
             }
@@ -426,14 +436,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 currentTaskDetails.textContent = 'Initializing scraper...';
             }
-            
-            // Ensure polling is running
             startStatusPolling();
         }
+    }
 
-        // 4. Modals overlays based on exact state
-        
-        // Resolve Missing Mapping Modal
+    function handleModals(status) {
         if (status.state === 'AWAITING_MAPPING') {
             if (resolveModal.style.display !== 'flex') {
                 renderResolveProducts(status.currentItemQuery, status.searchResults);
@@ -443,14 +450,11 @@ document.addEventListener('DOMContentLoaded', () => {
             resolveModal.style.display = 'none';
         }
 
-        // Cart Final Review Modal
         if (status.state === 'AWAITING_FINAL_REVIEW') {
             reviewModal.style.display = 'flex';
         } else {
             reviewModal.style.display = 'none';
         }
-
-        lastState = status.state;
     }
 
     // -------------------------------------------------------------
@@ -483,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    window.selectProductMatch = async (externalId) => {
+    globalThis.selectProductMatch = async (externalId) => {
         try {
             const res = await fetch('/api/autobuy/resolve', {
                 method: 'POST',
@@ -538,17 +542,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Helper: Escape HTML string
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
     // Run startup
     init();
 });
+
+// Helper: Escape HTML string
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}

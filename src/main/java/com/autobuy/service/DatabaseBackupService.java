@@ -53,7 +53,8 @@ public class DatabaseBackupService {
 			}
 		}
 
-		String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+		String timestamp = LocalDateTime.now(java.time.ZoneId.systemDefault())
+				.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
 		String backupFilePath = new File(directory, "backup_" + timestamp + ".zip").getAbsolutePath();
 
 		try {
