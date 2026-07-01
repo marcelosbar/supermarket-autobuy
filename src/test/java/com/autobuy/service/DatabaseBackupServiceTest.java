@@ -11,6 +11,8 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import com.autobuy.exception.AutoBuyException;
 
 class DatabaseBackupServiceTest {
 
@@ -120,5 +122,50 @@ class DatabaseBackupServiceTest {
 						deletedFilename + " should have been deleted by retention policy");
 			}
 		}
+	}
+
+	@Test
+	void testValidateBackupDir_ValidPaths() {
+		DatabaseBackupService service = new DatabaseBackupService(null);
+
+		// Valid absolute path with forward slashes
+		ReflectionTestUtils.setField(service, "backupDir", "C:/Users/marce/OneDrive/Applications/SupermarketBackup");
+		assertDoesNotThrow(service::validateBackupDir);
+
+		// Valid absolute path with escaped backslashes
+		ReflectionTestUtils.setField(service, "backupDir",
+				"C:\\\\Users\\\\marce\\\\OneDrive\\\\Applications\\\\SupermarketBackup");
+		assertDoesNotThrow(service::validateBackupDir);
+
+		// Valid relative path
+		ReflectionTestUtils.setField(service, "backupDir", "./data/backups");
+		assertDoesNotThrow(service::validateBackupDir);
+
+		// Null or empty path should not throw
+		ReflectionTestUtils.setField(service, "backupDir", "");
+		assertDoesNotThrow(service::validateBackupDir);
+		ReflectionTestUtils.setField(service, "backupDir", null);
+		assertDoesNotThrow(service::validateBackupDir);
+	}
+
+	@Test
+	void testValidateBackupDir_WindowsDriveBackslashEscapingError() {
+		DatabaseBackupService service = new DatabaseBackupService(null);
+
+		// Drive letter but missing separator (escaped backslash issue)
+		ReflectionTestUtils.setField(service, "backupDir", "C:UsersmarceOneDriveApplicationsSupermarketBackup");
+		AutoBuyException exception = assertThrows(AutoBuyException.class, service::validateBackupDir);
+		assertTrue(exception.getMessage().contains("appears to have backslash escaping issues"));
+	}
+
+	@Test
+	void testValidateBackupDir_RelativePathBackslashEscapingError() {
+		DatabaseBackupService service = new DatabaseBackupService(null);
+
+		// Contains 'Users' but no path separators (escaped backslash issue starting
+		// from root without drive)
+		ReflectionTestUtils.setField(service, "backupDir", "UsersmarceOneDriveApplicationsSupermarketBackup");
+		AutoBuyException exception = assertThrows(AutoBuyException.class, service::validateBackupDir);
+		assertTrue(exception.getMessage().contains("contains 'Users' but no path separators"));
 	}
 }

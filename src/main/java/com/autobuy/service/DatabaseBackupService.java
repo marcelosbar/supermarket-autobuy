@@ -7,7 +7,9 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import com.autobuy.exception.AutoBuyException;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +35,34 @@ public class DatabaseBackupService {
 
 	public DatabaseBackupService(JdbcTemplate jdbcTemplate) {
 		this.jdbcTemplate = jdbcTemplate;
+	}
+
+	/**
+	 * Validates the backup directory configuration.
+	 */
+	@PostConstruct
+	public void validateBackupDir() {
+		if (backupDir == null || backupDir.isEmpty()) {
+			return;
+		}
+		// Check for Windows drive letter missing separator (e.g. C:Users instead of
+		// C:/Users or C:\Users)
+		if (backupDir.matches("^[a-zA-Z]:[^\\\\/].*")) {
+			String message = String.format("The backup directory '%s' appears to have backslash escaping issues. "
+					+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
+					+ "Please check secrets.properties or application.properties.", backupDir);
+			log.error(message);
+			throw new AutoBuyException(message);
+		} else if (backupDir.contains("Users") && !backupDir.contains("/") && !backupDir.contains("\\")) {
+			// E.g., UsersmarceOneDrive...
+			String message = String.format(
+					"The backup directory '%s' appears to have backslash escaping issues (contains 'Users' but no path separators). "
+							+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
+							+ "Please check secrets.properties or application.properties.",
+					backupDir);
+			log.error(message);
+			throw new AutoBuyException(message);
+		}
 	}
 
 	/**
