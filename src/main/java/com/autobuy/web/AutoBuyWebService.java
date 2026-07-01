@@ -210,6 +210,27 @@ public class AutoBuyWebService {
 
 		// 5. Process Items
 		try {
+			processShoppingList(driver, shoppingList, targetSupermarket);
+		} finally {
+			try {
+				driver.close();
+			} catch (Exception e) {
+				log.error("Error closing driver", e);
+			}
+			activeDriver = null;
+			synchronized (this) {
+				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
+					state = AutoBuyState.SUCCESS;
+				}
+				currentExecutionFuture = null;
+			}
+			log.info("Auto-buy background thread completed.");
+		}
+	}
+
+	private void processShoppingList(SupermarketDriver driver, List<ShoppingItem> shoppingList,
+			String targetSupermarket) {
+		try {
 			for (ShoppingItem item : shoppingList) {
 				if (Thread.currentThread().isInterrupted() || state == AutoBuyState.FAILED) {
 					break;
@@ -236,20 +257,6 @@ public class AutoBuyWebService {
 		} catch (Exception e) {
 			log.error("Unexpected error in background auto-buy run", e);
 			updateStateFailure("Unexpected execution error: " + e.getMessage());
-		} finally {
-			try {
-				driver.close();
-			} catch (Exception e) {
-				log.error("Error closing driver", e);
-			}
-			activeDriver = null;
-			synchronized (this) {
-				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
-					state = AutoBuyState.SUCCESS;
-				}
-				currentExecutionFuture = null;
-			}
-			log.info("Auto-buy background thread completed.");
 		}
 	}
 
