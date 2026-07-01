@@ -25,3 +25,4 @@
 * **SOLID Compliance:** Construct objects explicitly (constructor injection). Inject interfaces (`CredentialProvider`, `SupermarketDriver`), not implementations.
 * **SOLID Exception Rule:** If a class must deviate from SOLID, write an explicit Javadoc explanation containing `<b>SOLID Exception:</b> [Reason]`.
 * **Database & Locks:** Keep H2 database file (`db.mv.db`) outside OneDrive. Run backup snapshot exports only on shutdown using `DatabaseBackupService`.
+* **Testing Pyramid & Separation:** Maintain a healthy testing pyramid (preferring unit tests over integration tests). Keep pure unit tests named with a `*Test.java` suffix (run via `.\mvnw.cmd test` using Surefire), and integration/slice tests named with an `*IT.java` suffix (run via `.\mvnw.cmd verify` using Failsafe). Code coverage (minimum 80% instruction coverage) is evaluated globally during the `verify` phase.

@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("test")
 @TestPropertySource(properties = {"autobuy.secrets-path=target/temp-secrets.properties",
 		"spring.jpa.properties.hibernate.generate_statistics=true"})
-class VerificationChallengerTest {
+class VerificationChallengerIT {
 
 	@Autowired
 	private ProductRepository productRepository;

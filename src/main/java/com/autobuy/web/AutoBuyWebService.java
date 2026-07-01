@@ -210,6 +210,27 @@ public class AutoBuyWebService {
 
 		// 5. Process Items
 		try {
+			processShoppingList(driver, shoppingList, targetSupermarket);
+		} finally {
+			try {
+				driver.close();
+			} catch (Exception e) {
+				log.error("Error closing driver", e);
+			}
+			activeDriver = null;
+			synchronized (this) {
+				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
+					state = AutoBuyState.SUCCESS;
+				}
+				currentExecutionFuture = null;
+			}
+			log.info("Auto-buy background thread completed.");
+		}
+	}
+
+	private void processShoppingList(SupermarketDriver driver, List<ShoppingItem> shoppingList,
+			String targetSupermarket) {
+		try {
 			for (ShoppingItem item : shoppingList) {
 				if (Thread.currentThread().isInterrupted() || state == AutoBuyState.FAILED) {
 					break;
@@ -236,20 +257,6 @@ public class AutoBuyWebService {
 		} catch (Exception e) {
 			log.error("Unexpected error in background auto-buy run", e);
 			updateStateFailure("Unexpected execution error: " + e.getMessage());
-		} finally {
-			try {
-				driver.close();
-			} catch (Exception e) {
-				log.error("Error closing driver", e);
-			}
-			activeDriver = null;
-			synchronized (this) {
-				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
-					state = AutoBuyState.SUCCESS;
-				}
-				currentExecutionFuture = null;
-			}
-			log.info("Auto-buy background thread completed.");
 		}
 	}
 
@@ -262,47 +269,20 @@ public class AutoBuyWebService {
 
 		log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
 
-		Optional<ProductMapping> mappingOpt = productService
-				.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
-
-		SearchResult selectedProduct = null;
-
-		if (mappingOpt.isPresent()) {
-			ProductMapping mapping = mappingOpt.get();
-			log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
-
-			// Search SKU to get current price/details
-			List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
-			if (!skuResults.isEmpty()) {
-				selectedProduct = skuResults.get(0);
-			} else {
-				log.warn("Product SKU {} not found on search. Performing generic search...",
-						mapping.getExternalProductId());
-			}
-		}
+		SearchResult selectedProduct = findProductByMapping(driver, item, targetSupermarket);
 
 		if (selectedProduct == null) {
-			log.info("No mapping found for query '{}'. Performing store search...", item.query());
-			List<SearchResult> searchResultsList = driver.searchProduct(item.query());
-			if (searchResultsList.isEmpty()) {
-				log.warn("No products found for query '{}'. Skipping.", item.query());
-				return;
-			}
-
-			// Pause and wait for Web UI selection
-			selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
-			if (selectedProduct == null) {
-				log.info("Skipped item '{}' on user mapping prompt.", item.query());
-				return;
-			}
-
-			// Save new mapping and product details
-			saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
+			selectedProduct = resolveMappingInteractive(driver, item, targetSupermarket);
 		}
 
 		// Log Price and Add to Cart
 		if (selectedProduct != null) {
-			logPrice(selectedProduct, targetSupermarket);
+			try {
+				priceHistoryService.logPrice(selectedProduct, targetSupermarket);
+				log.info("Logged price for {}: {} €", selectedProduct.name(), selectedProduct.price());
+			} catch (Exception e) {
+				log.error("Failed to log price history", e);
+			}
 			boolean success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
 			if (success) {
 				log.info("SUCCESS: Added {}x '{}' to cart.", item.quantity(), selectedProduct.name());
@@ -310,6 +290,53 @@ public class AutoBuyWebService {
 				log.error("ERROR: Failed to add '{}' to cart.", selectedProduct.name());
 			}
 		}
+	}
+
+	private SearchResult findProductByMapping(SupermarketDriver driver, ShoppingItem item, String targetSupermarket) {
+		Optional<ProductMapping> mappingOpt = productService
+				.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
+		if (mappingOpt.isEmpty()) {
+			return null;
+		}
+
+		ProductMapping mapping = mappingOpt.get();
+		log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
+
+		// Search SKU to get current price/details
+		List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
+		if (!skuResults.isEmpty()) {
+			return skuResults.get(0);
+		} else {
+			log.warn("Product SKU {} not found on search. Performing generic search...",
+					mapping.getExternalProductId());
+			return null;
+		}
+	}
+
+	private SearchResult resolveMappingInteractive(SupermarketDriver driver, ShoppingItem item,
+			String targetSupermarket) throws InterruptedException {
+		log.info("No mapping found for query '{}'. Performing store search...", item.query());
+		List<SearchResult> searchResultsList = driver.searchProduct(item.query());
+		if (searchResultsList.isEmpty()) {
+			log.warn("No products found for query '{}'. Skipping.", item.query());
+			return null;
+		}
+
+		// Pause and wait for Web UI selection
+		SearchResult selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
+		if (selectedProduct == null) {
+			log.info("Skipped item '{}' on user mapping prompt.", item.query());
+			return null;
+		}
+
+		// Save new mapping and product details
+		try {
+			productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
+			log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
+		} catch (Exception e) {
+			log.error("Failed to save product mapping", e);
+		}
+		return selectedProduct;
 	}
 
 	private <T> T awaitFuture(CompletableFuture<T> future, String operationName) throws InterruptedException {
@@ -392,23 +419,5 @@ public class AutoBuyWebService {
 		this.state = AutoBuyState.FAILED;
 		this.errorMsg = message;
 		log.error("Auto-buy execution failed: {}", message);
-	}
-
-	private void saveMapping(String query, String supermarket, SearchResult result) {
-		try {
-			productService.saveMapping(query, supermarket, result);
-			log.info("Saved product mapping: '{}' -> SKU: {}", query, result.externalId());
-		} catch (Exception e) {
-			log.error("Failed to save product mapping: {}", e.getMessage());
-		}
-	}
-
-	private void logPrice(SearchResult result, String supermarket) {
-		try {
-			priceHistoryService.logPrice(result, supermarket);
-			log.info("Logged price for {}: {} €", result.name(), result.price());
-		} catch (Exception e) {
-			log.error("Failed to log price history: {}", e.getMessage());
-		}
 	}
 }
