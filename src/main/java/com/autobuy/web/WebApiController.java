@@ -276,27 +276,30 @@ public class WebApiController {
 			return ResponseEntity.badRequest().body(response);
 		}
 
+		log.info("selectNativeDirectory endpoint called.");
 		AtomicReference<String> selectedPath = new AtomicReference<>(null);
 		try {
+			log.info("Setting system look and feel...");
 			try {
 				javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
 			} catch (Exception e) {
-				// Ignore L&F error
+				log.warn("Failed to set system look and feel: {}", e.getMessage());
 			}
-			javax.swing.JFrame frame = new javax.swing.JFrame();
-			frame.setAlwaysOnTop(true);
-			frame.setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
 
+			log.info("Instantiating JFileChooser...");
 			JFileChooser chooser = new JFileChooser();
 			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 			chooser.setDialogTitle("Select Database Backup Directory");
 			chooser.setCurrentDirectory(new File(System.getProperty("user.home")));
 
-			int result = chooser.showOpenDialog(frame);
+			log.info("Showing native open dialog...");
+			int result = chooser.showOpenDialog(null);
+			log.info("Native open dialog closed with result: {}", result);
+
 			if (result == JFileChooser.APPROVE_OPTION) {
 				selectedPath.set(chooser.getSelectedFile().getAbsolutePath().replace('\\', '/'));
+				log.info("Directory selected: {}", selectedPath.get());
 			}
-			frame.dispose();
 
 			Map<String, Object> response = new HashMap<>();
 			if (selectedPath.get() != null) {

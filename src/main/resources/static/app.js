@@ -122,17 +122,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const supermarket = document.getElementById('cred-supermarket').value;
         const backupDir = configBackupDir.value.trim();
 
-        try {
-            const credRes = await fetch('/api/credentials', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ supermarket, username, password })
-            });
+        // Determine if credentials need to be updated
+        const hasExistingCreds = credentialsStatus.hasUsername && credentialsStatus.hasPassword;
+        const credsUnchanged = hasExistingCreds && username === credentialsStatus.username && password === '';
 
-            if (!credRes.ok) {
-                const data = await credRes.json();
-                alert('Failed to save credentials: ' + (data.message || 'Unknown error'));
+        // If trying to configure for the first time or modifying existing, validation is required
+        if (!credsUnchanged) {
+            if (!username) {
+                alert('Username is required.');
                 return;
+            }
+            if (!password) {
+                alert('Password is required.');
+                return;
+            }
+        }
+
+        try {
+            if (!credsUnchanged) {
+                const credRes = await fetch('/api/credentials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ supermarket, username, password })
+                });
+
+                if (!credRes.ok) {
+                    const data = await credRes.json();
+                    alert('Failed to save credentials: ' + (data.message || 'Unknown error'));
+                    return;
+                }
             }
 
             const backupRes = await fetch('/api/config/backup-dir', {
@@ -143,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (backupRes.ok) {
                 credsModal.style.display = 'none';
-                addConsoleLog('SUCCESS', 'Settings and credentials updated successfully.');
+                addConsoleLog('SUCCESS', 'Settings updated successfully.');
                 checkCredentialsStatus();
             } else {
                 const data = await backupRes.json();
