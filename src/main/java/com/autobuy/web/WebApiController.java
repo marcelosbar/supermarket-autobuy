@@ -120,6 +120,22 @@ public class WebApiController {
 	@PostMapping("/credentials")
 	public ResponseEntity<Map<String, Object>> saveCredentials(@RequestBody CredentialsRequest request) {
 		try {
+			// Double-safeguard: If username is unchanged and password is blank/omitted,
+			// skip saving
+			String existingUsername = credentialProvider.getUsername(request.supermarket());
+			String existingPassword = credentialProvider.getPassword(request.supermarket());
+			boolean hasExisting = existingUsername != null && !existingUsername.isBlank() && existingPassword != null
+					&& !existingPassword.isBlank();
+
+			if (hasExisting && request.username() != null && request.username().trim().equals(existingUsername.trim())
+					&& (request.password() == null || request.password().isBlank())) {
+				log.info("Credentials unchanged (password omitted), skipping credentials update.");
+				Map<String, Object> response = new HashMap<>();
+				response.put(SUCCESS_KEY, true);
+				response.put(MESSAGE_KEY, "Credentials unchanged.");
+				return ResponseEntity.ok(response);
+			}
+
 			credentialProvider.saveCredentials(request.supermarket(), request.username(), request.password());
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
