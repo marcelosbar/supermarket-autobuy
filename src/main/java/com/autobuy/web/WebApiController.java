@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
 import java.io.File;
 import java.awt.GraphicsEnvironment;
 import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
 import java.util.List;
@@ -279,27 +278,25 @@ public class WebApiController {
 
 		AtomicReference<String> selectedPath = new AtomicReference<>(null);
 		try {
-			SwingUtilities.invokeAndWait(() -> {
-				try {
-					javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
-				} catch (Exception e) {
-					// Ignore L&F error
-				}
-				javax.swing.JFrame frame = new javax.swing.JFrame();
-				frame.setAlwaysOnTop(true);
-				frame.setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
+			try {
+				javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
+			} catch (Exception e) {
+				// Ignore L&F error
+			}
+			javax.swing.JFrame frame = new javax.swing.JFrame();
+			frame.setAlwaysOnTop(true);
+			frame.setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
 
-				JFileChooser chooser = new JFileChooser();
-				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-				chooser.setDialogTitle("Select Database Backup Directory");
-				chooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+			JFileChooser chooser = new JFileChooser();
+			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			chooser.setDialogTitle("Select Database Backup Directory");
+			chooser.setCurrentDirectory(new File(System.getProperty("user.home")));
 
-				int result = chooser.showOpenDialog(frame);
-				if (result == JFileChooser.APPROVE_OPTION) {
-					selectedPath.set(chooser.getSelectedFile().getAbsolutePath().replace('\\', '/'));
-				}
-				frame.dispose();
-			});
+			int result = chooser.showOpenDialog(frame);
+			if (result == JFileChooser.APPROVE_OPTION) {
+				selectedPath.set(chooser.getSelectedFile().getAbsolutePath().replace('\\', '/'));
+			}
+			frame.dispose();
 
 			Map<String, Object> response = new HashMap<>();
 			if (selectedPath.get() != null) {
