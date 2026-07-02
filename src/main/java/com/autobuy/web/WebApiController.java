@@ -271,6 +271,12 @@ public class WebApiController {
 		}
 	}
 
+	@GetMapping("favicon.ico")
+	@ResponseBody
+	public void returnNoFavicon() {
+		// Prevent NoResourceFoundException log clutter
+	}
+
 	@GetMapping("/autobuy/backup-status")
 	public ResponseEntity<Map<String, Object>> getBackupStatus() {
 		Map<String, Object> status = new HashMap<>();
