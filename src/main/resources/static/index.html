@@ -21,13 +21,18 @@
                     <p class="tagline">Interactive Grocery Shopping Automation</p>
                 </div>
             </div>
-            <div class="credentials-badge-card" id="credentials-badge">
-                <div class="status-indicator-dot" id="cred-status-dot"></div>
-                <div class="cred-info">
-                    <span class="cred-label">Continente Online Credentials</span>
-                    <span class="cred-status-text" id="cred-status-text">Checking...</span>
+            <div class="header-controls">
+                <div class="credentials-badge-card" id="credentials-badge">
+                    <div class="status-indicator-dot" id="cred-status-dot"></div>
+                    <div class="cred-info">
+                        <span class="cred-label">Continente Online Credentials</span>
+                        <span class="cred-status-text" id="cred-status-text">Checking...</span>
+                    </div>
+                    <button class="btn btn-secondary btn-small" id="btn-open-creds">Configure</button>
                 </div>
-                <button class="btn btn-secondary btn-small" id="btn-open-creds">Configure</button>
+                <button class="btn btn-danger btn-small" id="btn-shutdown">
+                    <span class="btn-icon">🛑</span> Shutdown & Backup
+                </button>
             </div>
         </header>
 
@@ -132,11 +137,11 @@
         </main>
     </div>
 
-    <!-- CREDENTIALS CONFIG MODAL -->
+    <!-- SETTINGS CONFIG MODAL -->
     <div class="modal-overlay" id="creds-modal" style="display: none;">
         <div class="modal-card">
             <div class="modal-header">
-                <h2>Configure Supermarket Credentials</h2>
+                <h2>Configure Settings & Credentials</h2>
                 <button class="modal-close" id="btn-close-creds-modal">&times;</button>
             </div>
             <div class="modal-body">
@@ -155,9 +160,18 @@
                         <label for="cred-password">Password</label>
                         <input type="password" id="cred-password" placeholder="••••••••••••" required autocomplete="current-password">
                     </div>
+                    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div class="form-group">
+                            <label for="config-backup-dir">Database Backup Directory (e.g. OneDrive)</label>
+                            <input type="text" id="config-backup-dir" placeholder="C:/Users/username/OneDrive/SupermarketBackup" autocomplete="off" style="width: 100%;">
+                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                                Use forward slashes (/) or double backslashes (\\). Leave blank to use default.
+                            </small>
+                        </div>
+                    </div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" id="btn-cancel-creds">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Credentials</button>
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
                     </div>
                 </form>
             </div>
@@ -198,6 +212,18 @@
             </div>
             <div class="modal-footer flex-center">
                 <button class="btn btn-accent btn-large" id="btn-complete-run">Complete Run & Close Browser</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHUTDOWN SCREEN OVERLAY -->
+    <div class="modal-overlay" id="shutdown-overlay" style="display: none; z-index: 9999;">
+        <div class="modal-card" style="max-width: 450px; text-align: center;">
+            <div class="modal-body" style="padding: 2.5rem 1.5rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🔌</div>
+                <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--color-danger);">Server Stopped</h3>
+                <p style="color: var(--text-main); margin-bottom: 1rem;">The application has been shut down gracefully and the database backup has been created.</p>
+                <p style="color: var(--text-muted); font-size: 0.875rem;">You can now safely close this browser tab.</p>
             </div>
         </div>
     </div>

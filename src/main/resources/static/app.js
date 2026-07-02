@@ -43,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const credsForm = document.getElementById('creds-form');
     const credUsername = document.getElementById('cred-username');
     const credPassword = document.getElementById('cred-password');
+    const configBackupDir = document.getElementById('config-backup-dir');
+    const btnShutdown = document.getElementById('btn-shutdown');
+    const shutdownOverlay = document.getElementById('shutdown-overlay');
     
     const resolveModal = document.getElementById('resolve-modal');
     const resolveQueryTitle = document.getElementById('resolve-query-title');
@@ -91,9 +94,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    btnOpenCreds.addEventListener('click', () => {
+    btnOpenCreds.addEventListener('click', async () => {
         credUsername.value = credentialsStatus.username || '';
         credPassword.value = '';
+        
+        try {
+            const res = await fetch('/api/config/backup-dir');
+            if (res.ok) {
+                const data = await res.json();
+                configBackupDir.value = data.backupDir || '';
+            }
+        } catch (err) {
+            console.error('Failed to load backup directory config', err);
+        }
+        
         credsModal.style.display = 'flex';
     });
 
@@ -105,25 +119,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = credUsername.value.trim();
         const password = credPassword.value;
         const supermarket = document.getElementById('cred-supermarket').value;
+        const backupDir = configBackupDir.value.trim();
 
         try {
-            const res = await fetch('/api/credentials', {
+            const credRes = await fetch('/api/credentials', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ supermarket, username, password })
             });
 
-            if (res.ok) {
+            if (!credRes.ok) {
+                const data = await credRes.json();
+                alert('Failed to save credentials: ' + (data.message || 'Unknown error'));
+                return;
+            }
+
+            const backupRes = await fetch('/api/config/backup-dir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backupDir })
+            });
+
+            if (backupRes.ok) {
                 credsModal.style.display = 'none';
-                addConsoleLog('SUCCESS', 'Credentials updated successfully.');
+                addConsoleLog('SUCCESS', 'Settings and credentials updated successfully.');
                 checkCredentialsStatus();
             } else {
-                const data = await res.json();
-                alert('Failed to save credentials: ' + (data.message || 'Unknown error'));
+                const data = await backupRes.json();
+                alert('Failed to save backup settings: ' + (data.message || 'Unknown error'));
             }
         } catch (err) {
-            console.error('Credentials submission failed:', err);
-            alert('Error communication with backend credentials API.');
+            console.error('Settings submission failed:', err);
+            alert('Error communicating with backend settings API.');
         }
     });
 
@@ -541,6 +568,56 @@ document.addEventListener('DOMContentLoaded', () => {
             btnCompleteRun.textContent = 'Complete Run & Close Browser';
         }
     });
+
+    // Shutdown and Backup Action
+    if (btnShutdown) {
+        btnShutdown.addEventListener('click', async () => {
+            try {
+                const statusRes = await fetch('/api/autobuy/backup-status');
+                let proceed = true;
+
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    if (!statusData.isConfigured) {
+                        proceed = confirm(
+                            "Warning: A custom backup folder (e.g., OneDrive) is not configured.\n\n" +
+                            "Your database will only be backed up locally in the './data/backups' folder.\n\n" +
+                            "Do you want to proceed with shutdown anyway?"
+                        );
+                    } else {
+                        proceed = confirm(
+                            "Are you sure you want to shut down the application?\n\n" +
+                            "This will save a database backup to:\n" + statusData.backupDir + "\n\n" +
+                            "and stop the application server."
+                        );
+                    }
+                } else {
+                    proceed = confirm("Are you sure you want to shut down the application and close the server?");
+                }
+
+                if (!proceed) {
+                    return;
+                }
+
+                btnShutdown.disabled = true;
+                const shutdownRes = await fetch('/api/shutdown', { method: 'POST' });
+
+                if (shutdownRes.ok) {
+                    shutdownOverlay.style.display = 'flex';
+                    if (pollIntervalId) {
+                        clearInterval(pollIntervalId);
+                    }
+                } else {
+                    alert("Failed to initiate shutdown.");
+                    btnShutdown.disabled = false;
+                }
+
+            } catch (err) {
+                console.error("Shutdown failed:", err);
+                alert("Error communicating with shutdown API.");
+            }
+        });
+    }
 
     // Run startup
     init();

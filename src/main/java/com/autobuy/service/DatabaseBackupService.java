@@ -65,6 +65,15 @@ public class DatabaseBackupService {
 		}
 	}
 
+	public synchronized String getBackupDir() {
+		return backupDir;
+	}
+
+	public synchronized void setBackupDir(String backupDir) {
+		this.backupDir = backupDir;
+		validateBackupDir();
+	}
+
 	/**
 	 * Executes database backup directly before the Spring context destroys the
 	 * datasource bean.

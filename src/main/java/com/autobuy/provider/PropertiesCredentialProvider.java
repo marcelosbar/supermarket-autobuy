@@ -79,4 +79,23 @@ public class PropertiesCredentialProvider implements CredentialProvider {
 			throw new CredentialException("Failed to save credentials for " + supermarket, e);
 		}
 	}
+
+	public synchronized String getBackupDir() {
+		return properties.getProperty("autobuy.backup-dir");
+	}
+
+	public synchronized void saveBackupDir(String backupDir) throws IOException {
+		if (backupDir == null || backupDir.trim().isEmpty()) {
+			properties.remove("autobuy.backup-dir");
+		} else {
+			properties.setProperty("autobuy.backup-dir", backupDir.trim());
+		}
+		try (java.io.FileOutputStream fos = new java.io.FileOutputStream(secretsPath)) {
+			properties.store(fos, "Saved via Web UI");
+			log.info("Successfully saved backup directory to {}", secretsPath);
+		} catch (IOException e) {
+			log.error("Failed to save backup directory to {}", secretsPath, e);
+			throw e;
+		}
+	}
 }

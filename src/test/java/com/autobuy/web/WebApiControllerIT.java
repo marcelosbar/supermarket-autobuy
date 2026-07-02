@@ -13,6 +13,9 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import com.autobuy.service.ShutdownService;
+import com.autobuy.service.DatabaseBackupService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -29,6 +32,12 @@ class WebApiControllerIT {
 
 	@Autowired
 	private CredentialProvider credentialProvider;
+
+	@MockBean
+	private ShutdownService shutdownService;
+
+	@MockBean
+	private DatabaseBackupService databaseBackupService;
 
 	@BeforeEach
 	void setUp() {
@@ -115,6 +124,39 @@ class WebApiControllerIT {
 				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.message")
 						.value("Database/properties credentials saving not supported in this profile."));
+	}
+
+	@Test
+	void testGetBackupDir() throws Exception {
+		mockMvc.perform(get("/api/config/backup-dir")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.backupDir").exists());
+	}
+
+	@Test
+	void testSaveBackupDir() throws Exception {
+		String json = """
+				{
+					"backupDir": "C:/mock-backup"
+				}
+				""";
+
+		mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+	}
+
+	@Test
+	void testGetBackupStatus() throws Exception {
+		mockMvc.perform(get("/api/autobuy/backup-status")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.backupDir").exists()).andExpect(jsonPath("$.isConfigured").exists());
+	}
+
+	@Test
+	void testShutdown() throws Exception {
+		mockMvc.perform(post("/api/shutdown")).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.message")
+						.value("Application is shutting down gracefully. Backup will be created."));
+
+		org.mockito.Mockito.verify(shutdownService).initiateShutdown(1000);
 	}
 
 	@TestConfiguration

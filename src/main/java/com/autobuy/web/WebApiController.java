@@ -1,5 +1,8 @@
 package com.autobuy.web;
 
+import com.autobuy.provider.PropertiesCredentialProvider;
+import com.autobuy.service.DatabaseBackupService;
+import com.autobuy.service.ShutdownService;
 import com.autobuy.model.ProductMapping;
 import com.autobuy.model.ShoppingItem;
 import com.autobuy.provider.CredentialProvider;
@@ -38,19 +41,24 @@ public class WebApiController {
 	private final CredentialProvider credentialProvider;
 	private final ShoppingListProvider shoppingListProvider;
 	private final ObjectMapper objectMapper;
+	private final ShutdownService shutdownService;
+	private final DatabaseBackupService databaseBackupService;
 
 	private static final String DEFAULT_LIST_PATH = "shopping-list.json";
 	private static final String SUCCESS_KEY = "success";
 	private static final String MESSAGE_KEY = "message";
 
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
-			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider,
-			ObjectMapper objectMapper) {
+			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider, ObjectMapper objectMapper,
+			ShutdownService shutdownService,
+			@org.springframework.beans.factory.annotation.Autowired(required = false) DatabaseBackupService databaseBackupService) {
 		this.autoBuyWebService = autoBuyWebService;
 		this.productService = productService;
 		this.credentialProvider = credentialProvider;
 		this.shoppingListProvider = shoppingListProvider;
 		this.objectMapper = objectMapper;
+		this.shutdownService = shutdownService;
+		this.databaseBackupService = databaseBackupService;
 	}
 
 	// 1. Shopping List Endpoints
@@ -201,4 +209,67 @@ public class WebApiController {
 		}
 	}
 
+	private PropertiesCredentialProvider getPropertiesProvider() {
+		if (credentialProvider instanceof PropertiesCredentialProvider) {
+			return (PropertiesCredentialProvider) credentialProvider;
+		}
+		return null;
+	}
+
+	@GetMapping("/config/backup-dir")
+	public ResponseEntity<Map<String, Object>> getBackupDir() {
+		Map<String, Object> response = new HashMap<>();
+		PropertiesCredentialProvider provider = getPropertiesProvider();
+		String dir = (provider != null) ? provider.getBackupDir() : null;
+		response.put("backupDir", dir != null ? dir : "");
+		return ResponseEntity.ok(response);
+	}
+
+	@PostMapping("/config/backup-dir")
+	public ResponseEntity<Map<String, Object>> saveBackupDir(@RequestBody Map<String, String> request) {
+		try {
+			String path = request.get("backupDir");
+			String resolvedPath = (path == null || path.trim().isEmpty()) ? null : path.trim();
+
+			PropertiesCredentialProvider provider = getPropertiesProvider();
+			if (provider != null) {
+				provider.saveBackupDir(resolvedPath);
+			}
+
+			if (databaseBackupService != null) {
+				databaseBackupService.setBackupDir(resolvedPath != null ? resolvedPath : "./data/backups");
+			}
+
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			log.error("Failed to save backup directory", e);
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, "Failed to save backup directory: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(response);
+		}
+	}
+
+	@GetMapping("/autobuy/backup-status")
+	public ResponseEntity<Map<String, Object>> getBackupStatus() {
+		Map<String, Object> status = new HashMap<>();
+		String currentDir = (databaseBackupService != null) ? databaseBackupService.getBackupDir() : "./data/backups";
+		boolean isConfigured = currentDir != null && !currentDir.trim().isEmpty()
+				&& !currentDir.equals("./data/backups");
+		status.put("backupDir", currentDir != null ? currentDir : "");
+		status.put("isConfigured", isConfigured);
+		return ResponseEntity.ok(status);
+	}
+
+	@PostMapping("/shutdown")
+	public ResponseEntity<Map<String, Object>> shutdown() {
+		log.info("Shutdown requested. Initiating graceful shutdown via ShutdownService...");
+		shutdownService.initiateShutdown(1000); // 1 second delay
+		Map<String, Object> response = new HashMap<>();
+		response.put(SUCCESS_KEY, true);
+		response.put(MESSAGE_KEY, "Application is shutting down gracefully. Backup will be created.");
+		return ResponseEntity.ok(response);
+	}
 }

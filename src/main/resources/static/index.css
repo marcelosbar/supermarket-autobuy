@@ -101,6 +101,12 @@ body {
     font-weight: 400;
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
 /* CREDENTIALS BADGE CARD */
 .credentials-badge-card {
     display: flex;
