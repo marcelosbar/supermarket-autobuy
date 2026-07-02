@@ -18,6 +18,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
+import java.awt.GraphicsEnvironment;
+import javax.swing.JFileChooser;
+import javax.swing.SwingUtilities;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -261,6 +265,58 @@ public class WebApiController {
 		status.put("backupDir", currentDir != null ? currentDir : "");
 		status.put("isConfigured", isConfigured);
 		return ResponseEntity.ok(status);
+	}
+
+	@PostMapping("/config/select-native-dir")
+	public ResponseEntity<Map<String, Object>> selectNativeDirectory() {
+		if (GraphicsEnvironment.isHeadless()) {
+			log.warn("Cannot open native folder picker: Graphics environment is headless.");
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, "Cannot open native folder picker: Graphics environment is headless.");
+			return ResponseEntity.badRequest().body(response);
+		}
+
+		AtomicReference<String> selectedPath = new AtomicReference<>(null);
+		try {
+			SwingUtilities.invokeAndWait(() -> {
+				try {
+					javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
+				} catch (Exception e) {
+					// Ignore L&F error
+				}
+				javax.swing.JFrame frame = new javax.swing.JFrame();
+				frame.setAlwaysOnTop(true);
+				frame.setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
+
+				JFileChooser chooser = new JFileChooser();
+				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+				chooser.setDialogTitle("Select Database Backup Directory");
+				chooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+
+				int result = chooser.showOpenDialog(frame);
+				if (result == JFileChooser.APPROVE_OPTION) {
+					selectedPath.set(chooser.getSelectedFile().getAbsolutePath().replace('\\', '/'));
+				}
+				frame.dispose();
+			});
+
+			Map<String, Object> response = new HashMap<>();
+			if (selectedPath.get() != null) {
+				response.put(SUCCESS_KEY, true);
+				response.put("path", selectedPath.get());
+			} else {
+				response.put(SUCCESS_KEY, false);
+				response.put(MESSAGE_KEY, "Selection cancelled");
+			}
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			log.error("Failed to open native directory chooser", e);
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, "Error opening native directory chooser: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(response);
+		}
 	}
 
 	@PostMapping("/shutdown")

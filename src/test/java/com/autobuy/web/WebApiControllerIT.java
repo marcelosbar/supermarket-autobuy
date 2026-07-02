@@ -151,6 +151,13 @@ class WebApiControllerIT {
 	}
 
 	@Test
+	void testSelectNativeDirectory_Headless() throws Exception {
+		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message")
+						.value("Cannot open native folder picker: Graphics environment is headless."));
+	}
+
+	@Test
 	void testShutdown() throws Exception {
 		mockMvc.perform(post("/api/shutdown")).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message")

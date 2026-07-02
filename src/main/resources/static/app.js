@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const credUsername = document.getElementById('cred-username');
     const credPassword = document.getElementById('cred-password');
     const configBackupDir = document.getElementById('config-backup-dir');
+    const btnBrowseBackup = document.getElementById('btn-browse-backup');
     const btnShutdown = document.getElementById('btn-shutdown');
     const shutdownOverlay = document.getElementById('shutdown-overlay');
     
@@ -615,6 +616,30 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error("Shutdown failed:", err);
                 alert("Error communicating with shutdown API.");
+            }
+        });
+    }
+
+    if (btnBrowseBackup) {
+        btnBrowseBackup.addEventListener('click', async () => {
+            btnBrowseBackup.disabled = true;
+            btnBrowseBackup.textContent = 'Opening...';
+            
+            try {
+                const res = await fetch('/api/config/select-native-dir', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    configBackupDir.value = data.path;
+                    addConsoleLog('SUCCESS', `Selected database backup directory: ${data.path}`);
+                } else if (data.message !== 'Selection cancelled') {
+                    alert('Failed to select folder: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Failed to open native folder picker', err);
+                alert('Error communicating with native directory picker.');
+            } finally {
+                btnBrowseBackup.disabled = false;
+                btnBrowseBackup.textContent = 'Browse...';
             }
         });
     }
