@@ -298,11 +298,7 @@ public class WebApiController {
 		AtomicReference<String> selectedPath = new AtomicReference<>(null);
 		try {
 			log.info("Setting system look and feel...");
-			try {
-				javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
-			} catch (Exception e) {
-				log.warn("Failed to set system look and feel: {}", e.getMessage());
-			}
+			setSystemLookAndFeel();
 
 			log.info("Instantiating JFileChooser...");
 			JFileChooser chooser = new JFileChooser();
@@ -334,6 +330,14 @@ public class WebApiController {
 			response.put(SUCCESS_KEY, false);
 			response.put(MESSAGE_KEY, "Error opening native directory chooser: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(response);
+		}
+	}
+
+	private void setSystemLookAndFeel() {
+		try {
+			javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
+		} catch (Exception e) {
+			log.warn("Failed to set system look and feel: {}", e.getMessage());
 		}
 	}
 

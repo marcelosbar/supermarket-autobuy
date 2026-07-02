@@ -597,17 +597,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (statusRes.ok) {
                     const statusData = await statusRes.json();
-                    if (!statusData.isConfigured) {
-                        proceed = confirm(
-                            "Warning: A custom backup folder (e.g., OneDrive) is not configured.\n\n" +
-                            "Your database will only be backed up locally in the './data/backups' folder.\n\n" +
-                            "Do you want to proceed with shutdown anyway?"
-                        );
-                    } else {
+                    if (statusData.isConfigured) {
                         proceed = confirm(
                             "Are you sure you want to shut down the application?\n\n" +
                             "This will save a database backup to:\n" + statusData.backupDir + "\n\n" +
                             "and stop the application server."
+                        );
+                    } else {
+                        proceed = confirm(
+                            "Warning: A custom backup folder (e.g., OneDrive) is not configured.\n\n" +
+                            "Your database will only be backed up locally in the './data/backups' folder.\n\n" +
+                            "Do you want to proceed with shutdown anyway?"
                         );
                     }
                 } else {
