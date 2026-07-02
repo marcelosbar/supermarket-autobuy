@@ -24,6 +24,8 @@ public class PropertiesCredentialProvider implements CredentialProvider {
 	@Value("${autobuy.secrets-path:secrets.properties}")
 	private String secretsPath;
 
+	private static final String BACKUP_DIR_KEY = "autobuy.backup-dir";
+
 	private final Properties properties = new Properties();
 
 	@PostConstruct
@@ -81,14 +83,14 @@ public class PropertiesCredentialProvider implements CredentialProvider {
 	}
 
 	public synchronized String getBackupDir() {
-		return properties.getProperty("autobuy.backup-dir");
+		return properties.getProperty(BACKUP_DIR_KEY);
 	}
 
 	public synchronized void saveBackupDir(String backupDir) throws IOException {
 		if (backupDir == null || backupDir.trim().isEmpty()) {
-			properties.remove("autobuy.backup-dir");
+			properties.remove(BACKUP_DIR_KEY);
 		} else {
-			properties.setProperty("autobuy.backup-dir", backupDir.trim());
+			properties.setProperty(BACKUP_DIR_KEY, backupDir.trim());
 		}
 		try (java.io.FileOutputStream fos = new java.io.FileOutputStream(secretsPath)) {
 			properties.store(fos, "Saved via Web UI");

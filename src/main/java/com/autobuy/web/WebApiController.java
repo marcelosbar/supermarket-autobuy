@@ -50,6 +50,8 @@ public class WebApiController {
 	private static final String DEFAULT_LIST_PATH = "shopping-list.json";
 	private static final String SUCCESS_KEY = "success";
 	private static final String MESSAGE_KEY = "message";
+	private static final String BACKUP_DIR_KEY = "backupDir";
+	private static final String DEFAULT_BACKUP_DIR = "./data/backups";
 
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
 			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider, ObjectMapper objectMapper,
@@ -229,8 +231,8 @@ public class WebApiController {
 	}
 
 	private PropertiesCredentialProvider getPropertiesProvider() {
-		if (credentialProvider instanceof PropertiesCredentialProvider) {
-			return (PropertiesCredentialProvider) credentialProvider;
+		if (credentialProvider instanceof PropertiesCredentialProvider propertiesProvider) {
+			return propertiesProvider;
 		}
 		return null;
 	}
@@ -240,14 +242,14 @@ public class WebApiController {
 		Map<String, Object> response = new HashMap<>();
 		PropertiesCredentialProvider provider = getPropertiesProvider();
 		String dir = (provider != null) ? provider.getBackupDir() : null;
-		response.put("backupDir", dir != null ? dir : "");
+		response.put(BACKUP_DIR_KEY, dir != null ? dir : "");
 		return ResponseEntity.ok(response);
 	}
 
 	@PostMapping("/config/backup-dir")
 	public ResponseEntity<Map<String, Object>> saveBackupDir(@RequestBody Map<String, String> request) {
 		try {
-			String path = request.get("backupDir");
+			String path = request.get(BACKUP_DIR_KEY);
 			String resolvedPath = (path == null || path.trim().isEmpty()) ? null : path.trim();
 
 			PropertiesCredentialProvider provider = getPropertiesProvider();
@@ -256,7 +258,7 @@ public class WebApiController {
 			}
 
 			if (databaseBackupService != null) {
-				databaseBackupService.setBackupDir(resolvedPath != null ? resolvedPath : "./data/backups");
+				databaseBackupService.setBackupDir(resolvedPath != null ? resolvedPath : DEFAULT_BACKUP_DIR);
 			}
 
 			Map<String, Object> response = new HashMap<>();
@@ -274,10 +276,10 @@ public class WebApiController {
 	@GetMapping("/autobuy/backup-status")
 	public ResponseEntity<Map<String, Object>> getBackupStatus() {
 		Map<String, Object> status = new HashMap<>();
-		String currentDir = (databaseBackupService != null) ? databaseBackupService.getBackupDir() : "./data/backups";
+		String currentDir = (databaseBackupService != null) ? databaseBackupService.getBackupDir() : DEFAULT_BACKUP_DIR;
 		boolean isConfigured = currentDir != null && !currentDir.trim().isEmpty()
-				&& !currentDir.equals("./data/backups");
-		status.put("backupDir", currentDir != null ? currentDir : "");
+				&& !currentDir.equals(DEFAULT_BACKUP_DIR);
+		status.put(BACKUP_DIR_KEY, currentDir != null ? currentDir : "");
 		status.put("isConfigured", isConfigured);
 		return ResponseEntity.ok(status);
 	}

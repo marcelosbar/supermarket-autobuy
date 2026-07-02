@@ -27,17 +27,15 @@ public class ShutdownService {
 	 */
 	public void initiateShutdown(long delayMs) {
 		log.info("Shutdown requested. Server will stop in {} ms...", delayMs);
-		Thread shutdownThread = new Thread(() -> {
+		Thread.ofVirtual().start(() -> {
 			try {
 				Thread.sleep(delayMs);
-			} catch (InterruptedException e) {
+			} catch (InterruptedException _) {
 				Thread.currentThread().interrupt();
 			}
 			log.info("Closing application context programmatically...");
 			context.close();
 			System.exit(0);
 		});
-		shutdownThread.setDaemon(false);
-		shutdownThread.start();
 	}
 }
