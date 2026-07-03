@@ -3,6 +3,9 @@ package com.autobuy.web;
 import com.autobuy.exception.CredentialException;
 import com.autobuy.provider.CredentialProvider;
 import com.autobuy.provider.SettingsProvider;
+import com.autobuy.web.dto.AutoBuyStatusResponse;
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +21,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import com.autobuy.service.ShutdownService;
 import com.autobuy.service.DatabaseBackupService;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -39,6 +43,12 @@ class WebApiControllerIT {
 
 	@MockBean
 	private DatabaseBackupService databaseBackupService;
+
+	@MockBean
+	private AutoBuyWebService autoBuyWebService;
+
+	@Autowired
+	private com.autobuy.service.ProductService productService;
 
 	@BeforeEach
 	void setUp() {
@@ -215,5 +225,137 @@ class WebApiControllerIT {
 		public void saveBackupDir(String backupDir) {
 			this.backupDir = backupDir;
 		}
+	}
+
+	// 5. Additional Endpoints Coverage Tests
+
+	@Test
+	void testDeleteMapping_NotFound() throws Exception {
+		mockMvc.perform(delete("/api/mappings/9999")).andExpect(status().isNotFound());
+	}
+
+	@Test
+	void testDeleteMapping_Success() throws Exception {
+		var searchResult = new com.autobuy.model.SearchResult("sku-del", "Product Delete", "Brand",
+				java.math.BigDecimal.ONE, "url", "cat");
+		productService.saveMapping("query-del", "CONTINENTE", searchResult);
+
+		var mappings = productService.findAllMappings();
+		long id = mappings.stream().filter(m -> m.getSearchText().equals("query-del")).findFirst()
+				.orElseThrow(() -> new AssertionError("Mapping not found")).getId();
+
+		mockMvc.perform(delete("/api/mappings/" + id)).andExpect(status().isNoContent());
+
+		assertTrue(productService.findMappingById(id).isEmpty());
+	}
+
+	@Test
+	void testRunAutoBuy_Success() throws Exception {
+		String json = """
+				{
+					"supermarket": "CONTINENTE"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.message").value("Auto-Buy started successfully."));
+
+		org.mockito.Mockito.verify(autoBuyWebService).startAutoBuy("shopping-list.json", "CONTINENTE", false);
+	}
+
+	@Test
+	void testRunAutoBuy_IllegalState() throws Exception {
+		org.mockito.Mockito.doThrow(new IllegalStateException("Already running")).when(autoBuyWebService)
+				.startAutoBuy("shopping-list.json", "CONTINENTE", false);
+
+		String json = """
+				{
+					"supermarket": "CONTINENTE"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Already running"));
+	}
+
+	@Test
+	void testGetAutoBuyStatus() throws Exception {
+		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
+				"cat");
+		var dummyStatus = new AutoBuyStatusResponse(AutoBuyWebService.AutoBuyState.RUNNING, "query", 5,
+				List.of(dummyResult), List.of("log line"), "");
+
+		org.mockito.Mockito.when(autoBuyWebService.getStatus()).thenReturn(dummyStatus);
+
+		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.state").value("RUNNING"))
+				.andExpect(jsonPath("$.currentItemQuery").value("query"))
+				.andExpect(jsonPath("$.currentItemQuantity").value(5))
+				.andExpect(jsonPath("$.searchResults[0].externalId").value("sku"))
+				.andExpect(jsonPath("$.logs[0]").value("log line"));
+	}
+
+	@Test
+	void testResolveMappingEndpoint_Success() throws Exception {
+		String json = """
+				{
+					"externalId": "sku123"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(autoBuyWebService).resolveMapping("sku123");
+	}
+
+	@Test
+	void testResolveMappingEndpoint_Failure() throws Exception {
+		org.mockito.Mockito.doThrow(new IllegalArgumentException("Invalid ID")).when(autoBuyWebService)
+				.resolveMapping("invalid-sku");
+
+		String json = """
+				{
+					"externalId": "invalid-sku"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Invalid ID"));
+	}
+
+	@Test
+	void testCompleteRunEndpoint_Success() throws Exception {
+		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(autoBuyWebService).completeRun();
+	}
+
+	@Test
+	void testCompleteRunEndpoint_Failure() throws Exception {
+		org.mockito.Mockito.doThrow(new IllegalStateException("Not in review")).when(autoBuyWebService).completeRun();
+
+		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Not in review"));
+	}
+
+	@Test
+	void testCancelRunEndpoint_Success() throws Exception {
+		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(autoBuyWebService).cancel();
+	}
+
+	@Test
+	void testCancelRunEndpoint_Failure() throws Exception {
+		org.mockito.Mockito.doThrow(new RuntimeException("Cancel failed")).when(autoBuyWebService).cancel();
+
+		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Cancel failed"));
 	}
 }
