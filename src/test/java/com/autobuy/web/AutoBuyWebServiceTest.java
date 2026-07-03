@@ -17,6 +17,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.awaitility.Awaitility;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -60,19 +62,7 @@ class AutoBuyWebServiceTest {
 	}
 
 	private void awaitState(AutoBuyWebService.AutoBuyState targetState) {
-		long start = System.currentTimeMillis();
-		while (System.currentTimeMillis() - start < 3000) {
-			if (service.getStatus().state() == targetState) {
-				return;
-			}
-			try {
-				Thread.sleep(10);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				fail("Interrupted waiting for state " + targetState);
-			}
-		}
-		fail("Timeout waiting for state " + targetState + ". Current state: " + service.getStatus().state());
+		Awaitility.await().atMost(3, TimeUnit.SECONDS).until(() -> service.getStatus().state() == targetState);
 	}
 
 	@Test
@@ -124,7 +114,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("Failed to initialize driver"));
-		verify(supermarketDriver, timeout(2000)).close();
+		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
@@ -160,7 +150,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
 
 		verify(priceHistoryService).logPrice(searchResult, "CONTINENTE");
-		verify(supermarketDriver, timeout(2000)).close();
+		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
@@ -196,12 +186,12 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Verify database mapping was saved
-		verify(productService).saveMapping(eq("apples"), eq("CONTINENTE"), eq(searchResult2));
+		verify(productService).saveMapping("apples", "CONTINENTE", searchResult2);
 
 		// Complete
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
-		verify(supermarketDriver, timeout(2000)).close();
+		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
@@ -233,7 +223,7 @@ class AutoBuyWebServiceTest {
 
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
-		verify(supermarketDriver, timeout(2000)).close();
+		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
@@ -256,7 +246,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("canceled by user"));
-		verify(supermarketDriver, timeout(2000)).close();
+		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test

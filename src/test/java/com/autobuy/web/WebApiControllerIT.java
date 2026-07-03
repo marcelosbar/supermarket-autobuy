@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.autobuy.service.ShutdownService;
 import com.autobuy.service.DatabaseBackupService;
 
@@ -38,13 +38,13 @@ class WebApiControllerIT {
 	@Autowired
 	private CredentialProvider credentialProvider;
 
-	@MockBean
+	@MockitoBean
 	private ShutdownService shutdownService;
 
-	@MockBean
+	@MockitoBean
 	private DatabaseBackupService databaseBackupService;
 
-	@MockBean
+	@MockitoBean
 	private AutoBuyWebService autoBuyWebService;
 
 	@Autowired
