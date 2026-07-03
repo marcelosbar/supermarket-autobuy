@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(properties = {"autobuy.secrets-path=target/test-secrets.properties"})
 @ActiveProfiles("test")
 @Import(ArchitectureStandardsVerificationIT.TestHelperService.class)
-public class ArchitectureStandardsVerificationIT {
+class ArchitectureStandardsVerificationIT {
 
 	@Autowired
 	private TestHelperService testHelperService;
@@ -56,7 +56,7 @@ public class ArchitectureStandardsVerificationIT {
 	}
 
 	@Test
-	public void testTransactionRollbackOnRuntimeException() {
+	void testTransactionRollbackOnRuntimeException() {
 		String externalId = "TX-ROLLBACK-TEST";
 		String supermarket = "CONTINENTE";
 
@@ -74,7 +74,7 @@ public class ArchitectureStandardsVerificationIT {
 	}
 
 	@Test
-	public void testSaveCredentialsValidationAndRobustness() {
+	void testSaveCredentialsValidationAndRobustness() {
 		// Test edge cases for saveCredentials validation
 		assertThrows(CredentialException.class, () -> {
 			propertiesCredentialProvider.saveCredentials(null, "user", "pass");
@@ -96,17 +96,15 @@ public class ArchitectureStandardsVerificationIT {
 		});
 
 		// Test normal saving and retrieving
-		try {
+		assertDoesNotThrow(() -> {
 			propertiesCredentialProvider.saveCredentials("CONTINENTE", "validUser", "validPass");
 			assertEquals("validUser", propertiesCredentialProvider.getUsername("CONTINENTE"));
 			assertEquals("validPass", propertiesCredentialProvider.getPassword("CONTINENTE"));
-		} catch (CredentialException e) {
-			fail("Should not throw exception for valid credentials: " + e.getMessage());
-		}
+		});
 
 		// Test IO exception handling when path is a directory (causing write error)
 		PropertiesCredentialProvider errorProvider = new PropertiesCredentialProvider();
-		try {
+		assertDoesNotThrow(() -> {
 			java.lang.reflect.Field field = PropertiesCredentialProvider.class.getDeclaredField("secretsPath");
 			field.setAccessible(true);
 			field.set(errorProvider, "target/"); // 'target/' is a directory, writing to it as a file will throw
@@ -115,14 +113,12 @@ public class ArchitectureStandardsVerificationIT {
 			assertThrows(CredentialException.class, () -> {
 				errorProvider.saveCredentials("CONTINENTE", "user", "pass");
 			});
-		} catch (Exception e) {
-			fail("Reflection setup failed: " + e.getMessage());
-		}
+		});
 	}
 
 	@Test
 	@Transactional
-	public void testPriceHistoryLazyLoadingAndNPlusOneQueryAvoidance() {
+	void testPriceHistoryLazyLoadingAndNPlusOneQueryAvoidance() {
 		// Create product and price history
 		Product product = new Product("SKU-LAZY", "CONTINENTE", "Lazy Product", "Brand", "http://url", "Cat");
 		Product savedProduct = productRepository.save(product);

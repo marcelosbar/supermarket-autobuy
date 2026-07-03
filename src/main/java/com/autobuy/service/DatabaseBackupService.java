@@ -51,7 +51,6 @@ public class DatabaseBackupService {
 			String message = String.format("The backup directory '%s' appears to have backslash escaping issues. "
 					+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
 					+ "Please check secrets.properties or application.properties.", backupDir);
-			log.error(message);
 			throw new AutoBuyException(message);
 		} else if (backupDir.contains("Users") && !backupDir.contains("/") && !backupDir.contains("\\")) {
 			// E.g., UsersmarceOneDrive...
@@ -60,7 +59,6 @@ public class DatabaseBackupService {
 							+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
 							+ "Please check secrets.properties or application.properties.",
 					backupDir);
-			log.error(message);
 			throw new AutoBuyException(message);
 		}
 	}
@@ -79,6 +77,7 @@ public class DatabaseBackupService {
 	 * datasource bean.
 	 */
 	@PreDestroy
+	@SuppressWarnings("java:S2077")
 	public void performBackup() {
 		log.info("Initiating database snapshot backup...");
 
@@ -120,16 +119,20 @@ public class DatabaseBackupService {
 						files.length, maxHistory, filesToDelete);
 
 				for (int i = 0; i < filesToDelete; i++) {
-					File fileToDelete = files[i];
-					if (fileToDelete.delete()) {
-						log.info("Deleted old backup file: {}", fileToDelete.getName());
-					} else {
-						log.warn("Failed to delete old backup file: {}", fileToDelete.getName());
-					}
+					deleteBackupFile(files[i]);
 				}
 			}
 		} catch (Exception e) {
 			log.error("Error during backup cleanup", e);
+		}
+	}
+
+	private void deleteBackupFile(File fileToDelete) {
+		try {
+			java.nio.file.Files.delete(fileToDelete.toPath());
+			log.info("Deleted old backup file: {}", fileToDelete.getName());
+		} catch (java.io.IOException e) {
+			log.warn("Failed to delete old backup file: {}", fileToDelete.getName(), e);
 		}
 	}
 }

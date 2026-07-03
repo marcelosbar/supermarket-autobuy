@@ -19,10 +19,13 @@ public class PriceHistoryService {
 
 	private final PriceHistoryRepository priceHistoryRepository;
 	private final ProductService productService;
+	private final PriceHistoryService self;
 
-	public PriceHistoryService(PriceHistoryRepository priceHistoryRepository, ProductService productService) {
+	public PriceHistoryService(PriceHistoryRepository priceHistoryRepository, ProductService productService,
+			@org.springframework.context.annotation.Lazy PriceHistoryService self) {
 		this.priceHistoryRepository = priceHistoryRepository;
 		this.productService = productService;
+		this.self = self != null ? self : this;
 	}
 
 	@Transactional
@@ -35,6 +38,6 @@ public class PriceHistoryService {
 	public void logPrice(SearchResult result, String supermarket) {
 		Product product = productService.findOrCreateProduct(result.externalId(), supermarket, result.name(),
 				result.brand(), result.url(), result.category());
-		logPrice(product, result.price(), LocalDateTime.now(ZoneId.systemDefault()));
+		self.logPrice(product, result.price(), LocalDateTime.now(ZoneId.systemDefault()));
 	}
 }

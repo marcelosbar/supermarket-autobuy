@@ -98,8 +98,7 @@ public class PropertiesCredentialProvider implements CredentialProvider, Setting
 			properties.store(fos, "Saved via Web UI");
 			log.info("Successfully saved backup directory to {}", secretsPath);
 		} catch (IOException e) {
-			log.error("Failed to save backup directory to {}", secretsPath, e);
-			throw e;
+			throw new java.io.IOException("Failed to save backup directory to " + secretsPath, e);
 		}
 	}
 }

@@ -19,10 +19,13 @@ public class ProductService {
 
 	private final ProductRepository productRepository;
 	private final ProductMappingRepository productMappingRepository;
+	private final ProductService self;
 
-	public ProductService(ProductRepository productRepository, ProductMappingRepository productMappingRepository) {
+	public ProductService(ProductRepository productRepository, ProductMappingRepository productMappingRepository,
+			@org.springframework.context.annotation.Lazy ProductService self) {
 		this.productRepository = productRepository;
 		this.productMappingRepository = productMappingRepository;
+		this.self = self != null ? self : this;
 	}
 
 	@Transactional
@@ -62,10 +65,10 @@ public class ProductService {
 
 	@Transactional
 	public void saveMapping(String query, String supermarket, SearchResult result) {
-		findOrCreateProduct(result.externalId(), supermarket, result.name(), result.brand(), result.url(),
+		self.findOrCreateProduct(result.externalId(), supermarket, result.name(), result.brand(), result.url(),
 				result.category());
 
 		ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
-		saveMapping(mapping);
+		self.saveMapping(mapping);
 	}
 }

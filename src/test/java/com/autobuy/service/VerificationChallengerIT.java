@@ -157,7 +157,7 @@ class VerificationChallengerIT {
 
 	@Test
 	@Transactional
-	public void testPriceHistoryLazyLoadingBehavior() {
+	void testPriceHistoryLazyLoadingBehavior() {
 		// Arrange: create a product and log its price
 		Product product = new Product("SKU-LAZY-TEST", "CONTINENTE", "Lazy Test Product", "Brand", "http://url",
 				"Category");
