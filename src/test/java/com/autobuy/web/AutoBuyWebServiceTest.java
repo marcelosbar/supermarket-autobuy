@@ -124,7 +124,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("Failed to initialize driver"));
-		verify(supermarketDriver).close();
+		verify(supermarketDriver, timeout(2000)).close();
 	}
 
 	@Test
@@ -160,7 +160,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
 
 		verify(priceHistoryService).logPrice(searchResult, "CONTINENTE");
-		verify(supermarketDriver).close();
+		verify(supermarketDriver, timeout(2000)).close();
 	}
 
 	@Test
@@ -201,6 +201,7 @@ class AutoBuyWebServiceTest {
 		// Complete
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		verify(supermarketDriver, timeout(2000)).close();
 	}
 
 	@Test
@@ -232,6 +233,7 @@ class AutoBuyWebServiceTest {
 
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		verify(supermarketDriver, timeout(2000)).close();
 	}
 
 	@Test
@@ -254,7 +256,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("canceled by user"));
-		verify(supermarketDriver).close();
+		verify(supermarketDriver, timeout(2000)).close();
 	}
 
 	@Test
