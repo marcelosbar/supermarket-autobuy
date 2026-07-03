@@ -120,6 +120,26 @@ Run the JUnit unit and integration tests using:
 
 ---
 
+## GitHub CI Pipeline
+
+The project includes a unified GitHub Actions workflow to verify code quality, security, and test correctness on both pull requests and merges to the `main` branch.
+
+- **Workflow Configuration:** [.github/workflows/ci.yml](file:///.github/workflows/ci.yml)
+- **Included Checks:**
+  - **Secrets Leak Prevention:** TruffleHog scanner checks commit histories.
+  - **Dependency & Code Security:** Snyk Open Source & Code scans.
+  - **Format Check:** Spotless verification.
+  - **Automated Testing:** Unit and Integration tests.
+  - **Code Coverage Gate:** Verifies JaCoCo's 80% minimum instruction coverage.
+  - **Static Code Analysis:** Sends metrics to SonarCloud and verifies the Quality Gate.
+
+### Required Secrets
+To run security scans and SonarCloud analysis in CI, configure the following secrets in your GitHub repository:
+- `SNYK_TOKEN`: Snyk API token.
+- `SONAR_TOKEN`: SonarCloud authentication token.
+
+---
+
 ## AI Agent & Roadmap Contexts
 *   Refer to [AGENTS.md](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/AGENTS.md) for code styling guidelines, SOLID rules, and compiler requirements.
 *   Refer to [ROADMAP.md](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/ROADMAP.md) for the backlog of future integrations (e.g. Google Keep/Tasks, Bitwarden, email invoice parsing, etc.).

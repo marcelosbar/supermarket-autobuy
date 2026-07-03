@@ -18,6 +18,10 @@
     <properties>
         <java.version>25</java.version>
         <playwright.version>1.60.0</playwright.version>
+        <!-- SonarCloud analysis configuration -->
+        <sonar.organization>marcelosbar</sonar.organization>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.projectKey>marcelosbar_supermarket-autobuy</sonar.projectKey>
     </properties>
 
     <dependencies>

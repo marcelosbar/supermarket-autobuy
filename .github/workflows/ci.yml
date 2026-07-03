@@ -1,0 +1,86 @@
+name: Java CI with Maven
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_and_verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # Full history required for TruffleHog and SonarCloud
+
+      - name: TruffleHog OSS Scan
+        uses: trufflesecurity/trufflehog@d411fff7b8879a62509f3fa98c07f247ac089a51 # v3.95.5
+        with:
+          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ github.event.pull_request.head.sha || github.event.after }}
+          extra_args: --only-verified
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Snyk Dependency Scan
+        if: github.actor != 'dependabot[bot]'
+        uses: snyk/actions/maven@8e119fbb6c251787721d34ba683ed48eba792766 # master @ 2026-05-27
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Snyk Code Analysis
+        if: github.actor != 'dependabot[bot]'
+        uses: snyk/actions/maven@8e119fbb6c251787721d34ba683ed48eba792766 # master @ 2026-05-27
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+          args: --severity-threshold=high --include-ignores
+
+      - name: Snyk Monitor (Register Production Snapshot)
+        if: github.ref == 'refs/heads/main'
+        uses: snyk/actions/maven@8e119fbb6c251787721d34ba683ed48eba792766 # master @ 2026-05-27
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: monitor
+
+      - name: Build & Test with Coverage
+        run: ./mvnw -B clean verify
+
+      - name: SonarCloud Scan
+        if: github.actor != 'dependabot[bot]'
+        run: ./mvnw -B sonar:sonar -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: SonarCloud Quality Gate
+        if: github.actor != 'dependabot[bot]'
+        uses: SonarSource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b # v1.2.0
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
