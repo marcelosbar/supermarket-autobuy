@@ -120,5 +120,26 @@ class PropertiesCredentialProviderTest {
 		// Act (remove path)
 		provider.saveBackupDir(null);
 		assertNull(provider.getBackupDir());
+
+		// Act (empty string / blank path)
+		provider.saveBackupDir("");
+		assertNull(provider.getBackupDir());
+
+		provider.saveBackupDir("   ");
+		assertNull(provider.getBackupDir());
+	}
+
+	@Test
+	void testSaveBackupDir_IOException() {
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
+		ReflectionTestUtils.setField(provider, "secretsPath", "target/"); // Writing to a directory throws IOException
+		assertThrows(IOException.class, () -> provider.saveBackupDir("C:/Backup"));
+	}
+
+	@Test
+	void testInit_IOException() {
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
+		ReflectionTestUtils.setField(provider, "secretsPath", "target/"); // Reading from a directory throws IOException
+		assertDoesNotThrow(provider::init); // catches internally
 	}
 }

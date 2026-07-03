@@ -77,7 +77,7 @@ class JsonShoppingListProviderTest {
 	}
 
 	@Test
-	void testSaveShoppingList_Success(@TempDir java.nio.file.Path tempDir) throws IOException {
+	void testSaveShoppingList_Success(@TempDir java.nio.file.Path tempDir) {
 		// Arrange
 		File tempFile = tempDir.resolve("save-list.json").toFile();
 		List<ShoppingItem> itemsToSave = List.of(new ShoppingItem("Milk", 2), new ShoppingItem("Eggs", 12));

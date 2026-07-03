@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import com.autobuy.exception.AutoBuyException;
 
 class DatabaseBackupServiceTest {
@@ -118,7 +119,7 @@ class DatabaseBackupServiceTest {
 			// backup_20260626_120000.zip to backup_20260626_120007.zip should be deleted
 			for (int j = 0; j <= 7; j++) {
 				String deletedFilename = String.format("backup_20260626_12%02d00.zip", j);
-				assertTrue(!name.equals(deletedFilename),
+				assertNotEquals(deletedFilename, name,
 						deletedFilename + " should have been deleted by retention policy");
 			}
 		}
@@ -167,5 +168,52 @@ class DatabaseBackupServiceTest {
 		ReflectionTestUtils.setField(service, "backupDir", "UsersmarceOneDriveApplicationsSupermarketBackup");
 		AutoBuyException exception = assertThrows(AutoBuyException.class, service::validateBackupDir);
 		assertTrue(exception.getMessage().contains("contains 'Users' but no path separators"));
+	}
+
+	@Test
+	void testGetAndSetBackupDir() {
+		DatabaseBackupService service = new DatabaseBackupService(null);
+		service.setBackupDir("./custom");
+		org.junit.jupiter.api.Assertions.assertEquals("./custom", service.getBackupDir());
+	}
+
+	@Test
+	void testPerformBackup_DirCreationFailure() {
+		DatabaseBackupService service = new DatabaseBackupService(null);
+		ReflectionTestUtils.setField(service, "backupDir", "invalid?dir|path/backup");
+		assertDoesNotThrow(service::performBackup);
+	}
+
+	@Test
+	void testPerformBackup_DeleteIOException(@TempDir Path tempDir) throws Exception {
+		String dbFilePath = tempDir.resolve("testdb_io").toAbsolutePath().toString();
+		DriverManagerDataSource dataSource = new DriverManagerDataSource();
+		dataSource.setDriverClassName("org.h2.Driver");
+		dataSource.setUrl("jdbc:h2:file:" + dbFilePath + ";DB_CLOSE_DELAY=-1");
+		dataSource.setUsername("sa");
+		dataSource.setPassword("");
+
+		JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+		jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS test (id INT)");
+
+		Path backupDirPath = tempDir.resolve("backups");
+		java.nio.file.Files.createDirectories(backupDirPath);
+
+		for (int i = 0; i < 10; i++) {
+			String filename = String.format("backup_20260626_12%02d00.zip", i);
+			java.nio.file.Files.createFile(backupDirPath.resolve(filename));
+		}
+
+		java.nio.file.Files.delete(backupDirPath.resolve("backup_20260626_120000.zip"));
+		File badBackupDir = backupDirPath.resolve("backup_20260626_120000.zip").toFile();
+		assertTrue(badBackupDir.mkdir());
+		File dummyContent = new File(badBackupDir, "cannotdelete.txt");
+		assertTrue(dummyContent.createNewFile());
+
+		DatabaseBackupService service = new DatabaseBackupService(jdbcTemplate);
+		ReflectionTestUtils.setField(service, "backupDir", backupDirPath.toString());
+		ReflectionTestUtils.setField(service, "maxHistory", 5);
+
+		assertDoesNotThrow(service::performBackup);
 	}
 }

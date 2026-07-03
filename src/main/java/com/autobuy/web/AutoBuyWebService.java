@@ -44,7 +44,6 @@ public class AutoBuyWebService {
 	private String errorMsg = "";
 
 	// Execution synchronization
-	private SearchResult userSelectedProduct = null;
 	private SupermarketDriver activeDriver = null;
 	private Future<?> currentExecutionFuture = null;
 	private CompletableFuture<SearchResult> currentMappingFuture = null;
@@ -359,7 +358,6 @@ public class AutoBuyWebService {
 		synchronized (this) {
 			this.searchResults = results;
 			this.state = AutoBuyState.AWAITING_MAPPING;
-			this.userSelectedProduct = null;
 			this.currentMappingFuture = new CompletableFuture<>();
 			future = this.currentMappingFuture;
 		}

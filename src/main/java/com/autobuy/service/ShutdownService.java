@@ -35,7 +35,11 @@ public class ShutdownService {
 			}
 			log.info("Closing application context programmatically...");
 			context.close();
-			System.exit(0);
+			exit(0);
 		});
+	}
+
+	void exit(int status) {
+		System.exit(status);
 	}
 }

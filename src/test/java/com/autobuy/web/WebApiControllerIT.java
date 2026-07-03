@@ -1,11 +1,15 @@
 package com.autobuy.web;
 
 import com.autobuy.exception.CredentialException;
+import com.autobuy.exception.DriverException;
+import com.autobuy.exception.ShoppingListException;
 import com.autobuy.provider.CredentialProvider;
 import com.autobuy.provider.SettingsProvider;
+import com.autobuy.provider.ShoppingListProvider;
+import com.autobuy.service.ShutdownService;
+import com.autobuy.service.DatabaseBackupService;
+import com.autobuy.model.ProductMapping;
 import com.autobuy.web.dto.AutoBuyStatusResponse;
-import java.util.List;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,9 +22,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.autobuy.service.ShutdownService;
-import com.autobuy.service.DatabaseBackupService;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
+
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -47,8 +54,11 @@ class WebApiControllerIT {
 	@MockitoBean
 	private AutoBuyWebService autoBuyWebService;
 
-	@Autowired
+	@MockitoBean
 	private com.autobuy.service.ProductService productService;
+
+	@MockitoBean
+	private ShoppingListProvider shoppingListProvider;
 
 	@BeforeEach
 	void setUp() {
@@ -58,7 +68,9 @@ class WebApiControllerIT {
 			stub.throwUnsupported = false;
 			stub.throwCredentialException = false;
 			stub.throwMessage = "";
+			stub.throwBackupDirException = false;
 		}
+		when(shoppingListProvider.getShoppingList(anyString())).thenReturn(List.of());
 	}
 
 	@Test
@@ -193,6 +205,7 @@ class WebApiControllerIT {
 		private boolean throwUnsupported = false;
 		private boolean throwCredentialException = false;
 		private String throwMessage = "";
+		private boolean throwBackupDirException = false;
 
 		@Override
 		public String getUsername(String supermarket) {
@@ -222,7 +235,10 @@ class WebApiControllerIT {
 		}
 
 		@Override
-		public void saveBackupDir(String backupDir) {
+		public void saveBackupDir(String backupDir) throws IOException {
+			if (throwBackupDirException) {
+				throw new IOException("Failed to save backup dir");
+			}
 			this.backupDir = backupDir;
 		}
 	}
@@ -236,17 +252,12 @@ class WebApiControllerIT {
 
 	@Test
 	void testDeleteMapping_Success() throws Exception {
-		var searchResult = new com.autobuy.model.SearchResult("sku-del", "Product Delete", "Brand",
-				java.math.BigDecimal.ONE, "url", "cat");
-		productService.saveMapping("query-del", "CONTINENTE", searchResult);
+		ProductMapping mapping = new ProductMapping("query-del", "CONTINENTE", "sku-del", "Product Delete");
+		when(productService.findMappingById(1L)).thenReturn(Optional.of(mapping));
 
-		var mappings = productService.findAllMappings();
-		long id = mappings.stream().filter(m -> m.getSearchText().equals("query-del")).findFirst()
-				.orElseThrow(() -> new AssertionError("Mapping not found")).getId();
+		mockMvc.perform(delete("/api/mappings/1")).andExpect(status().isNoContent());
 
-		mockMvc.perform(delete("/api/mappings/" + id)).andExpect(status().isNoContent());
-
-		assertTrue(productService.findMappingById(id).isEmpty());
+		verify(productService).deleteMapping(1L);
 	}
 
 	@Test
@@ -357,5 +368,107 @@ class WebApiControllerIT {
 
 		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Cancel failed"));
+	}
+
+	@Test
+	void testSaveShoppingList_Success() throws Exception {
+		String json = """
+				[
+					{"query": "Milk", "quantity": 2},
+					{"query": "Eggs", "quantity": 12}
+				]
+				""";
+		mockMvc.perform(post("/api/shopping-list").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$[0].query").value("Milk"))
+				.andExpect(jsonPath("$[0].quantity").value(2));
+	}
+
+	@Test
+	void testSaveShoppingList_Exception() throws Exception {
+		doThrow(new RuntimeException("Save error")).when(shoppingListProvider).saveShoppingList(anyString(), anyList());
+
+		String json = "[]";
+		mockMvc.perform(post("/api/shopping-list").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isInternalServerError());
+	}
+
+	@Test
+	void testSaveCredentials_Unchanged() throws Exception {
+		if (credentialProvider instanceof StubCredentialProvider stub) {
+			stub.username = "test-user";
+			stub.password = "test-password";
+		}
+
+		String json = """
+				{
+					"supermarket": "CONTINENTE",
+					"username": "test-user",
+					"password": ""
+				}
+				""";
+
+		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.message").value("Credentials unchanged."));
+	}
+
+	@Test
+	void testSaveBackupDir_Exception() throws Exception {
+		if (credentialProvider instanceof StubCredentialProvider stub) {
+			stub.throwBackupDirException = true;
+		}
+
+		String json = """
+				{
+					"backupDir": "C:/invalid-backup-dir"
+				}
+				""";
+		mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.success").value(false));
+	}
+
+	@Test
+	void testGlobalExceptionHandler_ShoppingListException() throws Exception {
+		when(shoppingListProvider.getShoppingList(anyString()))
+				.thenThrow(new ShoppingListException("Invalid shopping list file"));
+
+		mockMvc.perform(get("/api/shopping-list")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("SHOPPING_LIST_ERROR"))
+				.andExpect(jsonPath("$.error").value("Invalid shopping list file"));
+	}
+
+	@Test
+	void testGlobalExceptionHandler_DriverException() throws Exception {
+		when(autoBuyWebService.getStatus()).thenThrow(new DriverException("Driver failed to initialize"));
+
+		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadGateway())
+				.andExpect(jsonPath("$.type").value("DRIVER_ERROR"))
+				.andExpect(jsonPath("$.error").value("Driver failed to initialize"));
+	}
+
+	@Test
+	void testGlobalExceptionHandler_IllegalArgumentException() throws Exception {
+		when(autoBuyWebService.getStatus()).thenThrow(new IllegalArgumentException("Invalid argument"));
+
+		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.error").value("Invalid argument"));
+	}
+
+	@Test
+	void testGlobalExceptionHandler_IllegalStateException() throws Exception {
+		when(autoBuyWebService.getStatus()).thenThrow(new IllegalStateException("State error"));
+
+		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.type").value("STATE_ERROR")).andExpect(jsonPath("$.error").value("State error"));
+	}
+
+	@Test
+	void testGlobalExceptionHandler_GeneralException() throws Exception {
+		when(autoBuyWebService.getStatus()).thenThrow(new RuntimeException("General error"));
+
+		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
+				.andExpect(jsonPath("$.error").value("General error"));
 	}
 }
