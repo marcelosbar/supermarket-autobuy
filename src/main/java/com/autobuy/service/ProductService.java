@@ -40,11 +40,6 @@ public class ProductService {
 	}
 
 	@Transactional
-	public Product findOrCreateProduct(String name, String ean, String brand) {
-		return findOrCreateProduct(ean, "CONTINENTE", name, brand, null, null);
-	}
-
-	@Transactional
 	public Product findOrCreateProduct(String externalId, String supermarket, String name, String brand, String url,
 			String category) {
 		return productRepository.findByExternalIdAndSupermarket(externalId, supermarket).orElseGet(() -> {

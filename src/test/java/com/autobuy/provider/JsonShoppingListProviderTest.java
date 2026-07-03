@@ -75,4 +75,32 @@ class JsonShoppingListProviderTest {
 		assertNotNull(items);
 		assertTrue(items.isEmpty());
 	}
+
+	@Test
+	void testSaveShoppingList_Success(@TempDir java.nio.file.Path tempDir) throws IOException {
+		// Arrange
+		File tempFile = tempDir.resolve("save-list.json").toFile();
+		List<ShoppingItem> itemsToSave = List.of(new ShoppingItem("Milk", 2), new ShoppingItem("Eggs", 12));
+
+		// Act
+		provider.saveShoppingList(tempFile.getAbsolutePath(), itemsToSave);
+
+		// Assert
+		assertTrue(tempFile.exists());
+		List<ShoppingItem> loadedItems = provider.getShoppingList(tempFile.getAbsolutePath());
+		assertEquals(2, loadedItems.size());
+		assertEquals("Milk", loadedItems.get(0).query());
+		assertEquals(2, loadedItems.get(0).quantity());
+		assertEquals("Eggs", loadedItems.get(1).query());
+		assertEquals(12, loadedItems.get(1).quantity());
+	}
+
+	@Test
+	void testSaveShoppingList_IOException() {
+		// Saving to a directory path should trigger IOException and
+		// ShoppingListException
+		assertThrows(com.autobuy.exception.ShoppingListException.class, () -> {
+			provider.saveShoppingList("target/", List.of());
+		});
+	}
 }

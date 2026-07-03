@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import com.autobuy.exception.ShoppingListException;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -42,6 +43,17 @@ public class JsonShoppingListProvider implements ShoppingListProvider {
 		} catch (IOException e) {
 			log.error("Failed to parse shopping list file: {}", sourcePath, e);
 			return Collections.emptyList();
+		}
+	}
+
+	@Override
+	public void saveShoppingList(String sourcePath, List<ShoppingItem> items) {
+		try {
+			objectMapper.writeValue(new File(sourcePath), items);
+			log.info("Saved updated shopping list to {}", sourcePath);
+		} catch (IOException e) {
+			log.error("Failed to write shopping list file: {}", sourcePath, e);
+			throw new ShoppingListException("Failed to save shopping list to " + sourcePath, e);
 		}
 	}
 }

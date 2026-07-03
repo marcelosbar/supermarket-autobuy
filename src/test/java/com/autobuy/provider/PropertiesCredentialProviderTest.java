@@ -93,4 +93,32 @@ class PropertiesCredentialProviderTest {
 		assertThrows(CredentialException.class, () -> provider.saveCredentials("continente", "  ", "pass"));
 		assertThrows(CredentialException.class, () -> provider.saveCredentials("continente", "user", ""));
 	}
+
+	@Test
+	void testBackupDir_GetAndSave(@TempDir Path tempDir) throws Exception {
+		// Arrange
+		File tempFile = tempDir.resolve("secrets.properties").toFile();
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
+		ReflectionTestUtils.setField(provider, "secretsPath", tempFile.getAbsolutePath());
+		provider.init();
+
+		// Act & Assert (initial default/null)
+		assertNull(provider.getBackupDir());
+
+		// Act (save path)
+		provider.saveBackupDir("C:/MyBackup");
+
+		// Assert
+		assertEquals("C:/MyBackup", provider.getBackupDir());
+
+		// Reload and verify persistence
+		PropertiesCredentialProvider reloadProvider = new PropertiesCredentialProvider();
+		ReflectionTestUtils.setField(reloadProvider, "secretsPath", tempFile.getAbsolutePath());
+		reloadProvider.init();
+		assertEquals("C:/MyBackup", reloadProvider.getBackupDir());
+
+		// Act (remove path)
+		provider.saveBackupDir(null);
+		assertNull(provider.getBackupDir());
+	}
 }

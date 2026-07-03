@@ -79,7 +79,8 @@ class ProductServiceTest {
 		mockProduct.setId(1L);
 		when(productRepository.save(any(Product.class))).thenReturn(mockProduct);
 
-		Product product1 = productService.findOrCreateProduct("Matinados Eggs", "EAN-12345", "Matinados");
+		Product product1 = productService.findOrCreateProduct("EAN-12345", "CONTINENTE", "Matinados Eggs", "Matinados",
+				null, null);
 		assertNotNull(product1.getId());
 		assertEquals("CONTINENTE", product1.getSupermarket());
 		assertEquals("EAN-12345", product1.getExternalId());
@@ -89,7 +90,8 @@ class ProductServiceTest {
 		// Return existing product path
 		when(productRepository.findByExternalIdAndSupermarket("EAN-12345", "CONTINENTE"))
 				.thenReturn(Optional.of(mockProduct));
-		Product product2 = productService.findOrCreateProduct("Matinados Eggs", "EAN-12345", "Matinados");
+		Product product2 = productService.findOrCreateProduct("EAN-12345", "CONTINENTE", "Matinados Eggs", "Matinados",
+				null, null);
 		assertEquals(product1.getId(), product2.getId());
 	}
 

@@ -2,6 +2,7 @@ package com.autobuy.web;
 
 import com.autobuy.exception.CredentialException;
 import com.autobuy.provider.CredentialProvider;
+import com.autobuy.provider.SettingsProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -170,14 +171,15 @@ class WebApiControllerIT {
 	static class TestConfig {
 		@Bean
 		@Primary
-		public CredentialProvider credentialProvider() {
+		public StubCredentialProvider stubCredentialProvider() {
 			return new StubCredentialProvider();
 		}
 	}
 
-	private static class StubCredentialProvider implements CredentialProvider {
+	private static class StubCredentialProvider implements CredentialProvider, SettingsProvider {
 		private String username = "test-user";
 		private String password = "test-password";
+		private String backupDir = "C:/mock-backup";
 		private boolean throwUnsupported = false;
 		private boolean throwCredentialException = false;
 		private String throwMessage = "";
@@ -202,6 +204,16 @@ class WebApiControllerIT {
 			}
 			this.username = username;
 			this.password = password;
+		}
+
+		@Override
+		public String getBackupDir() {
+			return backupDir;
+		}
+
+		@Override
+		public void saveBackupDir(String backupDir) {
+			this.backupDir = backupDir;
 		}
 	}
 }

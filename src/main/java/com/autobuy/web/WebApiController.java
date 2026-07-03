@@ -1,6 +1,6 @@
 package com.autobuy.web;
 
-import com.autobuy.provider.PropertiesCredentialProvider;
+import com.autobuy.provider.SettingsProvider;
 import com.autobuy.service.DatabaseBackupService;
 import com.autobuy.service.ShutdownService;
 import com.autobuy.model.ProductMapping;
@@ -11,7 +11,6 @@ import com.autobuy.web.dto.AutoBuyStatusResponse;
 import com.autobuy.web.dto.CredentialsRequest;
 import com.autobuy.web.dto.ResolveRequest;
 import com.autobuy.web.dto.RunRequest;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -42,8 +41,8 @@ public class WebApiController {
 	private final AutoBuyWebService autoBuyWebService;
 	private final com.autobuy.service.ProductService productService;
 	private final CredentialProvider credentialProvider;
+	private final SettingsProvider settingsProvider;
 	private final ShoppingListProvider shoppingListProvider;
-	private final ObjectMapper objectMapper;
 	private final ShutdownService shutdownService;
 	private final DatabaseBackupService databaseBackupService;
 
@@ -52,16 +51,17 @@ public class WebApiController {
 	private static final String MESSAGE_KEY = "message";
 	private static final String BACKUP_DIR_KEY = "backupDir";
 	private static final String DEFAULT_BACKUP_DIR = "./data/backups";
+	private static final String DEFAULT_SUPERMARKET = "CONTINENTE";
 
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
-			CredentialProvider credentialProvider, ShoppingListProvider shoppingListProvider, ObjectMapper objectMapper,
-			ShutdownService shutdownService,
+			CredentialProvider credentialProvider, SettingsProvider settingsProvider,
+			ShoppingListProvider shoppingListProvider, ShutdownService shutdownService,
 			@org.springframework.beans.factory.annotation.Autowired(required = false) DatabaseBackupService databaseBackupService) {
 		this.autoBuyWebService = autoBuyWebService;
 		this.productService = productService;
 		this.credentialProvider = credentialProvider;
+		this.settingsProvider = settingsProvider;
 		this.shoppingListProvider = shoppingListProvider;
-		this.objectMapper = objectMapper;
 		this.shutdownService = shutdownService;
 		this.databaseBackupService = databaseBackupService;
 	}
@@ -77,11 +77,10 @@ public class WebApiController {
 	@PostMapping("/shopping-list")
 	public ResponseEntity<List<ShoppingItem>> saveShoppingList(@RequestBody List<ShoppingItem> items) {
 		try {
-			objectMapper.writeValue(new File(DEFAULT_LIST_PATH), items);
-			log.info("Saved updated shopping list to {}", DEFAULT_LIST_PATH);
+			shoppingListProvider.saveShoppingList(DEFAULT_LIST_PATH, items);
 			return ResponseEntity.ok(items);
 		} catch (Exception e) {
-			log.error("Failed to write shopping list to file", e);
+			log.error("Failed to save shopping list via provider", e);
 			return ResponseEntity.internalServerError().build();
 		}
 	}
@@ -107,7 +106,7 @@ public class WebApiController {
 
 	@GetMapping("/credentials")
 	public ResponseEntity<Map<String, Object>> getCredentialsStatus(
-			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
+			@RequestParam(defaultValue = DEFAULT_SUPERMARKET) String supermarket) {
 		String username = credentialProvider.getUsername(supermarket);
 		String password = credentialProvider.getPassword(supermarket);
 
@@ -164,7 +163,7 @@ public class WebApiController {
 	public ResponseEntity<Map<String, Object>> runAutoBuy(@RequestBody RunRequest request) {
 		try {
 			boolean headless = false; // Always run headfully to allow visual mapping/checkout review
-			String supermarket = request.supermarket() != null ? request.supermarket() : "CONTINENTE";
+			String supermarket = request.supermarket() != null ? request.supermarket() : DEFAULT_SUPERMARKET;
 
 			autoBuyWebService.startAutoBuy(DEFAULT_LIST_PATH, supermarket, headless);
 
@@ -230,18 +229,10 @@ public class WebApiController {
 		}
 	}
 
-	private PropertiesCredentialProvider getPropertiesProvider() {
-		if (credentialProvider instanceof PropertiesCredentialProvider propertiesProvider) {
-			return propertiesProvider;
-		}
-		return null;
-	}
-
 	@GetMapping("/config/backup-dir")
 	public ResponseEntity<Map<String, Object>> getBackupDir() {
 		Map<String, Object> response = new HashMap<>();
-		PropertiesCredentialProvider provider = getPropertiesProvider();
-		String dir = (provider != null) ? provider.getBackupDir() : null;
+		String dir = (settingsProvider != null) ? settingsProvider.getBackupDir() : null;
 		response.put(BACKUP_DIR_KEY, dir != null ? dir : "");
 		return ResponseEntity.ok(response);
 	}
@@ -252,9 +243,8 @@ public class WebApiController {
 			String path = request.get(BACKUP_DIR_KEY);
 			String resolvedPath = (path == null || path.trim().isEmpty()) ? null : path.trim();
 
-			PropertiesCredentialProvider provider = getPropertiesProvider();
-			if (provider != null) {
-				provider.saveBackupDir(resolvedPath);
+			if (settingsProvider != null) {
+				settingsProvider.saveBackupDir(resolvedPath);
 			}
 
 			if (databaseBackupService != null) {

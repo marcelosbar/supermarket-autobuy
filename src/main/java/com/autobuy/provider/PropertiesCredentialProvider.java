@@ -17,7 +17,7 @@ import com.autobuy.exception.CredentialException;
  * properties file.
  */
 @Component
-public class PropertiesCredentialProvider implements CredentialProvider {
+public class PropertiesCredentialProvider implements CredentialProvider, SettingsProvider {
 
 	private static final Logger log = LoggerFactory.getLogger(PropertiesCredentialProvider.class);
 
@@ -82,10 +82,12 @@ public class PropertiesCredentialProvider implements CredentialProvider {
 		}
 	}
 
+	@Override
 	public synchronized String getBackupDir() {
 		return properties.getProperty(BACKUP_DIR_KEY);
 	}
 
+	@Override
 	public synchronized void saveBackupDir(String backupDir) throws IOException {
 		if (backupDir == null || backupDir.trim().isEmpty()) {
 			properties.remove(BACKUP_DIR_KEY);
