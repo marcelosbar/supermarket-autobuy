@@ -1,10 +1,12 @@
 # Supermarket Auto-Buy: Future Feature Roadmap
 
-This document outlines the backlog of features planned for future iterations. These will be moved to GitHub Issues once the repository is pushed.
+This document outlines the backlog of features planned for future iterations. Each item is tracked as a GitHub Issue.
 
 ---
 
 ## 1. Google Tasks / Keep Integration (Shopping List)
+**Issue:** [#22 feat: Google Tasks / Keep Integration](https://github.com/marcelosbar/supermarket-autobuy/issues/22)
+
 * **Goal:** Allow voice-driven shopping lists via Google Assistant/Nest without manual copy-pasting or file editing.
 * **Details:**
   * Define `GoogleTasksShoppingListProvider` implementing `ShoppingListProvider`.
@@ -13,6 +15,8 @@ This document outlines the backlog of features planned for future iterations. Th
   * Design OAuth2 credential flow to securely store Google user tokens.
 
 ## 2. Bitwarden CLI Integration (Secrets)
+**Issue:** [#23 feat: Bitwarden CLI Integration](https://github.com/marcelosbar/supermarket-autobuy/issues/23)
+
 * **Goal:** Eliminate plaintext storage of Continente Online passwords on disk.
 * **Details:**
   * Define `BitwardenCredentialProvider` implementing `CredentialProvider`.
@@ -20,6 +24,8 @@ This document outlines the backlog of features planned for future iterations. Th
   * Handle session keys (`BW_SESSION` environment variable) and prompt the user to unlock the vault in the Web UI if locked.
 
 ## 3. Continente Email Order Confirmation Parser
+**Issue:** [#24 feat: Continente Email Order Confirmation Parser](https://github.com/marcelosbar/supermarket-autobuy/issues/24)
+
 * **Goal:** Seed the database with years of historical pricing data using old order email confirmations.
 * **Details:**
   * Add a parser service (`ContinenteEmailInvoiceParser`) that reads `.eml` or `.html` email exports.
@@ -35,6 +41,8 @@ This document outlines the backlog of features planned for future iterations. Th
   * Implement background runner pausing and UI prompting to select products when a mapping is missing.
 
 ## 5. Price History Analytics & Checkout Alerts
+**Issue:** [#25 feat: Price History Analytics & Checkout Price Alerts](https://github.com/marcelosbar/supermarket-autobuy/issues/25)
+
 * **Goal:** Provide visual analytics and warning systems if item prices increase.
 * **Details:**
   * Generate charts of specific products showing price trends in the dashboard.
