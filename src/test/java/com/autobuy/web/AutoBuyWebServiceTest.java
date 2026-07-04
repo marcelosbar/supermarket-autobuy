@@ -12,6 +12,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.mockito.InOrder;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -268,5 +269,219 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		assertThrows(IllegalStateException.class, () -> service.startAutoBuy("list.json", "CONTINENTE", false));
+	}
+	@Test
+	void testProcessingOrder_UnmappedItemsFirst() {
+		ShoppingItem itemA = new ShoppingItem("apples", 1);
+		ShoppingItem itemB = new ShoppingItem("bananas", 2);
+		ShoppingItem itemC = new ShoppingItem("carrots", 3);
+
+		ProductMapping mappingA = new ProductMapping("apples", "CONTINENTE", "skuA", "Apples");
+		ProductMapping mappingC = new ProductMapping("carrots", "CONTINENTE", "skuC", "Carrots");
+
+		SearchResult resA = new SearchResult("skuA", "Apples", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resB = new SearchResult("skuB", "Bananas", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resC = new SearchResult("skuC", "Carrots", "Brand", BigDecimal.ONE, "url", "Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(itemA, itemB, itemC));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mappingA));
+		when(productService.findMappingBySearchTextAndSupermarket("bananas", "CONTINENTE"))
+				.thenReturn(Optional.empty());
+		when(productService.findMappingBySearchTextAndSupermarket("carrots", "CONTINENTE"))
+				.thenReturn(Optional.of(mappingC));
+
+		when(supermarketDriver.searchProduct("bananas")).thenReturn(new ArrayList<>(List.of(resB)));
+		when(supermarketDriver.searchProduct("skuA")).thenReturn(List.of(resA));
+		when(supermarketDriver.searchProduct("skuC")).thenReturn(List.of(resC));
+
+		when(supermarketDriver.addProductToCart(anyString(), anyInt())).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Item B (bananas) is unmapped, so it runs first and pauses for mapping
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("bananas", service.getStatus().currentItemQuery());
+
+		// Resolve mapping for bananas
+		service.resolveMapping("skuB");
+
+		// Then mapped items (apples, carrots) process automatically and transition to
+		// final review
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		// Complete run
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+
+		// Verify order of calls
+		InOrder inOrder = inOrder(supermarketDriver);
+		inOrder.verify(supermarketDriver).searchProduct("bananas");
+		inOrder.verify(supermarketDriver).addProductToCart("skuB", 2);
+		inOrder.verify(supermarketDriver).searchProduct("skuA");
+		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
+		inOrder.verify(supermarketDriver).searchProduct("skuC");
+		inOrder.verify(supermarketDriver).addProductToCart("skuC", 3);
+	}
+
+	@Test
+	void testProcessingOrder_AllMapped() {
+		ShoppingItem itemA = new ShoppingItem("apples", 1);
+		ShoppingItem itemC = new ShoppingItem("carrots", 3);
+
+		ProductMapping mappingA = new ProductMapping("apples", "CONTINENTE", "skuA", "Apples");
+		ProductMapping mappingC = new ProductMapping("carrots", "CONTINENTE", "skuC", "Carrots");
+
+		SearchResult resA = new SearchResult("skuA", "Apples", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resC = new SearchResult("skuC", "Carrots", "Brand", BigDecimal.ONE, "url", "Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(itemA, itemC));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mappingA));
+		when(productService.findMappingBySearchTextAndSupermarket("carrots", "CONTINENTE"))
+				.thenReturn(Optional.of(mappingC));
+
+		when(supermarketDriver.searchProduct("skuA")).thenReturn(List.of(resA));
+		when(supermarketDriver.searchProduct("skuC")).thenReturn(List.of(resC));
+		when(supermarketDriver.addProductToCart(anyString(), anyInt())).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// All mapped, no interactive prompt triggered, transitions straight to final
+		// review
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+
+		// Verify order of calls
+		InOrder inOrder = inOrder(supermarketDriver);
+		inOrder.verify(supermarketDriver).searchProduct("skuA");
+		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
+		inOrder.verify(supermarketDriver).searchProduct("skuC");
+		inOrder.verify(supermarketDriver).addProductToCart("skuC", 3);
+	}
+
+	@Test
+	void testProcessingOrder_AllUnmapped() {
+		ShoppingItem itemA = new ShoppingItem("apples", 1);
+		ShoppingItem itemB = new ShoppingItem("bananas", 2);
+
+		SearchResult resA = new SearchResult("skuA", "Apples", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resB = new SearchResult("skuB", "Bananas", "Brand", BigDecimal.ONE, "url", "Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(itemA, itemB));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(Optional.empty());
+		when(productService.findMappingBySearchTextAndSupermarket("bananas", "CONTINENTE"))
+				.thenReturn(Optional.empty());
+
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(resA)));
+		when(supermarketDriver.searchProduct("bananas")).thenReturn(new ArrayList<>(List.of(resB)));
+		when(supermarketDriver.addProductToCart(anyString(), anyInt())).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// First unmapped item (apples) pauses
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("apples", service.getStatus().currentItemQuery());
+		service.resolveMapping("skuA");
+
+		// Second unmapped item (bananas) pauses
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("bananas", service.getStatus().currentItemQuery());
+		service.resolveMapping("skuB");
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+
+		// Verify order of calls
+		InOrder inOrder = inOrder(supermarketDriver);
+		inOrder.verify(supermarketDriver).searchProduct("apples");
+		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
+		inOrder.verify(supermarketDriver).searchProduct("bananas");
+		inOrder.verify(supermarketDriver).addProductToCart("skuB", 2);
+	}
+
+	@Test
+	void testProcessingOrder_PreservesRelativeOrder() {
+		ShoppingItem itemA = new ShoppingItem("apples", 1);
+		ShoppingItem itemB = new ShoppingItem("bananas", 2);
+		ShoppingItem itemC = new ShoppingItem("carrots", 3);
+		ShoppingItem itemD = new ShoppingItem("dates", 4);
+		ShoppingItem itemE = new ShoppingItem("eggplant", 5);
+
+		ProductMapping mappingA = new ProductMapping("apples", "CONTINENTE", "skuA", "Apples");
+		ProductMapping mappingD = new ProductMapping("dates", "CONTINENTE", "skuD", "Dates");
+
+		SearchResult resA = new SearchResult("skuA", "Apples", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resB = new SearchResult("skuB", "Bananas", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resC = new SearchResult("skuC", "Carrots", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resD = new SearchResult("skuD", "Dates", "Brand", BigDecimal.ONE, "url", "Fruit");
+		SearchResult resE = new SearchResult("skuE", "Eggplant", "Brand", BigDecimal.ONE, "url", "Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(itemA, itemB, itemC, itemD, itemE));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mappingA));
+		when(productService.findMappingBySearchTextAndSupermarket("bananas", "CONTINENTE"))
+				.thenReturn(Optional.empty());
+		when(productService.findMappingBySearchTextAndSupermarket("carrots", "CONTINENTE"))
+				.thenReturn(Optional.empty());
+		when(productService.findMappingBySearchTextAndSupermarket("dates", "CONTINENTE"))
+				.thenReturn(Optional.of(mappingD));
+		when(productService.findMappingBySearchTextAndSupermarket("eggplant", "CONTINENTE"))
+				.thenReturn(Optional.empty());
+
+		when(supermarketDriver.searchProduct("bananas")).thenReturn(new ArrayList<>(List.of(resB)));
+		when(supermarketDriver.searchProduct("carrots")).thenReturn(new ArrayList<>(List.of(resC)));
+		when(supermarketDriver.searchProduct("eggplant")).thenReturn(new ArrayList<>(List.of(resE)));
+		when(supermarketDriver.searchProduct("skuA")).thenReturn(List.of(resA));
+		when(supermarketDriver.searchProduct("skuD")).thenReturn(List.of(resD));
+		when(supermarketDriver.addProductToCart(anyString(), anyInt())).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Process unmapped in relative order: bananas, carrots, eggplant
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("bananas", service.getStatus().currentItemQuery());
+		service.resolveMapping("skuB");
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("carrots", service.getStatus().currentItemQuery());
+		service.resolveMapping("skuC");
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("eggplant", service.getStatus().currentItemQuery());
+		service.resolveMapping("skuE");
+
+		// Then mapped: apples, dates
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+
+		// Verify order of calls
+		InOrder inOrder = inOrder(supermarketDriver);
+		inOrder.verify(supermarketDriver).searchProduct("bananas");
+		inOrder.verify(supermarketDriver).addProductToCart("skuB", 2);
+		inOrder.verify(supermarketDriver).searchProduct("carrots");
+		inOrder.verify(supermarketDriver).addProductToCart("skuC", 3);
+		inOrder.verify(supermarketDriver).searchProduct("eggplant");
+		inOrder.verify(supermarketDriver).addProductToCart("skuE", 5);
+		inOrder.verify(supermarketDriver).searchProduct("skuA");
+		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
+		inOrder.verify(supermarketDriver).searchProduct("skuD");
+		inOrder.verify(supermarketDriver).addProductToCart("skuD", 4);
 	}
 }

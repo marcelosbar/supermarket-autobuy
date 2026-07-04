@@ -98,6 +98,22 @@ graph TD
 
 ---
 
+## Design Principles
+
+### Minimize Interruptions
+
+The auto-buy run is designed around a **front-load decisions, back-load automation** principle:
+
+| Phase | What Happens | User Involvement |
+|---|---|---|
+| **Pre-run** | Unmapped items are sorted to the front of the queue. | User resolves all mapping prompts in rapid succession. |
+| **Main run** | Mapped items are processed automatically. | None — fully automated. |
+| **Post-run** | Exceptions (e.g. unavailable products) are batched for review. | User reviews and resolves at the end. |
+
+This means if your shopping list has 15 items and 3 are unmapped, you'll handle all 3 decisions at the start, then the remaining 12 items run uninterrupted.
+
+---
+
 ## Database Migrations (Flyway)
 
 The local H2 database schema is versioned and managed incrementally using **Flyway**:
