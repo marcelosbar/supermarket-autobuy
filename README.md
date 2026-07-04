@@ -1,81 +1,65 @@
 # Supermarket Auto-Buy
 
-Supermarket Auto-Buy is a modular, AI-first Spring Boot web application powered by **Microsoft Playwright**. It automates online grocery shopping (starting with **Continente Online**) by reading a structured shopping list, logging into the store, searching for items, mapping search queries to exact product SKUs, logging price history in a local H2 database, and adding the items to the shopping cart.
+Supermarket Auto-Buy is a helper tool that automatically searches and adds items from your shopping list directly to your online supermarket cart. It currently supports **Continente Online**.
+
+Instead of searching for each grocery item one-by-one on the store's website, you can enter your whole list in this app and let it automate the browser interactions for you. 
+
+## Key Features
+* 🛒 **Automatic Shopping:** Logs into your supermarket account, searches for each product on your list, and adds it to your cart.
+* 🧠 **Smart Product Matching:** If the app is unsure about a product (e.g., you wrote "milk" and there are multiple brands), it displays the matches on the screen and asks you to pick the right one. The app remembers your choice for all future runs!
+* 📈 **Price Tracking:** Keeps a history of product prices from each run so you can track price changes over time.
+* 💾 **Easy Web Dashboard:** A simple, modern web interface to manage your shopping lists, save your credentials, and start/monitor shopping runs.
 
 ---
 
-## Features
+## Quick Start Guide
 
-1. **Robust Playwright Automation:** Automates logging in, accepting cookies, performing product queries, and managing cart additions on Continente Online.
-2. **Interactive Match Mapping:** If a shopping list item doesn't have an exact SKU mapped in the database, the Web UI queries the store, presents the top matches, and lets you choose the correct product. Your choice is saved for subsequent runs.
-3. **Price Tracking & H2 Storage:** Keeps historical records of all item prices from each run in a local, file-persisted H2 database (`data/db.mv.db`).
-4. **OneDrive-Safe Snapshot Backups:** Automatically dumps a compressed ZIP/SQL backup of the database to a configured folder (e.g. your OneDrive folder) on application shutdown to avoid live file-locking issues.
-5. **AI-First & SOLID Compliance:** Modular architecture using clean interfaces (`SupermarketDriver`, `CredentialProvider`, `SettingsProvider`, `ShoppingListProvider`) and type-safety. Exposes instructions for AI development in `AGENTS.md` and a backlog roadmap in `ROADMAP.md`.
+### Step 1: Install Java
+This app requires **Java (JDK 25 or higher)** to run on your computer.
+* **To check if you have it:** Open a terminal (like PowerShell or Command Prompt) and type `java -version`.
+* **If you don't have it:** Download and install it from [Adoptium (Eclipse Temurin)](https://adoptium.net/) or your preferred Java vendor.
+
+### Step 2: Run the App
+1. Download or clone this project folder to your computer.
+2. Open PowerShell or Command Prompt in the project folder.
+3. Run the following command:
+   ```powershell
+   .\mvnw.cmd spring-boot:run
+   ```
+4. Wait for the terminal to print that the application is running, then open your web browser and go to:
+   **[http://localhost:8080](http://localhost:8080)**
+
+### Step 3: Set Up and Shop
+Once the web dashboard opens in your browser:
+1. **Supermarket Credentials:** Go to the configuration section to enter your supermarket username and password. These are stored locally and securely on your own computer.
+2. **Manage Your List:** Write or edit your shopping list directly on the screen.
+3. **Start Shopping:** Click the run button. The app will open a browser session in the background. If it finds any items that need your approval, it will present cards for you to select the correct product. Once finished, check your supermarket account, and your cart will be filled!
 
 ---
 
-## Getting Started
+# 🛑 Developer & Technical Documentation
 
-### Prerequisites
-* **Java:** JDK 25 or higher.
-* **Internet Connection:** Playwright will automatically download browser binaries (Chromium) on the first run.
+> [!NOTE]
+> The sections below contain technical details, architecture diagrams, build/test commands, and developer instructions for modifying the codebase.
 
-### 1. Setup Credentials
-Copy the template `secrets-example.properties` to `secrets.properties` in the root directory of the project (this file is excluded from Git to keep your credentials private) and fill in your actual credentials:
+## Advanced Configuration & Secrets
+For automated execution or advanced users, credentials and database settings can be configured using a `secrets.properties` file in the root directory.
 
+### 1. Local Secrets File
+Copy `secrets-example.properties` to `secrets.properties` and fill in:
 ```properties
 continente.username=your-email@example.com
 continente.password=your-password
 ```
 
-*Note: If these properties are empty or the file is missing, the application will prompt you in the Web UI.*
-
-### 2. Create your Shopping List
-You can manage and update your shopping list directly via the **Web UI dashboard**. Saving the list in the Web UI will automatically create and update the local `shopping-list.json` file in your root folder.
-
-Alternatively, you can manually create a `shopping-list.json` file (which is gitignored) with this format:
-```json
-[
-  {
-    "query": "Mimosa Leite Meio Gordo 1L",
-    "quantity": 6
-  },
-  {
-    "query": "Banana Importada kg",
-    "quantity": 1
-  }
-]
-```
-
-### 3. Run the Application
-
-Launch the application to start the local web server:
-```powershell
-# Start the Web application
-.\mvnw.cmd spring-boot:run
-```
-Then, open your browser and navigate to:
-**`http://localhost:8080`**
-
-From this premium single-page dashboard, you can:
-* Manage items in your shopping list directly with instant saving (including inline name and quantity editing).
-* Configure and save credentials securely without manual properties file edits.
-* View and delete product mappings from the local database.
-* Execute active shopping runs, monitor progress via logs, select product matches interactively via modal cards, and close the session when done.
-
----
-
-## Database Snapshot Backup
+### 2. Database Backup & OneDrive Sync
 By default, the database is persisted locally in `./data/db.mv.db`. On shutdown, a zipped backup is written to `./data/backups/backup_[timestamp].zip`.
-
-To sync your backups automatically to **OneDrive**, configure the backup directory in your `application.properties` (or add it directly in `secrets.properties` to keep paths private). 
-
-> [!IMPORTANT]
-> **Windows Path Formatting:** Always use forward slashes (`/`) or double backslashes (`\\`) in `.properties` files (e.g. `C:/Users/...`). Single backslashes (`\`) are parsed as escape characters and will corrupt the path.
-
+To sync backups to OneDrive, configure the backup directory in your settings:
 ```properties
 autobuy.backup-dir=C:/Users/your-username/OneDrive/SupermarketBackup
 ```
+> [!IMPORTANT]
+> **Windows Path Formatting:** Always use forward slashes (`/`) or double backslashes (`\\`) in `.properties` files (e.g. `C:/Users/...`). Single backslashes (`\`) are parsed as escape characters and will corrupt the path.
 
 ---
 
@@ -92,7 +76,7 @@ graph TD
 ```
 
 1. **Controller Layer (`web/`):** Handles REST API requests, translates input parameters into DTOs (`web/dto/`), and delegates orchestration to services. Caught exceptions are processed globally by `GlobalExceptionHandler`.
-2. **Service Layer (`service/`):** Manages core business logic and transactional boundaries. Methods modifying persistent state are decorated with `@Transactional` (e.g., in `ProductService` and `PriceHistoryService`).
+2. **Service Layer:** Manages core business logic and transactional boundaries. Includes core transactional services (under the `service/` package, such as `ProductService` and `PriceHistoryService`) and the web UI orchestrator service (`com.autobuy.web.AutoBuyWebService`). Methods modifying persistent state are decorated with `@Transactional`.
 3. **Repository Layer (`repository/` & `model/`):** Utilizes Spring Data JPA for H2 database access. Entity relations (such as `PriceHistory.product`) are configured with `FetchType.LAZY` for performance.
 4. **Driver Layer (`driver/`):** Contains the automated scraper implementations (e.g., Playwright driving browser sessions on supermarket websites).
 
@@ -101,7 +85,6 @@ graph TD
 ## Design Principles
 
 ### Minimize Interruptions
-
 The auto-buy run is designed around a **front-load decisions, back-load automation** principle:
 
 | Phase | What Happens | User Involvement |
@@ -110,50 +93,41 @@ The auto-buy run is designed around a **front-load decisions, back-load automati
 | **Main run** | Mapped items are processed automatically. | None — fully automated. |
 | **Post-run** | Exceptions (e.g. unavailable products) are batched for review. | User reviews and resolves at the end. |
 
-This means if your shopping list has 15 items and 3 are unmapped, you'll handle all 3 decisions at the start, then the remaining 12 items run uninterrupted.
-
 ---
 
 ## Database Migrations (Flyway)
-
 The local H2 database schema is versioned and managed incrementally using **Flyway**:
-
-* **Migration Scripts:** Located in [src/main/resources/db/migration/](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/src/main/resources/db/migration/).
+* **Migration Scripts:** Located in [src/main/resources/db/migration/](src/main/resources/db/migration/).
 * **Automatic Baselining:** On startup, Flyway checks the database state. If the database is not empty, it applies a baseline (Version 0) to avoid re-running legacy creation scripts and prevent conflicts.
-* **Incremental Migrations:** Any new migration scripts (e.g., `V1__baseline_schema.sql`, etc.) are automatically applied in sequence during application startup (`.\mvnw.cmd spring-boot:run`).
-* **JPA Validation:** Hibernate's DDL auto-generation is set to `validate` to ensure that entities strictly match the Flyway-managed schema without making automatic modifications.
+* **Incremental Migrations:** Any new migration scripts are automatically applied in sequence during application startup.
+* **JPA Validation:** Hibernate's DDL auto-generation is set to `validate` to ensure that entities strictly match the Flyway-managed schema.
 
 ---
 
 ## Running Tests
 Run the JUnit unit tests using:
-
 ```powershell
 .\mvnw.cmd test
 ```
 
 To run both unit and integration tests, verify formatting, and enforce code coverage checks:
-
 ```powershell
 .\mvnw.cmd verify
 ```
 
-*   **Code Coverage Gate:** The project uses JaCoCo to enforce a **minimum instruction coverage of 80%** on all core logic. The coverage check includes REST controllers, coordinators, services, and exception handlers. Exclusions are defined consistently for both local builds and SonarCloud for non-business boilerplate code (bootstrap, config beans, custom exceptions, entities, records, and the Playwright driver).
+* **Code Coverage Gate:** The project uses JaCoCo to enforce a **minimum instruction coverage of 80%** on all core logic. Exclusions are defined consistently for both local builds and SonarCloud for non-business boilerplate code (bootstrap, config beans, custom exceptions, entities, records, and the Playwright driver).
 
 ---
 
 ## GitHub CI Pipeline
-
-The project includes a unified GitHub Actions workflow to verify code quality, security, and test correctness on both pull requests and merges to the `main` branch.
-
-- **Workflow Configuration:** [.github/workflows/ci.yml](file:///.github/workflows/ci.yml)
+The project includes a unified GitHub Actions workflow to verify code quality, security, and test correctness:
+- **Workflow Configuration:** [.github/workflows/ci.yml](.github/workflows/ci.yml)
 - **Included Checks:**
   - **Secrets Leak Prevention:** TruffleHog scanner checks commit histories.
   - **Dependency & Code Security:** Snyk Open Source & Code scans.
   - **Format Check:** Spotless verification.
-  - **Automated Testing:** Unit and Integration tests.
-  - **Code Coverage Gate:** Verifies JaCoCo's 80% minimum instruction coverage.
-  - **Static Code Analysis:** Sends metrics to SonarCloud and verifies the Quality Gate.
+  - **Automated Testing:** Unit and Integration tests (JaCoCo 80% coverage check).
+  - **Static Code Analysis:** Sends metrics to SonarCloud.
 
 ### Required Secrets
 To run security scans and SonarCloud analysis in CI, configure the following secrets in your GitHub repository:
@@ -163,5 +137,5 @@ To run security scans and SonarCloud analysis in CI, configure the following sec
 ---
 
 ## AI Agent & Roadmap Contexts
-*   Refer to [AGENTS.md](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/AGENTS.md) for code styling guidelines, SOLID rules, and compiler requirements.
-*   Refer to [ROADMAP.md](file:///C:/Users/marce/.gemini/antigravity/worktrees/supermarket-autobuy/review-application-architecture-standards/ROADMAP.md) for the backlog of future integrations (e.g. Google Keep/Tasks, Bitwarden, email invoice parsing, etc.).
+* Refer to [AGENTS.md](AGENTS.md) for code styling guidelines, SOLID rules, and compiler requirements.
+* Refer to [ROADMAP.md](ROADMAP.md) for the backlog of future integrations.
