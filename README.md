@@ -136,6 +136,6 @@ To run security scans and SonarCloud analysis in CI, configure the following sec
 
 ---
 
-## AI Agent & Roadmap Contexts
+## AI Agent Context
 * Refer to [AGENTS.md](AGENTS.md) for code styling guidelines, SOLID rules, and compiler requirements.
-* Refer to [ROADMAP.md](ROADMAP.md) for the backlog of future integrations.
+
