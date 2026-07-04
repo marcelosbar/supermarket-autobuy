@@ -49,15 +49,14 @@ public class DatabaseBackupService {
 		// C:/Users or C:\Users)
 		if (backupDir.matches("^[a-zA-Z]:[^\\\\/].*")) {
 			String message = String.format("The backup directory '%s' appears to have backslash escaping issues. "
-					+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
-					+ "Please check secrets.properties or application.properties.", backupDir);
+					+ "Please write the path using forward slashes (e.g., C:/Users/...) or double backslashes (e.g., C:\\\\Users\\\\...).",
+					backupDir);
 			throw new AutoBuyException(message);
 		} else if (backupDir.contains("Users") && !backupDir.contains("/") && !backupDir.contains("\\")) {
 			// E.g., UsersmarceOneDrive...
 			String message = String.format(
 					"The backup directory '%s' appears to have backslash escaping issues (contains 'Users' but no path separators). "
-							+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
-							+ "Please check secrets.properties or application.properties.",
+							+ "Please write the path using forward slashes (e.g., C:/Users/...) or double backslashes (e.g., C:\\\\Users\\\\...).",
 					backupDir);
 			throw new AutoBuyException(message);
 		}
