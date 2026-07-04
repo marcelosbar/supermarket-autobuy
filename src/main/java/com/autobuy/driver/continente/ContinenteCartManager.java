@@ -1,4 +1,4 @@
-package com.autobuy.driver;
+package com.autobuy.driver.continente;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
@@ -11,7 +11,7 @@ import java.util.function.Consumer;
  * Handles cart management actions (clearing, adding, updating quantity) for
  * Continente Online.
  */
-public class ContinenteCartManager {
+class ContinenteCartManager {
 
 	private static final Logger log = LoggerFactory.getLogger(ContinenteCartManager.class);
 

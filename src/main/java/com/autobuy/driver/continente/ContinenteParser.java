@@ -1,4 +1,4 @@
-package com.autobuy.driver;
+package com.autobuy.driver.continente;
 
 import com.autobuy.model.SearchResult;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -15,7 +15,7 @@ import java.util.List;
  * Parser utility for extracting product information and pricing from Continente
  * web elements.
  */
-public final class ContinenteParser {
+final class ContinenteParser {
 
 	private static final Logger log = LoggerFactory.getLogger(ContinenteParser.class);
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();

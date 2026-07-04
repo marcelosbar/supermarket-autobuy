@@ -1,4 +1,4 @@
-package com.autobuy.driver;
+package com.autobuy.driver.continente;
 
 import com.autobuy.model.SearchResult;
 import org.junit.jupiter.api.Test;

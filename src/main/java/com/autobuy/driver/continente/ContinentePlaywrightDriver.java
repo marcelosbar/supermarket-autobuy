@@ -1,5 +1,6 @@
-package com.autobuy.driver;
+package com.autobuy.driver.continente;
 
+import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.SearchResult;
 import com.microsoft.playwright.*;
 import org.slf4j.Logger;

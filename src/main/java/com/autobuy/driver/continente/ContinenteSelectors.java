@@ -1,10 +1,10 @@
-package com.autobuy.driver;
+package com.autobuy.driver.continente;
 
 /**
  * Constants class containing selectors and attributes for the Continente Online
  * website.
  */
-public final class ContinenteSelectors {
+final class ContinenteSelectors {
 
 	private ContinenteSelectors() {
 		// Prevent instantiation
