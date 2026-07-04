@@ -67,7 +67,7 @@ class ContinenteCartManager {
 			qtyBadge.waitFor(new Locator.WaitForOptions().setTimeout(5000));
 			String qtyText = qtyBadge.innerText().trim();
 			return Integer.parseInt(qtyText.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
-		} catch (Exception _2) {
+		} catch (Exception _) {
 			log.info("Minicart quantity badge not visible after 5s. Cart is likely empty.");
 			return 0;
 		}
