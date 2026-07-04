@@ -296,7 +296,7 @@ class WebApiControllerIT {
 		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
 				"cat");
 		var dummyStatus = new AutoBuyStatusResponse(AutoBuyWebService.AutoBuyState.RUNNING, "query", 5,
-				List.of(dummyResult), List.of("log line"), "");
+				List.of(dummyResult), List.of("log line"), "", List.of());
 
 		org.mockito.Mockito.when(autoBuyWebService.getStatus()).thenReturn(dummyStatus);
 

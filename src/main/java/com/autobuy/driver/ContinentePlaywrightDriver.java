@@ -536,6 +536,51 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 	}
 
 	@Override
+	public boolean isProductAvailable(String externalId) {
+		log.info("Checking availability for SKU {}...", externalId);
+		try {
+			// Find the product tile by data-pid
+			Locator tile = page
+					.locator(String.format("div[data-pid='%s'], .product-tile[data-pid='%s']", externalId, externalId))
+					.first();
+			if (!tile.isVisible()) {
+				// Try searching for it first to get it on screen
+				searchProduct(externalId);
+				tile = page.locator(
+						String.format("div[data-pid='%s'], .product-tile[data-pid='%s']", externalId, externalId))
+						.first();
+			}
+
+			if (!tile.isVisible()) {
+				log.warn("Product SKU {} not found on page during availability check.", externalId);
+				return false;
+			}
+
+			// Scroll the tile into view
+			tile.scrollIntoViewIfNeeded();
+
+			// Define selectors for quantity controls based on DOM inspection
+			Locator plusBtn = tile.locator("button.increase-quantity-btn").first();
+			Locator qtyInput = tile.locator("input.add-to-cart-quantity, input.quantity-select, .quantity-value-mask")
+					.first();
+
+			// If it's already in the cart (plus button or qty input is visible), it's
+			// available
+			if (plusBtn.isVisible() || qtyInput.isVisible()) {
+				return true;
+			}
+
+			// Otherwise, check if the add-to-cart button is visible and enabled
+			Locator addBtn = tile
+					.locator("button.add-to-cart, button:has-text('Adicionar'), .ct-tile--add-to-cart button").first();
+			return addBtn.isVisible() && addBtn.isEnabled();
+		} catch (Exception e) {
+			log.error("Error checking availability for SKU {}: {}", externalId, e.getMessage());
+			return false;
+		}
+	}
+
+	@Override
 	public boolean addProductToCart(String externalId, int quantity) {
 		log.info("Adding product SKU {} (quantity={}) to cart...", externalId, quantity);
 		try {

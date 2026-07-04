@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentTaskDetails = document.getElementById('current-task-details');
     const btnCancelRun = document.getElementById('btn-cancel-run');
     
+    const skippedItemsSection = document.getElementById('skipped-items-section');
+    const skippedItemsList = document.getElementById('skipped-items-list');
+    
     const btnClearLogs = document.getElementById('btn-clear-logs');
     const consoleLogLines = document.getElementById('console-log-lines');
     
@@ -466,7 +469,22 @@ document.addEventListener('DOMContentLoaded', () => {
         updateConsoleLogs(status.logs);
         handleExecutionStatePanels(status);
         handleModals(status);
+        updateSkippedItems(status);
         lastState = status.state;
+    }
+
+    function updateSkippedItems(status) {
+        if ((status.state === 'SUCCESS' || status.state === 'FAILED' || status.state === 'IDLE') && status.skippedItems && status.skippedItems.length > 0) {
+            skippedItemsList.innerHTML = '';
+            status.skippedItems.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                skippedItemsList.appendChild(li);
+            });
+            skippedItemsSection.style.display = 'block';
+        } else {
+            skippedItemsSection.style.display = 'none';
+        }
     }
 
     function updateExecutionBadge(state) {

@@ -5,5 +5,5 @@ import com.autobuy.web.AutoBuyWebService.AutoBuyState;
 import java.util.List;
 
 public record AutoBuyStatusResponse(AutoBuyState state, String currentItemQuery, int currentItemQuantity,
-		List<SearchResult> searchResults, List<String> logs, String error) {
+		List<SearchResult> searchResults, List<String> logs, String error, List<String> skippedItems) {
 }
