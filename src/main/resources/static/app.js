@@ -617,10 +617,12 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const statusRes = await fetch('/api/autobuy/backup-status');
                 let proceed = true;
+                let isConfigured = false;
 
                 if (statusRes.ok) {
                     const statusData = await statusRes.json();
-                    if (statusData.isConfigured) {
+                    isConfigured = statusData.isConfigured;
+                    if (isConfigured) {
                         proceed = confirm(
                             "Are you sure you want to shut down the application?\n\n" +
                             "This will save a database backup to:\n" + statusData.backupDir + "\n\n" +
@@ -645,6 +647,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const shutdownRes = await fetch('/api/shutdown', { method: 'POST' });
 
                 if (shutdownRes.ok) {
+                    const shutdownMessage = document.getElementById('shutdown-message');
+                    if (shutdownMessage) {
+                        if (isConfigured) {
+                            shutdownMessage.textContent = "The application has been shut down gracefully and the database backup has been created.";
+                        } else {
+                            shutdownMessage.textContent = "The application has been shut down gracefully.";
+                        }
+                    }
                     shutdownOverlay.style.display = 'flex';
                     if (pollIntervalId) {
                         clearInterval(pollIntervalId);
@@ -653,7 +663,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert("Failed to initiate shutdown.");
                     btnShutdown.disabled = false;
                 }
-
             } catch (err) {
                 console.error("Shutdown failed:", err);
                 alert("Error communicating with shutdown API.");
