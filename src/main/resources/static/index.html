@@ -162,13 +162,14 @@
                     </div>
                     <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
                         <div class="form-group">
-                            <label for="config-backup-dir">Database Backup Directory (e.g. OneDrive)</label>
+                            <label for="config-backup-dir">Database Backup Directory</label>
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <input type="text" id="config-backup-dir" placeholder="C:/Users/username/OneDrive/SupermarketBackup" autocomplete="off" style="flex-grow: 1;">
+                                <input type="text" id="config-backup-dir" placeholder="C:/path/to/backup" autocomplete="off" style="flex-grow: 1;">
                                 <button type="button" class="btn btn-secondary" id="btn-browse-backup" style="white-space: nowrap; padding: 0.72rem 1.25rem;">Browse...</button>
                             </div>
-                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem; display: block;">
-                                Use forward slashes (/) or double backslashes (\\). Leave blank to use default.
+                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem; display: block; line-height: 1.4;">
+                                ℹ️ Optional. If left blank, backups will be saved to the default directory (<code>./data/backups</code>).<br>
+                                Use forward slashes (/) or double backslashes (\\).
                             </small>
                         </div>
                     </div>
