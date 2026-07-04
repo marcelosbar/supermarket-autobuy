@@ -129,11 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // If trying to configure for the first time or modifying existing, validation is required
         if (!credsUnchanged) {
             if (!username) {
-                alert('Username is required.');
+                await showAlert('Validation Error', 'Username is required.');
                 return;
             }
             if (!password) {
-                alert('Password is required.');
+                await showAlert('Validation Error', 'Password is required.');
                 return;
             }
         }
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!credRes.ok) {
                     const data = await credRes.json();
-                    alert('Failed to save credentials: ' + (data.message || 'Unknown error'));
+                    await showAlert('Settings Error', 'Failed to save credentials: ' + (data.message || 'Unknown error'));
                     return;
                 }
             }
@@ -165,11 +165,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkCredentialsStatus();
             } else {
                 const data = await backupRes.json();
-                alert('Failed to save backup settings: ' + (data.message || 'Unknown error'));
+                await showAlert('Settings Error', 'Failed to save backup settings: ' + (data.message || 'Unknown error'));
             }
         } catch (err) {
             console.error('Settings submission failed:', err);
-            alert('Error communicating with backend settings API.');
+            await showAlert('Connection Error', 'Error communicating with backend settings API.');
         }
     });
 
@@ -344,14 +344,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     globalThis.deleteMapping = async (id) => {
-        if (!confirm('Are you sure you want to delete this product SKU mapping?')) return;
+        if (!await showConfirm('Delete Mapping', 'Are you sure you want to delete this product SKU mapping?', true)) return;
         try {
             const res = await fetch(`/api/mappings/${id}`, { method: 'DELETE' });
             if (res.ok) {
                 addConsoleLog('INFO', `Deleted product mapping ID ${id}`);
                 loadMappings();
             } else {
-                alert('Failed to delete mapping.');
+                await showAlert('Delete Error', 'Failed to delete mapping.');
             }
         } catch (err) {
             console.error(err);
@@ -385,12 +385,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const headless = runHeadless.checked;
 
         if (shoppingList.length === 0) {
-            alert('Your shopping list is empty. Add items first!');
+            await showAlert('Empty List', 'Your shopping list is empty. Add items first!');
             return;
         }
 
         if (!credentialsStatus.hasUsername || !credentialsStatus.hasPassword) {
-            alert('Please configure your supermarket credentials first!');
+            await showAlert('Credentials Required', 'Please configure your supermarket credentials first!');
             return;
         }
 
@@ -407,18 +407,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 startStatusPolling();
             } else {
                 const data = await res.json();
-                alert('Failed to start: ' + (data.message || 'Unknown error'));
+                await showAlert('Execution Error', 'Failed to start: ' + (data.message || 'Unknown error'));
                 btnStartRun.disabled = false;
             }
         } catch (err) {
             console.error('Launch execution failed:', err);
-            alert('Failed to trigger execution.');
+            await showAlert('Execution Error', 'Failed to trigger execution.');
             btnStartRun.disabled = false;
         }
     });
 
     btnCancelRun.addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to cancel the scraper execution?')) return;
+        if (!await showConfirm('Cancel Execution', 'Are you sure you want to cancel the scraper execution?', true)) return;
         try {
             const res = await fetch('/api/autobuy/cancel', { method: 'POST' });
             if (res.ok) {
@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 resolveModal.style.display = 'none';
                 addConsoleLog('INFO', `Mapped query to product SKU: ${externalId}`);
             } else {
-                alert('Failed to resolve mapping.');
+                await showAlert('Mapping Error', 'Failed to resolve mapping.');
             }
         } catch (err) {
             console.error(err);
@@ -623,20 +623,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     const statusData = await statusRes.json();
                     isConfigured = statusData.isConfigured;
                     if (isConfigured) {
-                        proceed = confirm(
+                        proceed = await showConfirm(
+                            "Shutdown Application",
                             "Are you sure you want to shut down the application?\n\n" +
                             "This will save a database backup to:\n" + statusData.backupDir + "\n\n" +
                             "and stop the application server."
                         );
                     } else {
-                        proceed = confirm(
+                        proceed = await showConfirm(
+                            "Shutdown Application",
                             "Are you sure you want to shut down the application?\n\n" +
                             "Warning: No backup directory is configured. The database backup will be SKIPPED.\n\n" +
-                            "Do you want to proceed with shutdown anyway?"
+                            "Do you want to proceed with shutdown anyway?",
+                            true
                         );
                     }
                 } else {
-                    proceed = confirm("Are you sure you want to shut down the application and close the server?");
+                    proceed = await showConfirm(
+                        "Shutdown Application",
+                        "Are you sure you want to shut down the application and close the server?",
+                        true
+                    );
                 }
 
                 if (!proceed) {
@@ -660,12 +667,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         clearInterval(pollIntervalId);
                     }
                 } else {
-                    alert("Failed to initiate shutdown.");
+                    await showAlert('Shutdown Error', "Failed to initiate shutdown.");
                     btnShutdown.disabled = false;
                 }
             } catch (err) {
                 console.error("Shutdown failed:", err);
-                alert("Error communicating with shutdown API.");
+                await showAlert('Shutdown Error', "Error communicating with shutdown API.");
             }
         });
     }
@@ -682,15 +689,96 @@ document.addEventListener('DOMContentLoaded', () => {
                     configBackupDir.value = data.path;
                     addConsoleLog('SUCCESS', `Selected database backup directory: ${data.path}`);
                 } else if (data.message !== 'Selection cancelled') {
-                    alert('Failed to select folder: ' + (data.message || 'Unknown error'));
+                    await showAlert('Directory Error', 'Failed to select folder: ' + (data.message || 'Unknown error'));
                 }
             } catch (err) {
                 console.error('Failed to open native folder picker', err);
-                alert('Error communicating with native directory picker.');
+                await showAlert('Directory Error', 'Error communicating with native directory picker.');
             } finally {
                 btnBrowseBackup.disabled = false;
                 btnBrowseBackup.textContent = 'Browse...';
             }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // CUSTOM IN-APP DIALOG UTILITIES
+    // -------------------------------------------------------------
+
+    function showAlert(title, message) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('custom-dialog-modal');
+            const titleEl = document.getElementById('dialog-title');
+            const messageEl = document.getElementById('dialog-message');
+            const cancelBtn = document.getElementById('btn-dialog-cancel');
+            const closeBtn = document.getElementById('btn-close-dialog-modal');
+            const okBtn = document.getElementById('btn-dialog-ok');
+
+            titleEl.textContent = title;
+            messageEl.innerHTML = message.replaceAll('\n', '<br>');
+            
+            cancelBtn.style.display = 'none'; // Alerts do not have a cancel option
+            okBtn.className = 'btn btn-primary';
+            okBtn.textContent = 'OK';
+
+            const cleanup = () => {
+                modal.style.display = 'none';
+                okBtn.removeEventListener('click', onClose);
+                closeBtn.removeEventListener('click', onClose);
+            };
+
+            const onClose = () => {
+                cleanup();
+                resolve();
+            };
+
+            okBtn.addEventListener('click', onClose);
+            closeBtn.addEventListener('click', onClose);
+
+            modal.style.display = 'flex';
+        });
+    }
+
+    function showConfirm(title, message, isDanger = false) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('custom-dialog-modal');
+            const titleEl = document.getElementById('dialog-title');
+            const messageEl = document.getElementById('dialog-message');
+            const cancelBtn = document.getElementById('btn-dialog-cancel');
+            const closeBtn = document.getElementById('btn-close-dialog-modal');
+            const okBtn = document.getElementById('btn-dialog-ok');
+
+            titleEl.textContent = title;
+            messageEl.innerHTML = message.replaceAll('\n', '<br>');
+            
+            cancelBtn.style.display = 'inline-flex';
+            cancelBtn.textContent = 'Cancel';
+            
+            okBtn.textContent = 'Confirm';
+            okBtn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+
+            const cleanup = () => {
+                modal.style.display = 'none';
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                closeBtn.removeEventListener('click', onCancel);
+            };
+
+            const onOk = () => {
+                cleanup();
+                resolve(true);
+            };
+
+            const onCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            closeBtn.addEventListener('click', onCancel);
+
+            modal.style.display = 'flex';
         });
     }
 

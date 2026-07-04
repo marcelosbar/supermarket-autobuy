@@ -809,6 +809,10 @@ input:focus, select:focus {
     max-width: 900px;
 }
 
+.dialog-card {
+    max-width: 420px;
+}
+
 @keyframes modal-enter {
     from {
         transform: translateY(30px) scale(0.95);
