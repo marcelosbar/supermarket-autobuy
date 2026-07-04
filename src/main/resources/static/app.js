@@ -95,10 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Update password required attribute based on username input
+    const updatePasswordRequiredState = () => {
+        const hasExisting = credentialsStatus.hasUsername && credentialsStatus.hasPassword;
+        const usernameChanged = credUsername.value.trim() !== (credentialsStatus.username || '');
+
+        if (hasExisting && !usernameChanged) {
+            credPassword.required = false;
+            credPassword.placeholder = '•••••••••••• (Leave blank to keep unchanged)';
+        } else {
+            credPassword.required = true;
+            credPassword.placeholder = 'Password (Required)';
+        }
+    };
+
+    credUsername.addEventListener('input', updatePasswordRequiredState);
+
     btnOpenCreds.addEventListener('click', async () => {
         credUsername.value = credentialsStatus.username || '';
         credPassword.value = '';
-        
+        updatePasswordRequiredState();
+
         try {
             const res = await fetch('/api/config/backup-dir');
             if (res.ok) {
@@ -108,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Failed to load backup directory config', err);
         }
-        
+
         credsModal.style.display = 'flex';
     });
 
@@ -125,18 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Determine if credentials need to be updated
         const hasExistingCreds = credentialsStatus.hasUsername && credentialsStatus.hasPassword;
         const credsUnchanged = hasExistingCreds && username === credentialsStatus.username && password === '';
-
-        // If trying to configure for the first time or modifying existing, validation is required
-        if (!credsUnchanged) {
-            if (!username) {
-                await showAlert('Validation Error', 'Username is required.');
-                return;
-            }
-            if (!password) {
-                await showAlert('Validation Error', 'Password is required.');
-                return;
-            }
-        }
 
         try {
             if (!credsUnchanged) {
