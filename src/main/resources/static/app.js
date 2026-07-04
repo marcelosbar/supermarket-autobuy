@@ -95,10 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Update password required attribute based on username input
+    const updatePasswordRequiredState = () => {
+        const hasExisting = credentialsStatus.hasUsername && credentialsStatus.hasPassword;
+        const usernameChanged = credUsername.value.trim() !== (credentialsStatus.username || '');
+
+        if (hasExisting && !usernameChanged) {
+            credPassword.required = false;
+            credPassword.placeholder = '•••••••••••• (Leave blank to keep unchanged)';
+        } else {
+            credPassword.required = true;
+            credPassword.placeholder = 'Password (Required)';
+        }
+    };
+
+    credUsername.addEventListener('input', updatePasswordRequiredState);
+
     btnOpenCreds.addEventListener('click', async () => {
         credUsername.value = credentialsStatus.username || '';
         credPassword.value = '';
-        
+        updatePasswordRequiredState();
+
         try {
             const res = await fetch('/api/config/backup-dir');
             if (res.ok) {
@@ -108,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Failed to load backup directory config', err);
         }
-        
+
         credsModal.style.display = 'flex';
     });
 
@@ -120,23 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = credUsername.value.trim();
         const password = credPassword.value;
         const supermarket = document.getElementById('cred-supermarket').value;
-        const backupDir = configBackupDir.value.trim();
+        const backupDir = configBackupDir.value.trim().replace(/\\/g, '/');
+        configBackupDir.value = backupDir;
 
         // Determine if credentials need to be updated
         const hasExistingCreds = credentialsStatus.hasUsername && credentialsStatus.hasPassword;
         const credsUnchanged = hasExistingCreds && username === credentialsStatus.username && password === '';
-
-        // If trying to configure for the first time or modifying existing, validation is required
-        if (!credsUnchanged) {
-            if (!username) {
-                alert('Username is required.');
-                return;
-            }
-            if (!password) {
-                alert('Password is required.');
-                return;
-            }
-        }
 
         try {
             if (!credsUnchanged) {
@@ -148,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!credRes.ok) {
                     const data = await credRes.json();
-                    alert('Failed to save credentials: ' + (data.message || 'Unknown error'));
+                    await showAlert('Settings Error', 'Failed to save credentials: ' + (data.message || 'Unknown error'));
                     return;
                 }
             }
@@ -165,11 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkCredentialsStatus();
             } else {
                 const data = await backupRes.json();
-                alert('Failed to save backup settings: ' + (data.message || 'Unknown error'));
+                await showAlert('Settings Error', 'Failed to save backup settings: ' + (data.message || 'Unknown error'));
             }
         } catch (err) {
             console.error('Settings submission failed:', err);
-            alert('Error communicating with backend settings API.');
+            await showAlert('Connection Error', 'Error communicating with backend settings API.');
         }
     });
 
@@ -203,11 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
             row.className = 'shopping-item-row';
             row.innerHTML = `
                 <div class="item-info">
-                    <span class="item-name">${escapeHtml(item.query)}</span>
-                    <span class="item-qty-badge">Quantity: ${item.quantity}</span>
+                    <input type="text" class="item-name-input" value="${escapeHtml(item.query)}" onchange="updateItemName(${index}, this.value)" aria-label="Item name" />
                 </div>
                 <div class="row-actions">
                     <button class="btn btn-secondary btn-small" onclick="adjustItemQty(${index}, -1)">-</button>
+                    <input type="number" class="item-qty-input" value="${item.quantity}" min="1" max="100" onchange="setItemQty(${index}, this.value)" aria-label="Item quantity" />
                     <button class="btn btn-secondary btn-small" onclick="adjustItemQty(${index}, 1)">+</button>
                     <button class="btn-trash" onclick="removeShoppingItem(${index})" title="Delete item">🗑️</button>
                 </div>
@@ -216,10 +222,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    globalThis.updateItemName = (index, newName) => {
+        newName = newName.trim();
+        if (!newName) {
+            // Restore original name if input was cleared
+            renderShoppingList();
+            return;
+        }
+        shoppingList[index].query = newName;
+        saveShoppingListToServer();
+    };
+
+    globalThis.setItemQty = (index, value) => {
+        let qty = Number.parseInt(value, 10);
+        if (Number.isNaN(qty) || qty < 1) {
+            qty = 1;
+        } else if (qty > 100) {
+            qty = 100;
+        }
+        shoppingList[index].quantity = qty;
+        renderShoppingList();
+        saveShoppingListToServer();
+    };
+
     globalThis.adjustItemQty = (index, delta) => {
         const item = shoppingList[index];
         const newQty = item.quantity + delta;
-        if (newQty >= 1) {
+        if (newQty >= 1 && newQty <= 100) {
             shoppingList[index] = { ...item, quantity: newQty };
             renderShoppingList();
             saveShoppingListToServer();
@@ -321,14 +350,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     globalThis.deleteMapping = async (id) => {
-        if (!confirm('Are you sure you want to delete this product SKU mapping?')) return;
+        if (!await showConfirm('Delete Mapping', 'Are you sure you want to delete this product SKU mapping?', true)) return;
         try {
             const res = await fetch(`/api/mappings/${id}`, { method: 'DELETE' });
             if (res.ok) {
                 addConsoleLog('INFO', `Deleted product mapping ID ${id}`);
                 loadMappings();
             } else {
-                alert('Failed to delete mapping.');
+                await showAlert('Delete Error', 'Failed to delete mapping.');
             }
         } catch (err) {
             console.error(err);
@@ -362,12 +391,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const headless = runHeadless.checked;
 
         if (shoppingList.length === 0) {
-            alert('Your shopping list is empty. Add items first!');
+            await showAlert('Empty List', 'Your shopping list is empty. Add items first!');
             return;
         }
 
         if (!credentialsStatus.hasUsername || !credentialsStatus.hasPassword) {
-            alert('Please configure your supermarket credentials first!');
+            await showAlert('Credentials Required', 'Please configure your supermarket credentials first!');
             return;
         }
 
@@ -384,18 +413,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 startStatusPolling();
             } else {
                 const data = await res.json();
-                alert('Failed to start: ' + (data.message || 'Unknown error'));
+                await showAlert('Execution Error', 'Failed to start: ' + (data.message || 'Unknown error'));
                 btnStartRun.disabled = false;
             }
         } catch (err) {
             console.error('Launch execution failed:', err);
-            alert('Failed to trigger execution.');
+            await showAlert('Execution Error', 'Failed to trigger execution.');
             btnStartRun.disabled = false;
         }
     });
 
     btnCancelRun.addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to cancel the scraper execution?')) return;
+        if (!await showConfirm('Cancel Execution', 'Are you sure you want to cancel the scraper execution?', true)) return;
         try {
             const res = await fetch('/api/autobuy/cancel', { method: 'POST' });
             if (res.ok) {
@@ -544,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 resolveModal.style.display = 'none';
                 addConsoleLog('INFO', `Mapped query to product SKU: ${externalId}`);
             } else {
-                alert('Failed to resolve mapping.');
+                await showAlert('Mapping Error', 'Failed to resolve mapping.');
             }
         } catch (err) {
             console.error(err);
@@ -594,24 +623,33 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const statusRes = await fetch('/api/autobuy/backup-status');
                 let proceed = true;
+                let isConfigured = false;
 
                 if (statusRes.ok) {
                     const statusData = await statusRes.json();
-                    if (statusData.isConfigured) {
-                        proceed = confirm(
+                    isConfigured = statusData.isConfigured;
+                    if (isConfigured) {
+                        proceed = await showConfirm(
+                            "Shutdown Application",
                             "Are you sure you want to shut down the application?\n\n" +
                             "This will save a database backup to:\n" + statusData.backupDir + "\n\n" +
                             "and stop the application server."
                         );
                     } else {
-                        proceed = confirm(
-                            "Warning: A custom backup folder (e.g., OneDrive) is not configured.\n\n" +
-                            "Your database will only be backed up locally in the './data/backups' folder.\n\n" +
-                            "Do you want to proceed with shutdown anyway?"
+                        proceed = await showConfirm(
+                            "Shutdown Application",
+                            "Are you sure you want to shut down the application?\n\n" +
+                            "Warning: No backup directory is configured. The database backup will be SKIPPED.\n\n" +
+                            "Do you want to proceed with shutdown anyway?",
+                            true
                         );
                     }
                 } else {
-                    proceed = confirm("Are you sure you want to shut down the application and close the server?");
+                    proceed = await showConfirm(
+                        "Shutdown Application",
+                        "Are you sure you want to shut down the application and close the server?",
+                        true
+                    );
                 }
 
                 if (!proceed) {
@@ -622,18 +660,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const shutdownRes = await fetch('/api/shutdown', { method: 'POST' });
 
                 if (shutdownRes.ok) {
+                    const shutdownMessage = document.getElementById('shutdown-message');
+                    if (shutdownMessage) {
+                        if (isConfigured) {
+                            shutdownMessage.textContent = "The application has been shut down gracefully and the database backup has been created.";
+                        } else {
+                            shutdownMessage.textContent = "The application has been shut down gracefully.";
+                        }
+                    }
                     shutdownOverlay.style.display = 'flex';
                     if (pollIntervalId) {
                         clearInterval(pollIntervalId);
                     }
                 } else {
-                    alert("Failed to initiate shutdown.");
+                    await showAlert('Shutdown Error', "Failed to initiate shutdown.");
                     btnShutdown.disabled = false;
                 }
-
             } catch (err) {
                 console.error("Shutdown failed:", err);
-                alert("Error communicating with shutdown API.");
+                await showAlert('Shutdown Error', "Error communicating with shutdown API.");
             }
         });
     }
@@ -650,15 +695,96 @@ document.addEventListener('DOMContentLoaded', () => {
                     configBackupDir.value = data.path;
                     addConsoleLog('SUCCESS', `Selected database backup directory: ${data.path}`);
                 } else if (data.message !== 'Selection cancelled') {
-                    alert('Failed to select folder: ' + (data.message || 'Unknown error'));
+                    await showAlert('Directory Error', 'Failed to select folder: ' + (data.message || 'Unknown error'));
                 }
             } catch (err) {
                 console.error('Failed to open native folder picker', err);
-                alert('Error communicating with native directory picker.');
+                await showAlert('Directory Error', 'Error communicating with native directory picker.');
             } finally {
                 btnBrowseBackup.disabled = false;
                 btnBrowseBackup.textContent = 'Browse...';
             }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // CUSTOM IN-APP DIALOG UTILITIES
+    // -------------------------------------------------------------
+
+    function showAlert(title, message) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('custom-dialog-modal');
+            const titleEl = document.getElementById('dialog-title');
+            const messageEl = document.getElementById('dialog-message');
+            const cancelBtn = document.getElementById('btn-dialog-cancel');
+            const closeBtn = document.getElementById('btn-close-dialog-modal');
+            const okBtn = document.getElementById('btn-dialog-ok');
+
+            titleEl.textContent = title;
+            messageEl.innerHTML = message.replaceAll('\n', '<br>');
+            
+            cancelBtn.style.display = 'none'; // Alerts do not have a cancel option
+            okBtn.className = 'btn btn-primary';
+            okBtn.textContent = 'OK';
+
+            const cleanup = () => {
+                modal.style.display = 'none';
+                okBtn.removeEventListener('click', onClose);
+                closeBtn.removeEventListener('click', onClose);
+            };
+
+            const onClose = () => {
+                cleanup();
+                resolve();
+            };
+
+            okBtn.addEventListener('click', onClose);
+            closeBtn.addEventListener('click', onClose);
+
+            modal.style.display = 'flex';
+        });
+    }
+
+    function showConfirm(title, message, isDanger = false) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('custom-dialog-modal');
+            const titleEl = document.getElementById('dialog-title');
+            const messageEl = document.getElementById('dialog-message');
+            const cancelBtn = document.getElementById('btn-dialog-cancel');
+            const closeBtn = document.getElementById('btn-close-dialog-modal');
+            const okBtn = document.getElementById('btn-dialog-ok');
+
+            titleEl.textContent = title;
+            messageEl.innerHTML = message.replaceAll('\n', '<br>');
+            
+            cancelBtn.style.display = 'inline-flex';
+            cancelBtn.textContent = 'Cancel';
+            
+            okBtn.textContent = 'Confirm';
+            okBtn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+
+            const cleanup = () => {
+                modal.style.display = 'none';
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                closeBtn.removeEventListener('click', onCancel);
+            };
+
+            const onOk = () => {
+                cleanup();
+                resolve(true);
+            };
+
+            const onCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            closeBtn.addEventListener('click', onCancel);
+
+            modal.style.display = 'flex';
         });
     }
 

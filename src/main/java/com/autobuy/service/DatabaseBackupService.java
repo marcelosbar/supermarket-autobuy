@@ -27,7 +27,7 @@ public class DatabaseBackupService {
 
 	private final JdbcTemplate jdbcTemplate;
 
-	@Value("${autobuy.backup-dir:./data/backups}")
+	@Value("${autobuy.backup-dir:#{null}}")
 	private String backupDir;
 
 	@Value("${autobuy.backup.max-history:10}")
@@ -42,6 +42,9 @@ public class DatabaseBackupService {
 	 */
 	@PostConstruct
 	public void validateBackupDir() {
+		if (backupDir != null) {
+			backupDir = backupDir.replace('\\', '/');
+		}
 		if (backupDir == null || backupDir.isEmpty()) {
 			return;
 		}
@@ -49,15 +52,14 @@ public class DatabaseBackupService {
 		// C:/Users or C:\Users)
 		if (backupDir.matches("^[a-zA-Z]:[^\\\\/].*")) {
 			String message = String.format("The backup directory '%s' appears to have backslash escaping issues. "
-					+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
-					+ "Please check secrets.properties or application.properties.", backupDir);
+					+ "Please write the path using forward slashes (e.g., C:/Users/...) or double backslashes (e.g., C:\\\\Users\\\\...).",
+					backupDir);
 			throw new AutoBuyException(message);
 		} else if (backupDir.contains("Users") && !backupDir.contains("/") && !backupDir.contains("\\")) {
 			// E.g., UsersmarceOneDrive...
 			String message = String.format(
 					"The backup directory '%s' appears to have backslash escaping issues (contains 'Users' but no path separators). "
-							+ "In Java .properties files, backslashes must be escaped (\\\\) or replaced with forward slashes (/). "
-							+ "Please check secrets.properties or application.properties.",
+							+ "Please write the path using forward slashes (e.g., C:/Users/...) or double backslashes (e.g., C:\\\\Users\\\\...).",
 					backupDir);
 			throw new AutoBuyException(message);
 		}
@@ -68,7 +70,7 @@ public class DatabaseBackupService {
 	}
 
 	public synchronized void setBackupDir(String backupDir) {
-		this.backupDir = backupDir;
+		this.backupDir = (backupDir != null) ? backupDir.replace('\\', '/') : null;
 		validateBackupDir();
 	}
 
@@ -79,6 +81,10 @@ public class DatabaseBackupService {
 	@PreDestroy
 	@SuppressWarnings("java:S2077")
 	public void performBackup() {
+		if (backupDir == null || backupDir.trim().isEmpty()) {
+			log.info("Database backup is disabled because no backup directory is configured.");
+			return;
+		}
 		log.info("Initiating database snapshot backup...");
 
 		File directory = new File(backupDir);

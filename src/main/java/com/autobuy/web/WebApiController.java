@@ -50,7 +50,6 @@ public class WebApiController {
 	private static final String SUCCESS_KEY = "success";
 	private static final String MESSAGE_KEY = "message";
 	private static final String BACKUP_DIR_KEY = "backupDir";
-	private static final String DEFAULT_BACKUP_DIR = "./data/backups";
 	private static final String DEFAULT_SUPERMARKET = "CONTINENTE";
 
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
@@ -248,7 +247,7 @@ public class WebApiController {
 			}
 
 			if (databaseBackupService != null) {
-				databaseBackupService.setBackupDir(resolvedPath != null ? resolvedPath : DEFAULT_BACKUP_DIR);
+				databaseBackupService.setBackupDir(resolvedPath);
 			}
 
 			Map<String, Object> response = new HashMap<>();
@@ -266,9 +265,8 @@ public class WebApiController {
 	@GetMapping("/autobuy/backup-status")
 	public ResponseEntity<Map<String, Object>> getBackupStatus() {
 		Map<String, Object> status = new HashMap<>();
-		String currentDir = (databaseBackupService != null) ? databaseBackupService.getBackupDir() : DEFAULT_BACKUP_DIR;
-		boolean isConfigured = currentDir != null && !currentDir.trim().isEmpty()
-				&& !currentDir.equals(DEFAULT_BACKUP_DIR);
+		String currentDir = (databaseBackupService != null) ? databaseBackupService.getBackupDir() : null;
+		boolean isConfigured = currentDir != null && !currentDir.trim().isEmpty();
 		status.put(BACKUP_DIR_KEY, currentDir != null ? currentDir : "");
 		status.put("isConfigured", isConfigured);
 		return ResponseEntity.ok(status);

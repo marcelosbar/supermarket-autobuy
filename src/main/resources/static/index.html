@@ -154,7 +154,7 @@
                     </div>
                     <div class="form-group">
                         <label for="cred-username">Username / Email</label>
-                        <input type="email" id="cred-username" placeholder="name@example.com" autocomplete="email">
+                        <input type="email" id="cred-username" placeholder="name@example.com" autocomplete="email" required>
                     </div>
                     <div class="form-group">
                         <label for="cred-password">Password</label>
@@ -162,13 +162,13 @@
                     </div>
                     <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
                         <div class="form-group">
-                            <label for="config-backup-dir">Database Backup Directory (e.g. OneDrive)</label>
+                            <label for="config-backup-dir">Database Backup Directory</label>
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <input type="text" id="config-backup-dir" placeholder="C:/Users/username/OneDrive/SupermarketBackup" autocomplete="off" style="flex-grow: 1;">
+                                <input type="text" id="config-backup-dir" placeholder="C:/path/to/backup" autocomplete="off" style="flex-grow: 1;">
                                 <button type="button" class="btn btn-secondary" id="btn-browse-backup" style="white-space: nowrap; padding: 0.72rem 1.25rem;">Browse...</button>
                             </div>
-                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem; display: block;">
-                                Use forward slashes (/) or double backslashes (\\). Leave blank to use default.
+                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem; display: block; line-height: 1.4;">
+                                ℹ️ Optional. If left blank, database backup is skipped on shutdown.
                             </small>
                         </div>
                     </div>
@@ -219,13 +219,30 @@
         </div>
     </div>
 
+    <!-- DYNAMIC IN-APP DIALOG MODAL -->
+    <div class="modal-overlay" id="custom-dialog-modal" style="display: none; z-index: 10000;">
+        <div class="modal-card dialog-card">
+            <div class="modal-header">
+                <h2 id="dialog-title">Notification</h2>
+                <button class="modal-close" id="btn-close-dialog-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="dialog-message" style="margin-bottom: 1.5rem; line-height: 1.6; font-size: 0.9375rem; color: var(--text-main);">
+                <!-- Dynamic Message goes here -->
+            </div>
+            <div class="modal-footer" id="dialog-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button class="btn btn-secondary" id="btn-dialog-cancel">Cancel</button>
+                <button class="btn btn-primary" id="btn-dialog-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SHUTDOWN SCREEN OVERLAY -->
     <div class="modal-overlay" id="shutdown-overlay" style="display: none; z-index: 9999;">
         <div class="modal-card" style="max-width: 450px; text-align: center;">
             <div class="modal-body" style="padding: 2.5rem 1.5rem;">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">🔌</div>
                 <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--color-danger);">Server Stopped</h3>
-                <p style="color: var(--text-main); margin-bottom: 1rem;">The application has been shut down gracefully and the database backup has been created.</p>
+                <p id="shutdown-message" style="color: var(--text-main); margin-bottom: 1rem;">The application has been shut down gracefully.</p>
                 <p style="color: var(--text-muted); font-size: 0.875rem;">You can now safely close this browser tab.</p>
             </div>
         </div>

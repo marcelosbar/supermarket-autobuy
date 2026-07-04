@@ -394,22 +394,73 @@ input:focus, select:focus {
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
+    flex-grow: 1;
+    margin-right: 1rem;
 }
 
-.item-name {
+.item-name-input {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-main);
+    font-family: var(--font-sans);
     font-size: 0.9375rem;
     font-weight: 500;
+    padding: 0.375rem 0.5rem;
+    border-radius: var(--radius-sm);
+    width: 100%;
+    transition: var(--transition-smooth);
 }
 
-.item-qty-badge {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    font-weight: 600;
+.item-name-input:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.item-name-input:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-focus);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+    outline: none;
 }
 
 .row-actions {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
+}
+
+.item-qty-input {
+    width: 48px;
+    height: 30px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-glass);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-smooth);
+    -moz-appearance: textfield; /* Hide spinner in Firefox */
+}
+
+.item-qty-input::-webkit-outer-spin-button,
+.item-qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.item-qty-input:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.item-qty-input:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-focus);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+    outline: none;
 }
 
 .btn-trash {
@@ -756,6 +807,10 @@ input:focus, select:focus {
 
 .modal-large {
     max-width: 900px;
+}
+
+.dialog-card {
+    max-width: 420px;
 }
 
 @keyframes modal-enter {
