@@ -27,7 +27,7 @@ public class DatabaseBackupService {
 
 	private final JdbcTemplate jdbcTemplate;
 
-	@Value("${autobuy.backup-dir:./data/backups}")
+	@Value("${autobuy.backup-dir:#{null}}")
 	private String backupDir;
 
 	@Value("${autobuy.backup.max-history:10}")
@@ -79,6 +79,10 @@ public class DatabaseBackupService {
 	@PreDestroy
 	@SuppressWarnings("java:S2077")
 	public void performBackup() {
+		if (backupDir == null || backupDir.trim().isEmpty()) {
+			log.info("Database backup is disabled because no backup directory is configured.");
+			return;
+		}
 		log.info("Initiating database snapshot backup...");
 
 		File directory = new File(backupDir);

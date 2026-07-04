@@ -628,8 +628,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
                     } else {
                         proceed = confirm(
-                            "Warning: A custom backup folder (e.g., OneDrive) is not configured.\n\n" +
-                            "Your database will only be backed up locally in the './data/backups' folder.\n\n" +
+                            "Are you sure you want to shut down the application?\n\n" +
+                            "Warning: No backup directory is configured. The database backup will be SKIPPED.\n\n" +
                             "Do you want to proceed with shutdown anyway?"
                         );
                     }
