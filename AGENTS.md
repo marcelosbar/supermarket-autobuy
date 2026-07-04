@@ -29,3 +29,9 @@
 ## 4. Git Commit Guidelines
 * **Conventional Commits:** Always write commit messages following the Conventional Commits specification (e.g., `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`).
 
+## 5. Design Principles
+* **Minimize Interruptions:** Any action that requires user input should be deferred and batched. Front-load decisions; back-load automation.
+  * **Pre-run:** resolve unknowns (unmapped items) up front before the automated loop begins.
+  * **Post-run:** resolve exceptions (unavailable products) at the end in batch.
+  * **Mid-run:** interruptions should only happen when there is genuinely no other option.
+

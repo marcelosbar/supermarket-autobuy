@@ -230,7 +230,8 @@ public class AutoBuyWebService {
 	private void processShoppingList(SupermarketDriver driver, List<ShoppingItem> shoppingList,
 			String targetSupermarket) {
 		try {
-			for (ShoppingItem item : shoppingList) {
+			List<ShoppingItem> orderedList = partitionByMappingStatus(shoppingList, targetSupermarket);
+			for (ShoppingItem item : orderedList) {
 				if (Thread.currentThread().isInterrupted() || state == AutoBuyState.FAILED) {
 					break;
 				}
@@ -257,6 +258,26 @@ public class AutoBuyWebService {
 			log.error("Unexpected error in background auto-buy run", e);
 			updateStateFailure("Unexpected execution error: " + e.getMessage());
 		}
+	}
+
+	private List<ShoppingItem> partitionByMappingStatus(List<ShoppingItem> items, String supermarket) {
+		List<ShoppingItem> unmapped = new ArrayList<>();
+		List<ShoppingItem> mapped = new ArrayList<>();
+		for (ShoppingItem item : items) {
+			boolean hasMappingInDB = productService
+					.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), supermarket).isPresent();
+			if (hasMappingInDB) {
+				mapped.add(item);
+			} else {
+				unmapped.add(item);
+			}
+		}
+		if (!unmapped.isEmpty()) {
+			log.info("Reordering queue: {} unmapped items will be processed first.", unmapped.size());
+		}
+		List<ShoppingItem> ordered = new ArrayList<>(unmapped);
+		ordered.addAll(mapped);
+		return ordered;
 	}
 
 	private void processShoppingItem(SupermarketDriver driver, ShoppingItem item, String targetSupermarket)
