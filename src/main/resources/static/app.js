@@ -526,9 +526,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (status.state === 'AWAITING_FINAL_REVIEW') {
-            reviewModal.style.display = 'flex';
+            if (reviewModal.style.display !== 'flex') {
+                renderReviewModal(status);
+                reviewModal.style.display = 'flex';
+            }
         } else {
             reviewModal.style.display = 'none';
+        }
+    }
+
+    function renderReviewModal(status) {
+        const reviewModalBody = document.getElementById('review-modal-body');
+        if (!reviewModalBody) return;
+
+        if (status.skippedItems && status.skippedItems.length > 0) {
+            let skippedListHtml = status.skippedItems.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+            reviewModalBody.innerHTML = `
+                <div class="success-checkmark-icon" style="animation: none; color: var(--color-danger);">⚠️</div>
+                <h3 style="color: var(--color-danger); margin-bottom: 0.5rem;">Run completed with skipped items</h3>
+                <p class="review-desc" style="margin-bottom: 0.5rem;">Some items could not be added because they are unavailable:</p>
+                <div style="text-align: left; max-height: 150px; overflow-y: auto; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin: 0.75rem 0;">
+                    <ul style="margin: 0; padding-left: 1.25rem; color: var(--text-main); font-size: 0.875rem; line-height: 1.4;">
+                        ${skippedListHtml}
+                    </ul>
+                </div>
+                <p class="review-desc">Please review your shopping cart inside the opened browser window. You can complete the checkout manually if desired.</p>
+                <p class="review-warning">Once you are ready, click "Complete Run" to close the automation browser safely.</p>
+            `;
+        } else {
+            reviewModalBody.innerHTML = `
+                <div class="success-checkmark-icon">🎉</div>
+                <h3>All items added to cart!</h3>
+                <p class="review-desc">Please review your shopping cart inside the opened browser window. You can complete the checkout manually if desired.</p>
+                <p class="review-warning">Once you are ready, click "Complete Run" to close the automation browser safely.</p>
+            `;
         }
     }
 

@@ -93,6 +93,9 @@ The auto-buy run is designed around a **front-load decisions, back-load automati
 | **Main run** | Mapped items are processed automatically. | None — fully automated. |
 | **Post-run** | Exceptions (e.g. unavailable products) are batched for review. | User reviews and resolves at the end. |
 
+### Product Unavailability Handling
+If a product is out of stock (either its mapped SKU is not found in the store search or is flagged as out of stock) or if the automation fails to add it to the cart, the system logs a `WARN` message and records the item as skipped. Skipped items are displayed in a dedicated "Skipped Items (Unavailable)" section at the end of the run on the web dashboard.
+
 ---
 
 ## Database Migrations (Flyway)

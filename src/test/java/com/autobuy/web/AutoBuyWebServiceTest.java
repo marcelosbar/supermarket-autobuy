@@ -52,6 +52,7 @@ class AutoBuyWebServiceTest {
 		taskExecutor.initialize();
 
 		when(supermarketDriver.getSupermarketName()).thenReturn("CONTINENTE");
+		when(supermarketDriver.isProductAvailable(anyString())).thenReturn(true);
 
 		service = new AutoBuyWebService(productService, priceHistoryService, List.of(supermarketDriver),
 				credentialProvider, shoppingListProvider, taskExecutor);
@@ -483,5 +484,90 @@ class AutoBuyWebServiceTest {
 		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
 		inOrder.verify(supermarketDriver).searchProduct("skuD");
 		inOrder.verify(supermarketDriver).addProductToCart("skuD", 4);
+	}
+
+	@Test
+	void testStartAutoBuy_MappedSkuNotFound() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mapping));
+		// Mock SKU search returning empty list -> SKU not found
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of());
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Should transition straight to final review without pausing for mapping
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		var status = service.getStatus();
+		assertEquals(1, status.skippedItems().size());
+		assertEquals("apples", status.skippedItems().get(0));
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_MappedSkuUnavailable() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mapping));
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of(searchResult));
+		// Mock SKU unavailable
+		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(false);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Should transition straight to final review without pausing for mapping
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		var status = service.getStatus();
+		assertEquals(1, status.skippedItems().size());
+		assertEquals("apples", status.skippedItems().get(0));
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_CartAddFailure() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mapping));
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of(searchResult));
+		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(true);
+		// Mock cart add failure
+		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(false);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Should transition straight to final review
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		var status = service.getStatus();
+		assertEquals(1, status.skippedItems().size());
+		assertEquals("apples", status.skippedItems().get(0));
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
 	}
 }

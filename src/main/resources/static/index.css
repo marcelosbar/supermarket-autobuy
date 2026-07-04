@@ -1008,3 +1008,36 @@ input:focus, select:focus {
     font-size: 0.875rem;
     color: var(--text-muted);
 }
+
+/* SKIPPED ITEMS BOX */
+.skipped-items-box {
+    background: rgba(244, 63, 94, 0.05);
+    border: 1px solid rgba(244, 63, 94, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.skipped-items-box h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-danger);
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.skipped-items-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--text-main);
+    font-size: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.skipped-items-list li {
+    line-height: 1.4;
+}

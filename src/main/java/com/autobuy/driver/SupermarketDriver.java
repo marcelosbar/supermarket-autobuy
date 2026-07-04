@@ -49,6 +49,16 @@ public interface SupermarketDriver {
 	boolean addProductToCart(String externalId, int quantity);
 
 	/**
+	 * Checks if a product is available (e.g. in stock, purchasable) without adding
+	 * it.
+	 *
+	 * @param externalId
+	 *            The supermarket-specific product ID/SKU
+	 * @return true if the product is available, false otherwise
+	 */
+	boolean isProductAvailable(String externalId);
+
+	/**
 	 * Closes browser resources and clean up sessions.
 	 */
 	void close();
