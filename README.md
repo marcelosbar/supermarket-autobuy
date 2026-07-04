@@ -58,7 +58,7 @@ Then, open your browser and navigate to:
 **`http://localhost:8080`**
 
 From this premium single-page dashboard, you can:
-* Manage items in your shopping list directly with instant saving.
+* Manage items in your shopping list directly with instant saving (including inline name and quantity editing).
 * Configure and save credentials securely without manual properties file edits.
 * View and delete product mappings from the local database.
 * Execute active shopping runs, monitor progress via logs, select product matches interactively via modal cards, and close the session when done.

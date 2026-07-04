@@ -203,11 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
             row.className = 'shopping-item-row';
             row.innerHTML = `
                 <div class="item-info">
-                    <span class="item-name">${escapeHtml(item.query)}</span>
-                    <span class="item-qty-badge">Quantity: ${item.quantity}</span>
+                    <input type="text" class="item-name-input" value="${escapeHtml(item.query)}" onchange="updateItemName(${index}, this.value)" aria-label="Item name" />
                 </div>
                 <div class="row-actions">
                     <button class="btn btn-secondary btn-small" onclick="adjustItemQty(${index}, -1)">-</button>
+                    <input type="number" class="item-qty-input" value="${item.quantity}" min="1" max="100" onchange="setItemQty(${index}, this.value)" aria-label="Item quantity" />
                     <button class="btn btn-secondary btn-small" onclick="adjustItemQty(${index}, 1)">+</button>
                     <button class="btn-trash" onclick="removeShoppingItem(${index})" title="Delete item">🗑️</button>
                 </div>
@@ -216,10 +216,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    globalThis.updateItemName = (index, newName) => {
+        newName = newName.trim();
+        if (!newName) {
+            // Restore original name if input was cleared
+            renderShoppingList();
+            return;
+        }
+        shoppingList[index].query = newName;
+        saveShoppingListToServer();
+    };
+
+    globalThis.setItemQty = (index, value) => {
+        let qty = Number.parseInt(value, 10);
+        if (Number.isNaN(qty) || qty < 1) {
+            qty = 1;
+        } else if (qty > 100) {
+            qty = 100;
+        }
+        shoppingList[index].quantity = qty;
+        renderShoppingList();
+        saveShoppingListToServer();
+    };
+
     globalThis.adjustItemQty = (index, delta) => {
         const item = shoppingList[index];
         const newQty = item.quantity + delta;
-        if (newQty >= 1) {
+        if (newQty >= 1 && newQty <= 100) {
             shoppingList[index] = { ...item, quantity: newQty };
             renderShoppingList();
             saveShoppingListToServer();
