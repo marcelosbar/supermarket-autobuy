@@ -137,7 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = credUsername.value.trim();
         const password = credPassword.value;
         const supermarket = document.getElementById('cred-supermarket').value;
-        const backupDir = configBackupDir.value.trim();
+        const backupDir = configBackupDir.value.trim().replace(/\\/g, '/');
+        configBackupDir.value = backupDir;
 
         // Determine if credentials need to be updated
         const hasExistingCreds = credentialsStatus.hasUsername && credentialsStatus.hasPassword;

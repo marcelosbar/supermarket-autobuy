@@ -42,6 +42,9 @@ public class DatabaseBackupService {
 	 */
 	@PostConstruct
 	public void validateBackupDir() {
+		if (backupDir != null) {
+			backupDir = backupDir.replace('\\', '/');
+		}
 		if (backupDir == null || backupDir.isEmpty()) {
 			return;
 		}
@@ -67,7 +70,7 @@ public class DatabaseBackupService {
 	}
 
 	public synchronized void setBackupDir(String backupDir) {
-		this.backupDir = backupDir;
+		this.backupDir = (backupDir != null) ? backupDir.replace('\\', '/') : null;
 		validateBackupDir();
 	}
 
