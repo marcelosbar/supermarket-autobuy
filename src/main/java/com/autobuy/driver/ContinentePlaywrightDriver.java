@@ -36,6 +36,7 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 	private static final String MINICART_LINK_SELECTOR = ".minicart-link:visible";
 	private static final String VALUE_ATTR = "value";
 	private static final String ARIA_VALUENOW_ATTR = "aria-valuenow";
+	private static final String PRODUCT_TILE_SELECTOR_FORMAT = "div[data-pid='%s'], .product-tile[data-pid='%s']";
 
 	@Override
 	public String getSupermarketName() {
@@ -540,15 +541,11 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 		log.info("Checking availability for SKU {}...", externalId);
 		try {
 			// Find the product tile by data-pid
-			Locator tile = page
-					.locator(String.format("div[data-pid='%s'], .product-tile[data-pid='%s']", externalId, externalId))
-					.first();
+			Locator tile = page.locator(String.format(PRODUCT_TILE_SELECTOR_FORMAT, externalId, externalId)).first();
 			if (!tile.isVisible()) {
 				// Try searching for it first to get it on screen
 				searchProduct(externalId);
-				tile = page.locator(
-						String.format("div[data-pid='%s'], .product-tile[data-pid='%s']", externalId, externalId))
-						.first();
+				tile = page.locator(String.format(PRODUCT_TILE_SELECTOR_FORMAT, externalId, externalId)).first();
 			}
 
 			if (!tile.isVisible()) {
@@ -585,15 +582,11 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 		log.info("Adding product SKU {} (quantity={}) to cart...", externalId, quantity);
 		try {
 			// Find the product tile by data-pid
-			Locator tile = page
-					.locator(String.format("div[data-pid='%s'], .product-tile[data-pid='%s']", externalId, externalId))
-					.first();
+			Locator tile = page.locator(String.format(PRODUCT_TILE_SELECTOR_FORMAT, externalId, externalId)).first();
 			if (!tile.isVisible()) {
 				// Try searching for it first to get it on screen
 				searchProduct(externalId);
-				tile = page.locator(
-						String.format("div[data-pid='%s'], .product-tile[data-pid='%s']", externalId, externalId))
-						.first();
+				tile = page.locator(String.format(PRODUCT_TILE_SELECTOR_FORMAT, externalId, externalId)).first();
 			}
 
 			if (!tile.isVisible()) {

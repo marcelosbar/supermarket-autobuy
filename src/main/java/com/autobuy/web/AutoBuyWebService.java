@@ -291,10 +291,31 @@ public class AutoBuyWebService {
 
 		log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
 
+		SearchResult selectedProduct = resolveProduct(driver, item, targetSupermarket);
+		if (selectedProduct == null) {
+			return;
+		}
+
+		// Log Price and Add to Cart
+		try {
+			priceHistoryService.logPrice(selectedProduct, targetSupermarket);
+			log.info("Logged price for {}: {} €", selectedProduct.name(), selectedProduct.price());
+		} catch (Exception e) {
+			log.error("Failed to log price history", e);
+		}
+		boolean success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
+		if (success) {
+			log.info("SUCCESS: Added {}x '{}' to cart.", item.quantity(), selectedProduct.name());
+		} else {
+			log.warn("SKIPPED: '{}' is unavailable — not added to cart.", selectedProduct.name());
+			recordSkippedItem(item.query());
+		}
+	}
+
+	private SearchResult resolveProduct(SupermarketDriver driver, ShoppingItem item, String targetSupermarket)
+			throws InterruptedException {
 		Optional<ProductMapping> mappingOpt = productService
 				.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
-
-		SearchResult selectedProduct = null;
 
 		if (mappingOpt.isPresent()) {
 			ProductMapping mapping = mappingOpt.get();
@@ -305,7 +326,7 @@ public class AutoBuyWebService {
 				log.warn("Product '{}' (SKU: {}) is currently unavailable. Skipping.", item.query(),
 						mapping.getExternalProductId());
 				recordSkippedItem(item.query());
-				return;
+				return null;
 			}
 
 			SearchResult result = skuResults.get(0);
@@ -313,24 +334,24 @@ public class AutoBuyWebService {
 				log.warn("Product '{}' (SKU: {}) is currently unavailable. Skipping.", item.query(),
 						result.externalId());
 				recordSkippedItem(item.query());
-				return;
+				return null;
 			}
 
-			selectedProduct = result;
+			return result;
 		} else {
 			log.info("No mapping found for query '{}'. Performing store search...", item.query());
 			List<SearchResult> searchResultsList = driver.searchProduct(item.query());
 			if (searchResultsList.isEmpty()) {
 				log.warn("No products found for query '{}'. Skipping.", item.query());
 				recordSkippedItem(item.query());
-				return;
+				return null;
 			}
 
 			// Pause and wait for Web UI selection
-			selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
+			SearchResult selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
 			if (selectedProduct == null) {
 				log.info("Skipped item '{}' on user mapping prompt.", item.query());
-				return;
+				return null;
 			}
 
 			// Save new mapping and product details
@@ -340,23 +361,7 @@ public class AutoBuyWebService {
 			} catch (Exception e) {
 				log.error("Failed to save product mapping", e);
 			}
-		}
-
-		// Log Price and Add to Cart
-		if (selectedProduct != null) {
-			try {
-				priceHistoryService.logPrice(selectedProduct, targetSupermarket);
-				log.info("Logged price for {}: {} €", selectedProduct.name(), selectedProduct.price());
-			} catch (Exception e) {
-				log.error("Failed to log price history", e);
-			}
-			boolean success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
-			if (success) {
-				log.info("SUCCESS: Added {}x '{}' to cart.", item.quantity(), selectedProduct.name());
-			} else {
-				log.warn("SKIPPED: '{}' is unavailable — not added to cart.", selectedProduct.name());
-				recordSkippedItem(item.query());
-			}
+			return selectedProduct;
 		}
 	}
 
