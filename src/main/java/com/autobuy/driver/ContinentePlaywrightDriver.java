@@ -24,6 +24,7 @@ import java.util.List;
 public class ContinentePlaywrightDriver implements SupermarketDriver {
 
 	private static final Logger log = LoggerFactory.getLogger(ContinentePlaywrightDriver.class);
+	private static final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
 	private Playwright playwright;
 	private Browser browser;
@@ -455,7 +456,7 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 			Locator titleLink = tile
 					.locator(".ct-pdp-link a, a.pdp-link, .ct-tile--title a, .ct-pdp-link, .ct-tile--title").first();
 			String name = extractProductName(titleLink);
-			String url = extractProductUrl(titleLink);
+			String url = extractProductUrl(titleLink, tile);
 			String brand = extractProductBrand(tile, name);
 			BigDecimal priceValue = extractProductPrice(tile, name);
 			String category = "Supermercado";
@@ -486,18 +487,45 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 		return "";
 	}
 
-	private String extractProductUrl(Locator titleLink) {
-		String url = BASE_URL;
-		if (titleLink.count() > 0 && titleLink.getAttribute("href") != null) {
-			url = titleLink.getAttribute("href");
-			if (!url.startsWith("http")) {
-				url = BASE_URL + url;
-			}
+	private String extractProductUrl(Locator titleLink, Locator tile) {
+		String href = findHref(titleLink, tile);
+		if (href == null || href.isBlank()) {
+			return BASE_URL;
 		}
-		return url;
+		if (!href.startsWith("http")) {
+			return BASE_URL + href;
+		}
+		return href;
+	}
+
+	private String findHref(Locator titleLink, Locator tile) {
+		if (titleLink.count() == 0) {
+			return null;
+		}
+		String href = titleLink.getAttribute("href");
+		if (href != null && !href.isBlank()) {
+			return href;
+		}
+		Locator anchor = titleLink.locator("a").first();
+		if (anchor.count() > 0) {
+			return anchor.getAttribute("href");
+		}
+		anchor = tile.locator("a[href]").first();
+		if (anchor.count() > 0) {
+			return anchor.getAttribute("href");
+		}
+		return null;
 	}
 
 	private String extractProductBrand(Locator tile, String name) {
+		Locator productTile = tile.locator(".product-tile").first();
+		if (productTile.count() > 0) {
+			String brand = parseBrandFromDataLayer(productTile.getAttribute("data-product-tile-impression"));
+			if (brand != null) {
+				return brand;
+			}
+		}
+
 		Locator brandLoc = tile.locator(".product-brand, .ct-tile--brand").first();
 		if (brandLoc.count() > 0 && brandLoc.isVisible()) {
 			return brandLoc.innerText().trim();
@@ -507,6 +535,24 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 			return words[0];
 		}
 		return "Generico";
+	}
+
+	private String parseBrandFromDataLayer(String dataLayer) {
+		if (dataLayer == null || dataLayer.isBlank()) {
+			return null;
+		}
+		try {
+			com.fasterxml.jackson.databind.JsonNode node = OBJECT_MAPPER.readTree(dataLayer);
+			if (node.has("brand")) {
+				String brand = node.get("brand").asText();
+				if (brand != null && !brand.isBlank()) {
+					return brand.trim();
+				}
+			}
+		} catch (Exception e) {
+			log.warn("Failed to parse brand from data-product-tile-impression attribute: {}", e.getMessage());
+		}
+		return null;
 	}
 
 	private BigDecimal extractProductPrice(Locator tile, String name) {
