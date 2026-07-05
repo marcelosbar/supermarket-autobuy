@@ -189,7 +189,13 @@
                 <span class="modal-subtitle" id="resolve-query-title">No mapping found for query: "Banana"</span>
             </div>
             <div class="modal-body">
-                <p class="resolve-desc">Playwright searched the store and found the following top results. Please choose the correct product to map it permanently and continue the run.</p>
+                <!-- Search Refinement Bar -->
+                <div class="refine-search-bar">
+                    <input type="text" id="resolve-refine-input" placeholder="Not what you're looking for? Search again..." autocomplete="off" aria-label="Refine Search Term">
+                    <button class="btn btn-primary" id="btn-refine-search">Search</button>
+                </div>
+
+                <p class="resolve-desc">Select the correct product below to link it permanently to your shopping list item <strong id="resolve-original-query">""</strong>, or use the search bar above to search again with a different name.</p>
                 
                 <div class="product-selection-grid" id="resolve-products-grid">
                     <!-- Cards will be populated by JS -->
@@ -226,8 +232,10 @@
                 <h2 id="dialog-title">Notification</h2>
                 <button class="modal-close" id="btn-close-dialog-modal">&times;</button>
             </div>
-            <div class="modal-body" id="dialog-message" style="margin-bottom: 1.5rem; line-height: 1.6; font-size: 0.9375rem; color: var(--text-main);">
-                <!-- Dynamic Message goes here -->
+            <div class="modal-body" style="padding-bottom: 1.5rem;">
+                <p id="dialog-message" style="line-height: 1.6; font-size: 0.9375rem; color: var(--text-main); text-align: center; margin: 0; width: 100%;">
+                    <!-- Dynamic Message goes here -->
+                </p>
             </div>
             <div class="modal-footer" id="dialog-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
                 <button class="btn btn-secondary" id="btn-dialog-cancel">Cancel</button>

@@ -10,6 +10,7 @@ import com.autobuy.provider.ShoppingListProvider;
 import com.autobuy.web.dto.AutoBuyStatusResponse;
 import com.autobuy.web.dto.CredentialsRequest;
 import com.autobuy.web.dto.ResolveRequest;
+import com.autobuy.web.dto.RefineRequest;
 import com.autobuy.web.dto.RunRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -187,6 +188,21 @@ public class WebApiController {
 	public ResponseEntity<Map<String, Object>> resolveMapping(@RequestBody ResolveRequest request) {
 		try {
 			autoBuyWebService.resolveMapping(request.externalId());
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
+	}
+
+	@PostMapping("/autobuy/refine")
+	public ResponseEntity<Map<String, Object>> refineSearch(@RequestBody RefineRequest request) {
+		try {
+			autoBuyWebService.refineSearch(request.query());
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);

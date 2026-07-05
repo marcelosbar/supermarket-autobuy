@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let credentialsStatus = { hasUsername: false, hasPassword: false, username: '' };
     let pollIntervalId = null;
     let lastState = 'IDLE';
+    let isRefining = false;
+    let lastRenderedResultsJson = '';
 
     // DOM Elements
     const credStatusDot = document.getElementById('cred-status-dot');
@@ -52,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const resolveQueryTitle = document.getElementById('resolve-query-title');
     const resolveProductsGrid = document.getElementById('resolve-products-grid');
     const btnSkipMapping = document.getElementById('btn-skip-mapping');
+    const resolveRefineInput = document.getElementById('resolve-refine-input');
+    const btnRefineSearch = document.getElementById('btn-refine-search');
+    const resolveOriginalQuery = document.getElementById('resolve-original-query');
     
     const reviewModal = document.getElementById('review-modal');
     const btnCompleteRun = document.getElementById('btn-complete-run');
@@ -400,6 +405,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const unmappedItems = shoppingList.filter(item => {
+            const queryClean = item.query.toLowerCase().trim();
+            return !allMappings.some(m => m.searchText.toLowerCase().trim() === queryClean && m.supermarket.toUpperCase() === supermarket.toUpperCase());
+        });
+
+        if (unmappedItems.length > 0) {
+            const confirmed = await showConfirm(
+                'Unmapped Items Detected',
+                'Your list has unmapped items, you will be asked to select the items.\n<strong>The app will remember your selection</strong>, for the next time you want to buy the same product.'
+            );
+            if (!confirmed) {
+                return;
+            }
+        }
+
         try {
             btnStartRun.disabled = true;
             const res = await fetch('/api/autobuy/run', {
@@ -517,12 +537,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleModals(status) {
         if (status.state === 'AWAITING_MAPPING') {
-            if (resolveModal.style.display !== 'flex') {
+            if (isRefining) {
+                isRefining = false;
+                resolveRefineInput.disabled = false;
+                btnRefineSearch.disabled = false;
+                btnRefineSearch.textContent = 'Search';
+            }
+
+            const resultsJson = JSON.stringify(status.searchResults);
+            if (resolveModal.style.display !== 'flex' || resultsJson !== lastRenderedResultsJson) {
+                if (resolveModal.style.display !== 'flex') {
+                    resolveRefineInput.value = '';
+                }
                 renderResolveProducts(status.currentItemQuery, status.searchResults);
                 resolveModal.style.display = 'flex';
+                lastRenderedResultsJson = resultsJson;
             }
         } else {
-            resolveModal.style.display = 'none';
+            if (!isRefining || (status.state !== 'RUNNING' && status.state !== 'AWAITING_MAPPING')) {
+                resolveModal.style.display = 'none';
+                lastRenderedResultsJson = '';
+                isRefining = false;
+                resolveRefineInput.disabled = false;
+                btnRefineSearch.disabled = false;
+                btnRefineSearch.textContent = 'Search';
+            }
         }
 
         if (status.state === 'AWAITING_FINAL_REVIEW') {
@@ -569,6 +608,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderResolveProducts(query, products) {
         resolveQueryTitle.textContent = `No mapping found for query: "${query}"`;
+        if (resolveOriginalQuery) {
+            resolveOriginalQuery.textContent = `"${query}"`;
+        }
         resolveProductsGrid.innerHTML = '';
 
         if (!products || products.length === 0) {
@@ -624,6 +666,59 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error(err);
+        }
+    });
+
+    async function triggerSearchRefinement() {
+        const query = resolveRefineInput.value.trim();
+        if (!query) return;
+
+        isRefining = true;
+        resolveRefineInput.disabled = true;
+        btnRefineSearch.disabled = true;
+        btnRefineSearch.textContent = 'Searching...';
+
+        // Show inline loader in the products grid
+        resolveProductsGrid.innerHTML = `
+            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 1rem; color: var(--text-muted);">
+                <div class="spinner"></div>
+                <p style="font-size: 0.9375rem; color: var(--text-muted);">Searching store for "${escapeHtml(query)}"...</p>
+            </div>
+        `;
+
+        try {
+            const res = await fetch('/api/autobuy/refine', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                await showAlert('Refinement Error', errData.message || 'Failed to trigger search refinement.');
+                isRefining = false;
+                resolveRefineInput.disabled = false;
+                btnRefineSearch.disabled = false;
+                btnRefineSearch.textContent = 'Search';
+                lastRenderedResultsJson = '';
+                pollStatus();
+            }
+        } catch (err) {
+            console.error(err);
+            isRefining = false;
+            resolveRefineInput.disabled = false;
+            btnRefineSearch.disabled = false;
+            btnRefineSearch.textContent = 'Search';
+            lastRenderedResultsJson = '';
+            pollStatus();
+        }
+    }
+
+    btnRefineSearch.addEventListener('click', triggerSearchRefinement);
+    resolveRefineInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            triggerSearchRefinement();
         }
     });
 
