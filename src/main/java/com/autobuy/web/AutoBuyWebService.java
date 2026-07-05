@@ -243,6 +243,7 @@ public class AutoBuyWebService {
 			// 6. Complete Automation and hold session for manual review
 			if (state != AutoBuyState.FAILED) {
 				log.info("All items processed successfully!");
+				safeNavigateToCart(driver);
 				log.info("Awaiting final cart review in browser window...");
 				pauseForFinalReview();
 			}
@@ -259,6 +260,14 @@ public class AutoBuyWebService {
 		} catch (Exception e) {
 			log.error("Unexpected error in background auto-buy run", e);
 			updateStateFailure("Unexpected execution error: " + e.getMessage());
+		}
+	}
+
+	private void safeNavigateToCart(SupermarketDriver driver) {
+		try {
+			driver.navigateToCart();
+		} catch (Exception e) {
+			log.error("Failed to auto-navigate to cart page", e);
 		}
 	}
 

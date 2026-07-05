@@ -277,6 +277,17 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 	}
 
 	@Override
+	public void navigateToCart() {
+		log.info("Navigating to Continente cart page: {}", ContinenteSelectors.CART_URL);
+		try {
+			page.navigate(ContinenteSelectors.CART_URL);
+			page.waitForLoadState();
+		} catch (Exception e) {
+			log.error("Failed to navigate to cart page: {}", e.getMessage(), e);
+		}
+	}
+
+	@Override
 	public void close() {
 		log.info("Closing Playwright browser context...");
 		try {
