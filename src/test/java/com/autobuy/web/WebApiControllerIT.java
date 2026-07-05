@@ -471,4 +471,35 @@ class WebApiControllerIT {
 				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("General error"));
 	}
+
+	@Test
+	void testRefineSearch_Success() throws Exception {
+		String json = """
+				{
+					"query": "red apples"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/refine").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.message").value("Refinement query accepted."));
+
+		verify(autoBuyWebService).refineSearch("red apples");
+	}
+
+	@Test
+	void testRefineSearch_Failure() throws Exception {
+		String json = """
+				{
+					"query": "red apples"
+				}
+				""";
+
+		doThrow(new com.autobuy.exception.AutoBuyException("Refinement rejected")).when(autoBuyWebService)
+				.refineSearch("red apples");
+
+		mockMvc.perform(post("/api/autobuy/refine").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Refinement rejected"));
+	}
 }

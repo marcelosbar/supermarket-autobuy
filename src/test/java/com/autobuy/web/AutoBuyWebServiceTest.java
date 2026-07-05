@@ -659,4 +659,62 @@ class AutoBuyWebServiceTest {
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
 	}
+
+	@Test
+	void testStartAutoBuy_MappedSkuSearchEmpty() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mapping));
+		// Mock empty list returned by SKU search
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of());
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Should transition straight to final review without pausing for mapping
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		var status = service.getStatus();
+		assertEquals(1, status.skippedItems().size());
+		assertEquals("apples", status.skippedItems().get(0));
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_InteractiveResolutionSaveMappingException() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(Optional.empty());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
+
+		// Mock saveMapping throwing an exception
+		doThrow(new RuntimeException("Database error")).when(productService).saveMapping("apples", "CONTINENTE",
+				searchResult);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Pause for mapping
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		// Resolve mapping
+		service.resolveMapping("sku123");
+
+		// Should still complete because the exception is caught
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
 }
