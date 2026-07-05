@@ -41,10 +41,9 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 
 		browser = playwright.chromium().launch(options);
 
-		// Emulate a standard desktop user agent
-		Browser.NewContextOptions contextOptions = new Browser.NewContextOptions().setUserAgent(
-				"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-				.setViewportSize(null);
+		// Use Playwright's default User-Agent, which always matches the bundled
+		// Chromium version
+		Browser.NewContextOptions contextOptions = new Browser.NewContextOptions().setViewportSize(null);
 
 		context = browser.newContext(contextOptions);
 		page = context.newPage();
