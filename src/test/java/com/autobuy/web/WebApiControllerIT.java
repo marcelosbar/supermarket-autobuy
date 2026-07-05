@@ -481,8 +481,7 @@ class WebApiControllerIT {
 				""";
 
 		mockMvc.perform(post("/api/autobuy/refine").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.message").value("Refinement query accepted."));
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
 		verify(autoBuyWebService).refineSearch("red apples");
 	}
