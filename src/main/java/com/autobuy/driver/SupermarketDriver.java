@@ -62,4 +62,9 @@ public interface SupermarketDriver {
 	 * Closes browser resources and clean up sessions.
 	 */
 	void close();
+
+	/**
+	 * Navigates to the shopping cart page.
+	 */
+	void navigateToCart();
 }

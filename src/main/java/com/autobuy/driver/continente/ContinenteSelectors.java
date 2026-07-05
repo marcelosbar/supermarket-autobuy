@@ -11,6 +11,7 @@ final class ContinenteSelectors {
 	}
 
 	public static final String BASE_URL = "https://www.continente.pt";
+	public static final String CART_URL = BASE_URL + "/checkout/carrinho/";
 	public static final String NON_DIGIT_REGEX = "\\D";
 	public static final String VALUE_ATTR = "value";
 	public static final String ARIA_VALUENOW_ATTR = "aria-valuenow";

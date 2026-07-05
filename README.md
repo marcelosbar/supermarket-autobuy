@@ -33,7 +33,7 @@ This app requires **Java (JDK 25 or higher)** to run on your computer.
 Once the web dashboard opens in your browser:
 1. **Supermarket Credentials:** Go to the configuration section to enter your supermarket username and password. These are stored locally and securely on your own computer.
 2. **Manage Your List:** Write or edit your shopping list directly on the screen.
-3. **Start Shopping:** Click the run button. The app will open a browser session in the background. If it finds any items that need your approval, it will present cards for you to select the correct product. Once finished, check your supermarket account, and your cart will be filled!
+3. **Start Shopping:** Click the run button. The app will open a browser session in the background. If it finds any items that need your approval, it will present cards for you to select the correct product. Once finished, the app automatically navigates to the cart page in the browser window for your final review!
 
 ---
 

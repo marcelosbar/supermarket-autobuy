@@ -152,6 +152,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
 
 		verify(priceHistoryService).logPrice(searchResult, "CONTINENTE");
+		verify(supermarketDriver).navigateToCart();
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
@@ -326,6 +327,7 @@ class AutoBuyWebServiceTest {
 		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
 		inOrder.verify(supermarketDriver).searchProduct("skuC");
 		inOrder.verify(supermarketDriver).addProductToCart("skuC", 3);
+		inOrder.verify(supermarketDriver).navigateToCart();
 	}
 
 	@Test
@@ -367,6 +369,7 @@ class AutoBuyWebServiceTest {
 		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
 		inOrder.verify(supermarketDriver).searchProduct("skuC");
 		inOrder.verify(supermarketDriver).addProductToCart("skuC", 3);
+		inOrder.verify(supermarketDriver).navigateToCart();
 	}
 
 	@Test
@@ -411,6 +414,7 @@ class AutoBuyWebServiceTest {
 		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
 		inOrder.verify(supermarketDriver).searchProduct("bananas");
 		inOrder.verify(supermarketDriver).addProductToCart("skuB", 2);
+		inOrder.verify(supermarketDriver).navigateToCart();
 	}
 
 	@Test
@@ -484,6 +488,7 @@ class AutoBuyWebServiceTest {
 		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
 		inOrder.verify(supermarketDriver).searchProduct("skuD");
 		inOrder.verify(supermarketDriver).addProductToCart("skuD", 4);
+		inOrder.verify(supermarketDriver).navigateToCart();
 	}
 
 	@Test
@@ -569,5 +574,39 @@ class AutoBuyWebServiceTest {
 
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_NavigateToCartFailure() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(Optional.of(mapping));
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of(searchResult));
+		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
+
+		// Mock navigateToCart throwing an exception to test the catch block
+		doThrow(new RuntimeException("Navigation failed")).when(supermarketDriver).navigateToCart();
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// The service should still transition to final review because the exception is
+		// caught
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		// Complete the run
+		service.completeRun();
+
+		// Should transition to success
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+
+		verify(supermarketDriver).navigateToCart();
+		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 }
