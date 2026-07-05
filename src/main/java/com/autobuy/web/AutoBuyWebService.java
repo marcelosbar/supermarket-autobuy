@@ -47,7 +47,7 @@ public class AutoBuyWebService {
 	// Execution synchronization
 	private SupermarketDriver activeDriver = null;
 	private Future<?> currentExecutionFuture = null;
-	private CompletableFuture<SearchResult> currentMappingFuture = null;
+	private CompletableFuture<ResolutionAction> currentMappingFuture = null;
 	private CompletableFuture<Void> finalReviewFuture = null;
 
 	public AutoBuyWebService(ProductService productService, PriceHistoryService priceHistoryService,
@@ -103,7 +103,7 @@ public class AutoBuyWebService {
 			throw new IllegalStateException("Not currently waiting for product mapping resolution.");
 		}
 
-		CompletableFuture<SearchResult> future = this.currentMappingFuture;
+		CompletableFuture<ResolutionAction> future = this.currentMappingFuture;
 		if (future == null) {
 			return;
 		}
@@ -111,7 +111,7 @@ public class AutoBuyWebService {
 		if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
 			this.state = AutoBuyState.RUNNING;
 			this.currentMappingFuture = null;
-			future.complete(null);
+			future.complete(new ResolutionAction(ResolutionAction.ActionType.SKIP, null));
 			return;
 		}
 
@@ -124,7 +124,29 @@ public class AutoBuyWebService {
 
 		this.state = AutoBuyState.RUNNING;
 		this.currentMappingFuture = null;
-		future.complete(selected);
+		future.complete(new ResolutionAction(ResolutionAction.ActionType.SELECT, externalId));
+	}
+
+	/**
+	 * Refines the active search by triggering a new search on the driver thread.
+	 */
+	public synchronized void refineSearch(String newQuery) {
+		if (state != AutoBuyState.AWAITING_MAPPING) {
+			throw new IllegalStateException("Not currently waiting for product mapping resolution.");
+		}
+
+		CompletableFuture<ResolutionAction> future = this.currentMappingFuture;
+		if (future == null) {
+			return;
+		}
+
+		if (newQuery == null || newQuery.isBlank()) {
+			throw new IllegalArgumentException("Refined search query cannot be blank.");
+		}
+
+		this.state = AutoBuyState.RUNNING;
+		this.currentMappingFuture = null;
+		future.complete(new ResolutionAction(ResolutionAction.ActionType.REFINE, newQuery));
 	}
 
 	/**
@@ -349,28 +371,45 @@ public class AutoBuyWebService {
 			return result;
 		} else {
 			log.info("No mapping found for query '{}'. Performing store search...", item.query());
-			List<SearchResult> searchResultsList = driver.searchProduct(item.query());
-			if (searchResultsList.isEmpty()) {
-				log.warn("No products found for query '{}'. Skipping.", item.query());
-				recordSkippedItem(item.query());
-				return null;
-			}
+			String searchWord = item.query();
+			List<SearchResult> searchResultsList = driver.searchProduct(searchWord);
 
-			// Pause and wait for Web UI selection
-			SearchResult selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
-			if (selectedProduct == null) {
-				log.info("Skipped item '{}' on user mapping prompt.", item.query());
-				return null;
-			}
+			while (true) {
+				// Pause and wait for Web UI selection or refinement
+				ResolutionAction action = pauseAndResolveMapping(item.query(), searchResultsList);
 
-			// Save new mapping and product details
-			try {
-				productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
-				log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
-			} catch (Exception e) {
-				log.error("Failed to save product mapping", e);
+				if (action == null || action.type() == ResolutionAction.ActionType.SKIP) {
+					log.info("Skipped item '{}' on user mapping prompt.", item.query());
+					return null;
+				}
+
+				if (action.type() == ResolutionAction.ActionType.REFINE) {
+					String newQuery = action.value();
+					log.info("Refining search for '{}' with new query: '{}'...", item.query(), newQuery);
+					searchWord = newQuery;
+					searchResultsList = driver.searchProduct(searchWord);
+					continue;
+				}
+
+				// Action is SELECT
+				String externalId = action.value();
+				SearchResult selectedProduct = searchResultsList.stream().filter(r -> r.externalId().equals(externalId))
+						.findFirst().orElse(null);
+
+				if (selectedProduct == null) {
+					log.warn("Selected product SKU {} not found in current search results.", externalId);
+					return null;
+				}
+
+				// Save new mapping and product details (map the original query!)
+				try {
+					productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
+					log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
+				} catch (Exception e) {
+					log.error("Failed to save product mapping", e);
+				}
+				return selectedProduct;
 			}
-			return selectedProduct;
 		}
 	}
 
@@ -393,10 +432,11 @@ public class AutoBuyWebService {
 		}
 	}
 
-	private SearchResult pauseAndResolveMapping(String query, List<SearchResult> results) throws InterruptedException {
-		CompletableFuture<SearchResult> future;
+	private ResolutionAction pauseAndResolveMapping(String query, List<SearchResult> results)
+			throws InterruptedException {
+		CompletableFuture<ResolutionAction> future;
 		synchronized (this) {
-			this.searchResults = results;
+			this.searchResults = new ArrayList<>(results);
 			this.state = AutoBuyState.AWAITING_MAPPING;
 			this.currentMappingFuture = new CompletableFuture<>();
 			future = this.currentMappingFuture;
@@ -404,9 +444,9 @@ public class AutoBuyWebService {
 
 		log.info("PAUSED: Awaiting product mapping resolution from the Web UI for '{}'...", query);
 
-		SearchResult selected = null;
+		ResolutionAction action = null;
 		try {
-			selected = awaitFuture(future, "Mapping resolution");
+			action = awaitFuture(future, "Mapping resolution");
 		} finally {
 			synchronized (this) {
 				this.searchResults.clear();
@@ -414,7 +454,7 @@ public class AutoBuyWebService {
 			}
 		}
 
-		return selected;
+		return action;
 	}
 
 	private boolean initializeDriverAndLogin(SupermarketDriver driver, String targetSupermarket, String username,

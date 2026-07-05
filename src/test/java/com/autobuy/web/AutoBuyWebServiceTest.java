@@ -609,4 +609,54 @@ class AutoBuyWebServiceTest {
 		verify(supermarketDriver).navigateToCart();
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
+
+	@Test
+	void testStartAutoBuy_InteractiveResolutionRefine() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult initialResult = new SearchResult("skuA", "Green Apples", "Brand", BigDecimal.valueOf(1.5), "url",
+				"Fruit");
+		SearchResult refinedResult = new SearchResult("skuB", "Red Apples", "Brand", BigDecimal.valueOf(1.9), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(Optional.empty());
+
+		// First search query: "apples"
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(initialResult)));
+		// Refined search query: "red apples"
+		when(supermarketDriver.searchProduct("red apples")).thenReturn(new ArrayList<>(List.of(refinedResult)));
+		when(supermarketDriver.addProductToCart("skuB", 2)).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Pause for mapping
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		var status = service.getStatus();
+		assertEquals(1, status.searchResults().size());
+		assertEquals("skuA", status.searchResults().get(0).externalId());
+
+		// Refine search query inline
+		service.refineSearch("red apples");
+
+		// Should trigger new search and pause again
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		status = service.getStatus();
+		assertEquals(1, status.searchResults().size());
+		assertEquals("skuB", status.searchResults().get(0).externalId());
+
+		// Resolve mapping with skuB
+		service.resolveMapping("skuB");
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		// Verify database mapping was saved for original query "apples"
+		verify(productService).saveMapping("apples", "CONTINENTE", refinedResult);
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
 }

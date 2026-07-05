@@ -197,7 +197,7 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 				return results;
 			}
 
-			int count = Math.min(tiles.count(), 5); // Extract top 5 results
+			int count = Math.min(tiles.count(), 6); // Extract top 6 results
 			log.info("Found {} raw candidates. Parsing top {}...", tiles.count(), count);
 
 			for (int i = 0; i < count; i++) {
