@@ -349,67 +349,75 @@ public class AutoBuyWebService {
 				.findMappingBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
 
 		if (mappingOpt.isPresent()) {
-			ProductMapping mapping = mappingOpt.get();
-			log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
-
-			List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
-			if (skuResults.isEmpty()) {
-				log.warn("Product '{}' (SKU: {}) is currently unavailable. Skipping.", item.query(),
-						mapping.getExternalProductId());
-				recordSkippedItem(item.query());
-				return null;
-			}
-
-			SearchResult result = skuResults.get(0);
-			if (!driver.isProductAvailable(result.externalId())) {
-				log.warn("Product '{}' (SKU: {}) is currently unavailable. Skipping.", item.query(),
-						result.externalId());
-				recordSkippedItem(item.query());
-				return null;
-			}
-
-			return result;
+			return resolveFromExistingMapping(driver, item, mappingOpt.get());
 		} else {
-			log.info("No mapping found for query '{}'. Performing store search...", item.query());
-			String searchWord = item.query();
-			List<SearchResult> searchResultsList = driver.searchProduct(searchWord);
+			return resolveFromInteractiveSearch(driver, item, targetSupermarket);
+		}
+	}
 
-			while (true) {
-				// Pause and wait for Web UI selection or refinement
-				ResolutionAction action = pauseAndResolveMapping(item.query(), searchResultsList);
+	private SearchResult resolveFromExistingMapping(SupermarketDriver driver, ShoppingItem item,
+			ProductMapping mapping) {
+		log.info("Found mapping in DB for '{}' -> SKU: {}", item.query(), mapping.getExternalProductId());
 
-				if (action == null || action.type() == ResolutionAction.ActionType.SKIP) {
-					log.info("Skipped item '{}' on user mapping prompt.", item.query());
-					return null;
-				}
+		List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
+		if (skuResults.isEmpty()) {
+			log.warn("Product '{}' (SKU: {}) is currently unavailable. Skipping.", item.query(),
+					mapping.getExternalProductId());
+			recordSkippedItem(item.query());
+			return null;
+		}
 
-				if (action.type() == ResolutionAction.ActionType.REFINE) {
-					String newQuery = action.value();
-					log.info("Refining search for '{}' with new query: '{}'...", item.query(), newQuery);
-					searchWord = newQuery;
-					searchResultsList = driver.searchProduct(searchWord);
-					continue;
-				}
+		SearchResult result = skuResults.get(0);
+		if (!driver.isProductAvailable(result.externalId())) {
+			log.warn("Product '{}' (SKU: {}) is currently unavailable. Skipping.", item.query(), result.externalId());
+			recordSkippedItem(item.query());
+			return null;
+		}
 
-				// Action is SELECT
-				String externalId = action.value();
-				SearchResult selectedProduct = searchResultsList.stream().filter(r -> r.externalId().equals(externalId))
-						.findFirst().orElse(null);
+		return result;
+	}
 
-				if (selectedProduct == null) {
-					log.warn("Selected product SKU {} not found in current search results.", externalId);
-					return null;
-				}
+	private SearchResult resolveFromInteractiveSearch(SupermarketDriver driver, ShoppingItem item,
+			String targetSupermarket) throws InterruptedException {
+		log.info("No mapping found for query '{}'. Performing store search...", item.query());
+		String searchWord = item.query();
+		List<SearchResult> searchResultsList = driver.searchProduct(searchWord);
 
-				// Save new mapping and product details (map the original query!)
-				try {
-					productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
-					log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
-				} catch (Exception e) {
-					log.error("Failed to save product mapping", e);
-				}
-				return selectedProduct;
+		while (true) {
+			// Pause and wait for Web UI selection or refinement
+			ResolutionAction action = pauseAndResolveMapping(item.query(), searchResultsList);
+
+			if (action == null || action.type() == ResolutionAction.ActionType.SKIP) {
+				log.info("Skipped item '{}' on user mapping prompt.", item.query());
+				return null;
 			}
+
+			if (action.type() == ResolutionAction.ActionType.REFINE) {
+				String newQuery = action.value();
+				log.info("Refining search for '{}' with new query: '{}'...", item.query(), newQuery);
+				searchWord = newQuery;
+				searchResultsList = driver.searchProduct(searchWord);
+				continue;
+			}
+
+			// Action is SELECT
+			String externalId = action.value();
+			SearchResult selectedProduct = searchResultsList.stream().filter(r -> r.externalId().equals(externalId))
+					.findFirst().orElse(null);
+
+			if (selectedProduct == null) {
+				log.warn("Selected product SKU {} not found in current search results.", externalId);
+				return null;
+			}
+
+			// Save new mapping and product details (map the original query!)
+			try {
+				productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
+				log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
+			} catch (Exception e) {
+				log.error("Failed to save product mapping", e);
+			}
+			return selectedProduct;
 		}
 	}
 
