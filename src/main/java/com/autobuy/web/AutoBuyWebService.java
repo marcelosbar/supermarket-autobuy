@@ -228,6 +228,14 @@ public class AutoBuyWebService {
 				return;
 			}
 
+			if (activeDriver != null) {
+				boolean available = activeDriver.isProductAvailable(externalId);
+				if (!available) {
+					throw new IllegalArgumentException(
+							"O produto selecionado está esgotado ou indisponível no supermercado. Por favor, escolha outro.");
+				}
+			}
+
 			SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId)).findFirst()
 					.orElse(null);
 
