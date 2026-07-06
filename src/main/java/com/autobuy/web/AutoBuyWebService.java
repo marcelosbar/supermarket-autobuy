@@ -335,6 +335,10 @@ public class AutoBuyWebService {
 				while (!exhaustedItems.isEmpty() && state != AutoBuyState.FAILED
 						&& !Thread.currentThread().isInterrupted()) {
 					ShoppingItem failedItem = exhaustedItems.get(0);
+					synchronized (this) {
+						this.currentItemQuery = failedItem.query();
+						this.currentItemQuantity = failedItem.quantity();
+					}
 					com.autobuy.web.dto.ResolutionResult resolution = pauseAndResolveExhausted(failedItem,
 							targetSupermarket, driver);
 					if (resolution == null) {
@@ -478,14 +482,59 @@ public class AutoBuyWebService {
 				log.warn("Mapping SKU {} is unavailable, trying next fallback...", mapping.getExternalProductId());
 			}
 			log.warn("All alternative mappings for '{}' are unavailable. Deferring to end.", item.query());
+			synchronized (this) {
+				this.exhaustedItems.add(item);
+			}
+			return null;
 		} else {
-			log.info("No mappings found for query '{}'. Deferring to end.", item.query());
+			log.info("No mapping found for query '{}'. Performing store search...", item.query());
+			List<SearchResult> searchResultsList = driver.searchProduct(item.query());
+			if (searchResultsList.isEmpty()) {
+				log.warn("No products found for query '{}'. Skipping.", item.query());
+				recordSkippedItem(item.query());
+				return null;
+			}
+
+			// Pause and wait for Web UI selection (Pre-run mapping)
+			SearchResult selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
+			if (selectedProduct == null) {
+				log.info("Skipped item '{}' on user mapping prompt.", item.query());
+				return null;
+			}
+
+			// Save new mapping as primary (priority 0)
+			try {
+				productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
+				log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
+			} catch (Exception e) {
+				log.error("Failed to save product mapping", e);
+			}
+			return selectedProduct;
+		}
+	}
+
+	private SearchResult pauseAndResolveMapping(String query, List<SearchResult> results) throws InterruptedException {
+		CompletableFuture<SearchResult> future;
+		synchronized (this) {
+			this.searchResults = results;
+			this.state = AutoBuyState.AWAITING_MAPPING;
+			this.currentMappingFuture = new CompletableFuture<>();
+			future = this.currentMappingFuture;
 		}
 
-		synchronized (this) {
-			this.exhaustedItems.add(item);
+		log.info("PAUSED: Awaiting product mapping resolution from the Web UI for '{}'...", query);
+
+		SearchResult selected = null;
+		try {
+			selected = awaitFuture(future, "Mapping resolution");
+		} finally {
+			synchronized (this) {
+				this.searchResults = new ArrayList<>();
+				this.currentMappingFuture = null;
+			}
 		}
-		return null;
+
+		return selected;
 	}
 		}
 

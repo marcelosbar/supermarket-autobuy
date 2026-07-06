@@ -174,8 +174,8 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		// Deferred resolutions are resolved at the end of the run
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		// Unmapped item triggers immediate pause
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
 
 		// Resolve mapping for apples
 		service.resolveMapping("skuB", true);
@@ -183,7 +183,7 @@ class AutoBuyWebServiceTest {
 		// Should complete the run
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		verify(productService).saveMappingWithPriority("apples", "CONTINENTE", searchResult2, 0);
+		verify(productService).saveMapping("apples", "CONTINENTE", searchResult2);
 		verify(supermarketDriver).addProductToCart("skuB", 2);
 
 		service.completeRun();
@@ -205,7 +205,7 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
 
 		// Skip this item
 		service.resolveMapping("skip", false);
@@ -235,7 +235,7 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
 
 		// Cancel execution
 		service.cancel();
@@ -299,14 +299,16 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		// Item B (bananas) is unmapped, runner processes apples and carrots first, then
-		// pauses at the end
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		// Item B (bananas) is unmapped, so it runs first and pauses for mapping
+		// immediately (mid-run)
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("bananas", service.getStatus().currentItemQuery());
 
 		// Resolve mapping for bananas
 		service.resolveMapping("skuB", true);
 
-		// Then processes bananas and transitions to final review
+		// Then mapped items (apples, carrots) process automatically and transition to
+		// final review
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Complete run
@@ -315,12 +317,12 @@ class AutoBuyWebServiceTest {
 
 		// Verify order of calls
 		InOrder inOrder = inOrder(supermarketDriver);
+		inOrder.verify(supermarketDriver).searchProduct("bananas");
+		inOrder.verify(supermarketDriver).addProductToCart("skuB", 2);
 		inOrder.verify(supermarketDriver).searchProduct("skuA");
 		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
 		inOrder.verify(supermarketDriver).searchProduct("skuC");
 		inOrder.verify(supermarketDriver).addProductToCart("skuC", 3);
-		inOrder.verify(supermarketDriver).searchProduct("bananas");
-		inOrder.verify(supermarketDriver).addProductToCart("skuB", 2);
 		inOrder.verify(supermarketDriver).navigateToCart();
 	}
 
@@ -389,14 +391,14 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		// Ends main loop and goes to resolution for unmapped items
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
-
-		// First unmapped item (apples) is resolved
+		// First unmapped item (apples) pauses immediately mid-run
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("apples", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuA", true);
 
-		// Runner returns to AWAITING_EXHAUSTED_RESOLUTIONS for second item (bananas)
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		// Second unmapped item (bananas) pauses immediately mid-run
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("bananas", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuB", true);
 
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
@@ -453,16 +455,16 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Process unmapped in relative order: bananas, carrots, eggplant
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
-		assertEquals("bananas", service.getStatus().exhaustedItems().get(0));
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("bananas", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuB", true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
-		assertEquals("carrots", service.getStatus().exhaustedItems().get(0));
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("carrots", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuC", true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
-		assertEquals("eggplant", service.getStatus().exhaustedItems().get(0));
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		assertEquals("eggplant", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuE", true);
 
 		// Then mapped: apples, dates
@@ -472,16 +474,16 @@ class AutoBuyWebServiceTest {
 
 		// Verify order of calls
 		InOrder inOrder = inOrder(supermarketDriver);
-		inOrder.verify(supermarketDriver).searchProduct("skuA");
-		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
-		inOrder.verify(supermarketDriver).searchProduct("skuD");
-		inOrder.verify(supermarketDriver).addProductToCart("skuD", 4);
 		inOrder.verify(supermarketDriver).searchProduct("bananas");
 		inOrder.verify(supermarketDriver).addProductToCart("skuB", 2);
 		inOrder.verify(supermarketDriver).searchProduct("carrots");
 		inOrder.verify(supermarketDriver).addProductToCart("skuC", 3);
 		inOrder.verify(supermarketDriver).searchProduct("eggplant");
 		inOrder.verify(supermarketDriver).addProductToCart("skuE", 5);
+		inOrder.verify(supermarketDriver).searchProduct("skuA");
+		inOrder.verify(supermarketDriver).addProductToCart("skuA", 1);
+		inOrder.verify(supermarketDriver).searchProduct("skuD");
+		inOrder.verify(supermarketDriver).addProductToCart("skuD", 4);
 		inOrder.verify(supermarketDriver).navigateToCart();
 	}
 

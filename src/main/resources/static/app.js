@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exhaustedResolutionsPanel.style.display = 'block';
             startStatusPolling();
             
-            renderExhaustedItems(status.exhaustedItems);
+            renderExhaustedItems(status.exhaustedItems, status.currentItemQuery);
             lastStatusSearchResults = status.searchResults || [];
         } else {
             runSettingsPanel.style.display = 'none';
@@ -614,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderExhaustedItems(items) {
+    function renderExhaustedItems(items, activeQuery) {
         exhaustedItemsList.innerHTML = '';
         if (!items || items.length === 0) {
             exhaustedItemsList.innerHTML = '<div class="empty-state-text">All items resolved.</div>';
@@ -622,13 +622,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         items.forEach(item => {
+            const isActive = item === activeQuery;
             const row = document.createElement('div');
             row.className = 'exhausted-item-row';
+            if (isActive) {
+                row.style.borderColor = 'rgba(251, 191, 36, 0.4)';
+                row.style.background = 'rgba(251, 191, 36, 0.05)';
+            }
             row.innerHTML = `
-                <span class="exhausted-item-name">${escapeHtml(item)}</span>
+                <span class="exhausted-item-name" style="${isActive ? 'font-weight: 600;' : ''}">${escapeHtml(item)}</span>
                 <div class="exhausted-item-actions">
-                    <button class="btn btn-primary btn-small" onclick="openResolveExhaustedModal('${escapeHtml(item)}')">Resolve</button>
-                    <button class="btn btn-secondary btn-small" onclick="resolveExhaustedSkip('${escapeHtml(item)}')">Skip</button>
+                    ${isActive ? `
+                        <button class="btn btn-primary btn-small" onclick="openResolveExhaustedModal('${escapeHtml(item)}')">Resolve</button>
+                        <button class="btn btn-secondary btn-small" onclick="resolveExhaustedSkip('${escapeHtml(item)}')">Skip</button>
+                    ` : `
+                        <span style="font-size: 0.75rem; color: var(--text-muted); align-self: center; padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">Queued</span>
+                    `}
                 </div>
             `;
             exhaustedItemsList.appendChild(row);
