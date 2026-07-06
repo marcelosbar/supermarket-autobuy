@@ -91,6 +91,9 @@
                                 </label>
                             </div>
                         </div>
+                        <div id="browser-running-warning" class="alert-box" style="display: none; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); color: #f87171; font-size: 0.75rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem; line-height: 1.4;">
+                            ⚠️ <strong>Aviso:</strong> Existe uma janela de navegador aberta da compra anterior. Ela será fechada automaticamente ao iniciar esta execução.
+                        </div>
                         <button class="btn btn-accent btn-full btn-large" id="btn-start-run">
                             <span class="btn-icon">⚡</span> Run Auto-Buy Scraper
                         </button>
@@ -119,6 +122,19 @@
                         </div>
                         <div class="run-actions">
                             <button class="btn btn-danger btn-full" id="btn-cancel-run-exhausted">Cancel Execution</button>
+                        </div>
+                    </div>
+
+                    <!-- Final Review Panel (Inline) -->
+                    <div class="active-run-panel" id="final-review-panel" style="display: none; background: rgba(16, 185, 129, 0.03); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: var(--radius-md);">
+                        <div class="current-task-box" style="border-bottom: 1px solid rgba(16, 185, 129, 0.1); padding-bottom: 0.75rem; margin-bottom: 0.75rem;" id="final-review-details">
+                            <p class="task-label" style="color: var(--color-accent); font-weight: 600;">🎉 RUN COMPLETED</p>
+                            <h3 class="task-details" style="font-size: 1.05rem; margin-top: 0.25rem;">Awaiting Cart Verification</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.4;">Please review your shopping cart in the opened browser window. You can complete the checkout manually if desired.</p>
+                        </div>
+                        <div class="run-actions" style="display: flex; gap: 0.75rem;">
+                            <button class="btn btn-accent btn-full btn-small" id="btn-complete-run-inline" style="flex: 1;">Finish & Close Browser</button>
+                            <button class="btn btn-secondary btn-full btn-small" id="btn-complete-run-keep" style="flex: 1;">Finish (Keep Browser Open)</button>
                         </div>
                     </div>
 
@@ -223,23 +239,7 @@
         </div>
     </div>
 
-    <!-- FINAL REVIEW OVERLAY / POPUP -->
-    <div class="modal-overlay" id="review-modal" style="display: none;">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h2>Cart Verification</h2>
-            </div>
-            <div class="modal-body text-center" id="review-modal-body">
-                <div class="success-checkmark-icon">🎉</div>
-                <h3>All items added to cart!</h3>
-                <p class="review-desc">Please review your shopping cart inside the opened browser window. You can complete the checkout manually if desired.</p>
-                <p class="review-warning">Once you are ready, click "Complete Run" to close the automation browser safely.</p>
-            </div>
-            <div class="modal-footer flex-center">
-                <button class="btn btn-accent btn-large" id="btn-complete-run">Complete Run & Close Browser</button>
-            </div>
-        </div>
-    </div>
+
 
     <!-- DYNAMIC IN-APP DIALOG MODAL -->
     <div class="modal-overlay" id="custom-dialog-modal" style="display: none; z-index: 10000;">

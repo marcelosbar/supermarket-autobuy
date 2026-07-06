@@ -307,9 +307,10 @@ public class WebApiController {
 	}
 
 	@PostMapping("/autobuy/complete")
-	public ResponseEntity<Map<String, Object>> completeRun() {
+	public ResponseEntity<Map<String, Object>> completeRun(
+			@RequestParam(name = "keepBrowser", defaultValue = "false") boolean keepBrowser) {
 		try {
-			autoBuyWebService.completeRun();
+			autoBuyWebService.completeRun(keepBrowser);
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);

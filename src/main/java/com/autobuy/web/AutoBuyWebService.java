@@ -46,6 +46,7 @@ public class AutoBuyWebService {
 
 	// Execution synchronization
 	private SupermarketDriver activeDriver = null;
+	private boolean keepBrowserOpen = false;
 	private Future<?> currentExecutionFuture = null;
 	private CompletableFuture<ResolutionAction> currentMappingFuture = null;
 	private CompletableFuture<com.autobuy.web.dto.ResolutionResult> currentResolutionFuture = null;
@@ -72,20 +73,48 @@ public class AutoBuyWebService {
 	public synchronized AutoBuyStatusResponse getStatus() {
 		List<String> exhaustedQueries = exhaustedItems.stream().map(ShoppingItem::query).toList();
 		return new AutoBuyStatusResponse(state, currentItemQuery, currentItemQuantity, new ArrayList<>(searchResults),
-				new ArrayList<>(MemoryAppender.getLogs()), errorMsg, new ArrayList<>(skippedItems), exhaustedQueries);
+				new ArrayList<>(MemoryAppender.getLogs()), errorMsg, new ArrayList<>(skippedItems), exhaustedQueries,
+				activeDriver != null);
 	}
 
 	/**
 	 * Starts the background auto-buy execution run.
 	 */
 	public synchronized void startAutoBuy(String listPath, String targetSupermarket, boolean headless) {
+		if (state == AutoBuyState.AWAITING_FINAL_REVIEW) {
+			log.info("Closing previous browser session and resetting state before starting new run...");
+			if (finalReviewFuture != null) {
+				finalReviewFuture.complete(null);
+				finalReviewFuture = null;
+			}
+			if (activeDriver != null) {
+				try {
+					activeDriver.close();
+				} catch (Exception e) {
+					log.error("Error closing previous driver", e);
+				}
+				activeDriver = null;
+			}
+			this.state = AutoBuyState.IDLE;
+		}
+
 		if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_MAPPING
-				|| state == AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS
-				|| state == AutoBuyState.AWAITING_FINAL_REVIEW) {
+				|| state == AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS) {
 			throw new IllegalStateException("An auto-buy execution is already in progress.");
 		}
 
+		if (activeDriver != null) {
+			log.info("Closing previous browser session before starting new run...");
+			try {
+				activeDriver.close();
+			} catch (Exception e) {
+				log.error("Error closing previous driver", e);
+			}
+			activeDriver = null;
+		}
+
 		this.state = AutoBuyState.RUNNING;
+		this.keepBrowserOpen = false;
 		this.errorMsg = "";
 		this.currentItemQuery = "";
 		this.currentItemQuantity = 0;
@@ -217,9 +246,14 @@ public class AutoBuyWebService {
 	 * Completes the execution, closing the driver window.
 	 */
 	public synchronized void completeRun() {
+		completeRun(false);
+	}
+
+	public synchronized void completeRun(boolean keepBrowser) {
 		if (state != AutoBuyState.AWAITING_FINAL_REVIEW) {
 			throw new IllegalStateException("Not currently waiting for final review.");
 		}
+		this.keepBrowserOpen = keepBrowser;
 		this.state = AutoBuyState.SUCCESS;
 		CompletableFuture<Void> future = this.finalReviewFuture;
 		this.finalReviewFuture = null;
@@ -303,12 +337,18 @@ public class AutoBuyWebService {
 		try {
 			processShoppingList(driver, shoppingList, targetSupermarket);
 		} finally {
-			try {
-				driver.close();
-			} catch (Exception e) {
-				log.error("Error closing driver", e);
+			if (!keepBrowserOpen) {
+				try {
+					driver.close();
+				} catch (Exception e) {
+					log.error("Error closing driver", e);
+				}
+				if (activeDriver == driver) {
+					activeDriver = null;
+				}
+			} else {
+				log.info("Keeping browser session open as requested.");
 			}
-			activeDriver = null;
 			synchronized (this) {
 				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
 					state = AutoBuyState.SUCCESS;

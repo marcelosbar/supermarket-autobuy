@@ -72,8 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const resolveOriginalQuery = document.getElementById('resolve-original-query');
     const btnCloseResolve = document.getElementById('btn-close-resolve');
     
-    const reviewModal = document.getElementById('review-modal');
-    const btnCompleteRun = document.getElementById('btn-complete-run');
+    const finalReviewPanel = document.getElementById('final-review-panel');
+    const btnCompleteRunInline = document.getElementById('btn-complete-run-inline');
+    const btnCompleteRunKeep = document.getElementById('btn-complete-run-keep');
+    const browserRunningWarning = document.getElementById('browser-running-warning');
 
     // -------------------------------------------------------------
     // INITIALIZATION & LOADING
@@ -585,7 +587,15 @@ document.addEventListener('DOMContentLoaded', () => {
             runSettingsPanel.style.display = 'block';
             activeRunPanel.style.display = 'none';
             exhaustedResolutionsPanel.style.display = 'none';
+            finalReviewPanel.style.display = 'none';
             btnStartRun.disabled = false;
+            
+            if (status.browserOpen) {
+                browserRunningWarning.style.display = 'block';
+            } else {
+                browserRunningWarning.style.display = 'none';
+            }
+            
             stopStatusPolling();
             
             if (lastState !== status.state && status.state === 'SUCCESS') {
@@ -595,14 +605,27 @@ document.addEventListener('DOMContentLoaded', () => {
             runSettingsPanel.style.display = 'none';
             activeRunPanel.style.display = 'none';
             exhaustedResolutionsPanel.style.display = 'block';
+            finalReviewPanel.style.display = 'none';
+            browserRunningWarning.style.display = 'none';
             startStatusPolling();
             
             renderExhaustedItems(status.exhaustedItems, status.currentItemQuery);
             lastStatusSearchResults = status.searchResults || [];
+        } else if (status.state === 'AWAITING_FINAL_REVIEW') {
+            runSettingsPanel.style.display = 'none';
+            activeRunPanel.style.display = 'none';
+            exhaustedResolutionsPanel.style.display = 'none';
+            finalReviewPanel.style.display = 'block';
+            browserRunningWarning.style.display = 'none';
+            startStatusPolling();
+            
+            renderReviewDetails(status);
         } else {
             runSettingsPanel.style.display = 'none';
             activeRunPanel.style.display = 'block';
             exhaustedResolutionsPanel.style.display = 'none';
+            finalReviewPanel.style.display = 'none';
+            browserRunningWarning.style.display = 'none';
             
             currentTaskLabel.textContent = `Processing: ${status.state.replace('_', ' ')}`;
             if (status.currentItemQuery) {
@@ -718,41 +741,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-
-        if (status.state === 'AWAITING_FINAL_REVIEW') {
-            if (reviewModal.style.display !== 'flex') {
-                renderReviewModal(status);
-                reviewModal.style.display = 'flex';
-            }
-        } else {
-            reviewModal.style.display = 'none';
-        }
     }
 
-    function renderReviewModal(status) {
-        const reviewModalBody = document.getElementById('review-modal-body');
-        if (!reviewModalBody) return;
-
+    function renderReviewDetails(status) {
         if (status.skippedItems && status.skippedItems.length > 0) {
             let skippedListHtml = status.skippedItems.map(item => `<li>${escapeHtml(item)}</li>`).join('');
-            reviewModalBody.innerHTML = `
-                <div class="success-checkmark-icon" style="animation: none; color: var(--color-danger);">⚠️</div>
-                <h3 style="color: var(--color-danger); margin-bottom: 0.5rem;">Run completed with skipped items</h3>
-                <p class="review-desc" style="margin-bottom: 0.5rem;">Some items could not be added because they are unavailable:</p>
-                <div style="text-align: left; max-height: 150px; overflow-y: auto; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin: 0.75rem 0;">
-                    <ul style="margin: 0; padding-left: 1.25rem; color: var(--text-main); font-size: 0.875rem; line-height: 1.4;">
+            finalReviewDetails.innerHTML = `
+                <p class="task-label" style="color: var(--color-danger); font-weight: 600;">⚠️ RUN COMPLETED WITH SKIPPED ITEMS</p>
+                <h3 class="task-details" style="font-size: 1.05rem; margin-top: 0.25rem;">Review Cart & Skipped Items</h3>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.4;">Some items could not be added because they are unavailable:</p>
+                <div style="text-align: left; max-height: 100px; overflow-y: auto; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; margin: 0.5rem 0;">
+                    <ul style="margin: 0; padding-left: 1.25rem; color: var(--text-main); font-size: 0.8125rem; line-height: 1.4;">
                         ${skippedListHtml}
                     </ul>
                 </div>
-                <p class="review-desc">Please review your shopping cart inside the opened browser window. You can complete the checkout manually if desired.</p>
-                <p class="review-warning">Once you are ready, click "Complete Run" to close the automation browser safely.</p>
+                <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">Please review your shopping cart in the opened browser window. You can complete the checkout manually if desired.</p>
             `;
         } else {
-            reviewModalBody.innerHTML = `
-                <div class="success-checkmark-icon">🎉</div>
-                <h3>All items added to cart!</h3>
-                <p class="review-desc">Please review your shopping cart inside the opened browser window. You can complete the checkout manually if desired.</p>
-                <p class="review-warning">Once you are ready, click "Complete Run" to close the automation browser safely.</p>
+            finalReviewDetails.innerHTML = `
+                <p class="task-label" style="color: var(--color-accent); font-weight: 600;">🎉 RUN COMPLETED</p>
+                <h3 class="task-details" style="font-size: 1.05rem; margin-top: 0.25rem;">Awaiting Cart Verification</h3>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.4;">All items successfully added to cart! Please review your shopping cart in the opened browser window. You can complete the checkout manually if desired.</p>
             `;
         }
     }
@@ -953,20 +962,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // FINAL CART REVIEW MODAL ACTIONS
     // -------------------------------------------------------------
 
-    btnCompleteRun.addEventListener('click', async () => {
+    btnCompleteRunInline.addEventListener('click', async () => {
         try {
-            btnCompleteRun.disabled = true;
-            btnCompleteRun.textContent = 'Closing...';
-            const res = await fetch('/api/autobuy/complete', { method: 'POST' });
+            btnCompleteRunInline.disabled = true;
+            btnCompleteRunInline.textContent = 'Closing...';
+            const res = await fetch('/api/autobuy/complete?keepBrowser=false', { method: 'POST' });
             if (res.ok) {
-                reviewModal.style.display = 'none';
                 addConsoleLog('SUCCESS', 'Execution run marked complete. Browser closed.');
             }
         } catch (err) {
             console.error(err);
         } finally {
-            btnCompleteRun.disabled = false;
-            btnCompleteRun.textContent = 'Complete Run & Close Browser';
+            btnCompleteRunInline.disabled = false;
+            btnCompleteRunInline.textContent = 'Finish & Close Browser';
+        }
+    });
+
+    btnCompleteRunKeep.addEventListener('click', async () => {
+        try {
+            btnCompleteRunKeep.disabled = true;
+            btnCompleteRunKeep.textContent = 'Finishing...';
+            const res = await fetch('/api/autobuy/complete?keepBrowser=true', { method: 'POST' });
+            if (res.ok) {
+                addConsoleLog('SUCCESS', 'Execution run marked complete. Browser kept open.');
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            btnCompleteRunKeep.disabled = false;
+            btnCompleteRunKeep.textContent = 'Finish (Keep Browser Open)';
         }
     });
 

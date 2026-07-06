@@ -345,12 +345,13 @@ class WebApiControllerIT {
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(autoBuyWebService).completeRun();
+		org.mockito.Mockito.verify(autoBuyWebService).completeRun(false);
 	}
 
 	@Test
 	void testCompleteRunEndpoint_Failure() throws Exception {
-		org.mockito.Mockito.doThrow(new IllegalStateException("Not in review")).when(autoBuyWebService).completeRun();
+		org.mockito.Mockito.doThrow(new IllegalStateException("Not in review")).when(autoBuyWebService)
+				.completeRun(anyBoolean());
 
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Not in review"));
