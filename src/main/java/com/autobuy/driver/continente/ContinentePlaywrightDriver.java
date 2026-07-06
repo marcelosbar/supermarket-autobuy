@@ -235,17 +235,15 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 
 			// Define selectors for quantity controls based on DOM inspection
 			Locator plusBtn = tile.locator(ContinenteSelectors.INCREASE_QTY_BUTTON).first();
-			Locator qtyInput = tile.locator(ContinenteSelectors.QTY_INPUT).first();
 
-			// If it's already in the cart (plus button or qty input is visible), it's
-			// available
-			if (plusBtn.isVisible() || qtyInput.isVisible()) {
+			// If it's already in the cart (plus button is visible), it's available
+			if (plusBtn.isVisible()) {
 				return true;
 			}
 
 			// Otherwise, check if the add-to-cart button is visible and enabled
 			Locator addBtn = tile.locator(ContinenteSelectors.ADD_TO_CART_BUTTON).first();
-			return addBtn.isVisible() && addBtn.isEnabled();
+			return addBtn.isVisible() && addBtn.isEnabled() && !addBtn.getAttribute("class").contains("disabled");
 		} catch (Exception e) {
 			log.error("Error checking availability for SKU {}: {}", externalId, e.getMessage());
 			return false;

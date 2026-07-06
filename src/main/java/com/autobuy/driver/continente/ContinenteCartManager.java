@@ -297,8 +297,8 @@ class ContinenteCartManager {
 			if (currentQty == 0) {
 				// Locate add-to-cart button inside the tile
 				Locator addBtn = tile.locator(ContinenteSelectors.ADD_TO_CART_BUTTON).first();
-				if (!addBtn.isVisible()) {
-					log.error("Add to cart button not visible for product SKU {}", externalId);
+				if (!addBtn.isVisible() || addBtn.getAttribute("class").contains("disabled")) {
+					log.error("Add to cart button not visible or is disabled for product SKU {}", externalId);
 					return false;
 				}
 
@@ -306,17 +306,17 @@ class ContinenteCartManager {
 				addBtn.click();
 				page.waitForTimeout(1000);
 
-				// Verify quantity controls are now visible to confirm it was added
+				// Verify plus button is now visible to confirm it was added
 				boolean updated = false;
-				for (int attempt = 0; attempt < 10; attempt++) {
-					if (plusBtn.isVisible() || qtyInput.isVisible() || qtyDisplay.isVisible()) {
+				for (int attempt = 0; attempt < 15; attempt++) {
+					if (plusBtn.isVisible()) {
 						updated = true;
 						break;
 					}
 					page.waitForTimeout(100);
 				}
 				if (!updated) {
-					log.error("Failed to add SKU {} to cart (quantity controls did not appear).", externalId);
+					log.error("Failed to add SKU {} to cart (plus button did not appear).", externalId);
 					return false;
 				}
 				currentQty = 1;
@@ -337,8 +337,8 @@ class ContinenteCartManager {
 
 	private int getExistingQuantity(Locator qtyInput, Locator qtyDisplay, Locator plusBtn, String externalId) {
 		int currentQty = 0;
-		// A plus button or visible quantity input means it's already in the cart
-		if (qtyInput.isVisible() || plusBtn.isVisible()) {
+		// A plus button visible means it's already in the cart
+		if (plusBtn.isVisible()) {
 			String qtyText = readRawQuantityText(qtyInput, qtyDisplay);
 			try {
 				currentQty = Integer.parseInt(qtyText.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
