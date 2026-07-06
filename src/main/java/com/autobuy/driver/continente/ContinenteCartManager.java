@@ -305,6 +305,20 @@ class ContinenteCartManager {
 				// Click it to add the first item
 				addBtn.click();
 				page.waitForTimeout(1000);
+
+				// Verify quantity controls are now visible to confirm it was added
+				boolean updated = false;
+				for (int attempt = 0; attempt < 10; attempt++) {
+					if (plusBtn.isVisible() || qtyInput.isVisible() || qtyDisplay.isVisible()) {
+						updated = true;
+						break;
+					}
+					page.waitForTimeout(100);
+				}
+				if (!updated) {
+					log.error("Failed to add SKU {} to cart (quantity controls did not appear).", externalId);
+					return false;
+				}
 				currentQty = 1;
 			}
 

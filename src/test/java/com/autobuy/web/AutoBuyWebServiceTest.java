@@ -183,7 +183,7 @@ class AutoBuyWebServiceTest {
 		// Should complete the run
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		verify(productService).saveMapping("apples", "CONTINENTE", searchResult2);
+		verify(productService).saveMappingWithPriority("apples", "CONTINENTE", searchResult2, 0);
 		verify(supermarketDriver).addProductToCart("skuB", 2);
 
 		service.completeRun();

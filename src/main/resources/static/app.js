@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastRenderedResultsJson = '';
     let modalMode = 'resolve';
     let currentResolvingQuery = '';
+    let currentMappingInstructions = '';
     let searchResultsCache = [];
     let lastStatusSearchResults = [];
 
@@ -712,17 +713,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const resultsJson = JSON.stringify(status.searchResults);
-            if (resolveModal.style.display !== 'flex' || resultsJson !== lastRenderedResultsJson) {
+            const instructions = status.mappingInstructions || '';
+            const prevInstructions = resolveModalDesc.getAttribute('data-instructions') || '';
+
+            if (resolveModal.style.display !== 'flex' || resultsJson !== lastRenderedResultsJson || instructions !== prevInstructions) {
                 if (resolveModal.style.display !== 'flex') {
                     resolveRefineInput.value = '';
-                    modalMode = 'resolve';
-                    currentResolvingQuery = status.currentItemQuery;
-                    resolveModalTitle.textContent = 'Choose Product Match';
-                    resolveQueryTitle.textContent = `No mapping found for query: "${status.currentItemQuery}"`;
-                    resolveModalDesc.textContent = 'Playwright searched the store and found the following top results. Please choose the correct product to map it permanently and continue the run.';
-                    btnSkipMapping.style.display = 'block';
-                    btnCloseResolve.style.display = 'none';
                 }
+                modalMode = 'resolve';
+                currentResolvingQuery = status.currentItemQuery;
+                resolveModalTitle.textContent = 'Choose Product Match';
+                resolveQueryTitle.textContent = `No mapping found for query: "${status.currentItemQuery}"`;
+                
+                resolveModalDesc.setAttribute('data-instructions', instructions);
+                if (instructions) {
+                    resolveModalDesc.innerHTML = `<span style="color: #f87171; font-weight: 600;">⚠️ ${escapeHtml(instructions)}</span>`;
+                } else {
+                    resolveModalDesc.textContent = 'Playwright searched the store and found the following top results. Please choose the correct product to map it permanently and continue the run.';
+                }
+
+                btnSkipMapping.style.display = 'block';
+                btnCloseResolve.style.display = 'none';
                 renderResolveProducts(status.currentItemQuery, status.searchResults);
                 resolveModal.style.display = 'flex';
                 lastRenderedResultsJson = resultsJson;
@@ -793,7 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="pm-category" style="display: flex; justify-content: space-between; align-items: center;">
                     <span>${escapeHtml(p.category || 'Product')}</span>
-                    ${isOutOfStock ? `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">Esgotado</span>` : ''}
+                    ${isOutOfStock ? `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">Out of Stock</span>` : ''}
                 </div>
                 <h4 class="pm-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</h4>
                 <div class="pm-brand">Brand: ${escapeHtml(p.brand || 'N/A')}</div>
@@ -832,8 +843,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedProd = searchResultsCache.find(p => p.externalId === externalId);
         const isOutOfStock = selectedProd && selectedProd.available === false;
 
-        if (modalMode === 'exhausted' && isOutOfStock) {
-            await showAlert('Produto Indisponível', 'Este produto está esgotado. Por favor, selecione uma alternativa disponível para concluir a compra nesta run.');
+        if (isOutOfStock && modalMode === 'exhausted') {
+            await showAlert('Product Unavailable', 'This product is out of stock. Please select an available alternative to complete the purchase for this run.');
+            return;
+        }
+
+        if (isOutOfStock && !saveMapping) {
+            await showAlert('Product Unavailable', 'This product is out of stock. Please select an in-stock product or use "Select & Save" to save it as a mapping.');
             return;
         }
 

@@ -51,6 +51,7 @@ public class AutoBuyWebService {
 	private CompletableFuture<ResolutionAction> currentMappingFuture = null;
 	private CompletableFuture<com.autobuy.web.dto.ResolutionResult> currentResolutionFuture = null;
 	private CompletableFuture<Void> finalReviewFuture = null;
+	private String mappingInstructions = "";
 
 	public AutoBuyWebService(ProductService productService, PriceHistoryService priceHistoryService,
 			List<SupermarketDriver> drivers, CredentialProvider credentialProvider,
@@ -74,7 +75,7 @@ public class AutoBuyWebService {
 		List<String> exhaustedQueries = exhaustedItems.stream().map(ShoppingItem::query).toList();
 		return new AutoBuyStatusResponse(state, currentItemQuery, currentItemQuantity, new ArrayList<>(searchResults),
 				new ArrayList<>(MemoryAppender.getLogs()), errorMsg, new ArrayList<>(skippedItems), exhaustedQueries,
-				activeDriver != null);
+				activeDriver != null, mappingInstructions);
 	}
 
 	/**
@@ -213,41 +214,6 @@ public class AutoBuyWebService {
 		this.state = AutoBuyState.RUNNING;
 		this.currentMappingFuture = null;
 		future.complete(new ResolutionAction(ResolutionAction.ActionType.REFINE, newQuery));
-=======
-			future.complete(selected);
-		} else if (state == AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS) {
-			CompletableFuture<com.autobuy.web.dto.ResolutionResult> future = this.currentResolutionFuture;
-			if (future == null) {
-				return;
-			}
-
-			if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
-				this.state = AutoBuyState.RUNNING;
-				this.currentResolutionFuture = null;
-				future.complete(null);
-				return;
-			}
-
-			if (activeDriver != null) {
-				boolean available = activeDriver.isProductAvailable(externalId);
-				if (!available) {
-					throw new IllegalArgumentException(
-							"O produto selecionado está esgotado ou indisponível no supermercado. Por favor, escolha outro.");
-				}
-			}
-
-			SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId)).findFirst()
-					.orElse(null);
-
-			if (selected == null) {
-				throw new IllegalArgumentException("Selected externalId not found in current search results.");
-			}
-
-			this.state = AutoBuyState.RUNNING;
-			this.currentResolutionFuture = null;
-			future.complete(new com.autobuy.web.dto.ResolutionResult(selected, saveMapping));
-		}
->>>>>>> 6d66be0 (feat: prioritized alternative products chain and deferred resolutions)
 	}
 
 	/**
@@ -545,42 +511,78 @@ public class AutoBuyWebService {
 				return null;
 			}
 
-			// Pause and wait for Web UI selection (Pre-run mapping)
-			SearchResult selectedProduct = pauseAndResolveMapping(item.query(), searchResultsList);
-			if (selectedProduct == null) {
-				log.info("Skipped item '{}' on user mapping prompt.", item.query());
-				return null;
+			int priority = 0;
+			SearchResult finalSelectedProduct = null;
+
+			while (true) {
+				com.autobuy.web.dto.ResolutionResult resolution = pauseAndResolveMapping(item.query(),
+						searchResultsList, priority);
+				if (resolution == null) {
+					log.info("Skipped mapping for '{}' on user prompt.", item.query());
+					if (priority == 0) {
+						recordSkippedItem(item.query());
+					} else {
+						log.warn("User skipped fallback prompts for '{}'. Deferring to end.", item.query());
+						synchronized (this) {
+							this.exhaustedItems.add(item);
+						}
+					}
+					break;
+				}
+
+				SearchResult selectedProduct = resolution.product();
+				if (resolution.saveMapping()) {
+					try {
+						productService.saveMappingWithPriority(item.query().toLowerCase().trim(), targetSupermarket,
+								selectedProduct, priority);
+						log.info("Saved product mapping: '{}' -> SKU: {} (Priority: {})", item.query(),
+								selectedProduct.externalId(), priority);
+					} catch (Exception e) {
+						log.error("Failed to save product mapping", e);
+					}
+				}
+
+				boolean isAvailable = driver.isProductAvailable(selectedProduct.externalId());
+				if (isAvailable) {
+					finalSelectedProduct = selectedProduct;
+					break;
+				} else {
+					log.warn("Selected product SKU {} is out of stock. Prompting user for fallback alternative...",
+							selectedProduct.externalId());
+					searchResultsList = driver.searchProduct(item.query());
+					priority++;
+				}
 			}
 
-			// Save new mapping as primary (priority 0)
-			try {
-				productService.saveMapping(item.query().toLowerCase().trim(), targetSupermarket, selectedProduct);
-				log.info("Saved product mapping: '{}' -> SKU: {}", item.query(), selectedProduct.externalId());
-			} catch (Exception e) {
-				log.error("Failed to save product mapping", e);
-			}
-			return selectedProduct;
+			return finalSelectedProduct;
 		}
 	}
 
-	private SearchResult pauseAndResolveMapping(String query, List<SearchResult> results) throws InterruptedException {
-		CompletableFuture<SearchResult> future;
+	private com.autobuy.web.dto.ResolutionResult pauseAndResolveMapping(String query, List<SearchResult> results,
+			int priority) throws InterruptedException {
+		CompletableFuture<com.autobuy.web.dto.ResolutionResult> future;
 		synchronized (this) {
 			this.searchResults = results;
 			this.state = AutoBuyState.AWAITING_MAPPING;
+			this.mappingInstructions = priority == 0
+					? ""
+					: "The previous selection was out of stock. Please select a fallback alternative product (Priority "
+							+ priority + ").";
 			this.currentMappingFuture = new CompletableFuture<>();
 			future = this.currentMappingFuture;
 		}
 
-		log.info("PAUSED: Awaiting product mapping resolution from the Web UI for '{}'...", query);
+		log.info("PAUSED: Awaiting product mapping resolution from the Web UI for '{}' (Priority {})...", query,
+				priority);
 
-		SearchResult selected = null;
+		com.autobuy.web.dto.ResolutionResult selected = null;
 		try {
 			selected = awaitFuture(future, "Mapping resolution");
 		} finally {
 			synchronized (this) {
 				this.searchResults = new ArrayList<>();
 				this.currentMappingFuture = null;
+				this.mappingInstructions = "";
 			}
 		}
 
