@@ -570,10 +570,16 @@ class AutoBuyWebServiceTest {
 		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(true);
 		// Mock cart add failure
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(false);
+		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		// Should transition straight to final review
+		// Should transition to exhausted resolutions because cart add failed
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+
+		// Skip it
+		service.resolveMapping("skip", false);
+
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		var status = service.getStatus();

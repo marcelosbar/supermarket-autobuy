@@ -458,8 +458,10 @@ public class AutoBuyWebService {
 		if (success) {
 			log.info("SUCCESS: Added {}x '{}' to cart.", item.quantity(), selectedProduct.name());
 		} else {
-			log.warn("SKIPPED: '{}' is unavailable — not added to cart.", selectedProduct.name());
-			recordSkippedItem(item.query());
+			log.warn("SKIPPED: '{}' is unavailable — not added to cart. Deferring to end.", selectedProduct.name());
+			synchronized (this) {
+				this.exhaustedItems.add(item);
+			}
 		}
 	}
 
