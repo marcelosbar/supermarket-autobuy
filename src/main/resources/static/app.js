@@ -775,10 +775,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         products.forEach(p => {
+            const isOutOfStock = p.available === false;
             const card = document.createElement('div');
             card.className = 'product-match-card';
+            if (isOutOfStock) {
+                card.style.opacity = '0.75';
+            }
             card.innerHTML = `
-                <div class="pm-category">${escapeHtml(p.category || 'Product')}</div>
+                <div class="pm-category" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>${escapeHtml(p.category || 'Product')}</span>
+                    ${isOutOfStock ? `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">Esgotado</span>` : ''}
+                </div>
                 <h4 class="pm-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</h4>
                 <div class="pm-brand">Brand: ${escapeHtml(p.brand || 'N/A')}</div>
                 <div class="pm-footer">
@@ -813,6 +820,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     globalThis.selectProductMatch = async (externalId, saveMapping = true) => {
+        const selectedProd = searchResultsCache.find(p => p.externalId === externalId);
+        const isOutOfStock = selectedProd && selectedProd.available === false;
+
+        if (modalMode === 'exhausted' && isOutOfStock) {
+            await showAlert('Produto Indisponível', 'Este produto está esgotado. Por favor, selecione uma alternativa disponível para concluir a compra nesta run.');
+            return;
+        }
+
         try {
             let res;
             if (modalMode === 'alternative') {
