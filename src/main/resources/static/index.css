@@ -776,6 +776,119 @@ input:focus, select:focus {
     text-overflow: ellipsis;
 }
 
+
+/* Mapping Groups & Priorities */
+.mapping-group {
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.mapping-group-header {
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border-glass);
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.mapping-group-rows {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.alt-row {
+    border: 1px dashed rgba(255, 255, 255, 0.05);
+    padding: 0.625rem 0.875rem;
+    background: transparent;
+}
+
+.mapping-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    margin-right: 0.5rem;
+    display: inline-block;
+}
+
+.mapping-badge.primary-badge {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--color-success);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.mapping-badge.alt-badge {
+    background: rgba(251, 191, 36, 0.1);
+    color: var(--color-warning);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.mapping-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.btn-arrow {
+    background: transparent;
+    border: 1px solid var(--border-glass);
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 0.875rem;
+    border-radius: var(--radius-sm);
+    padding: 0.125rem 0.375rem;
+    transition: var(--transition-smooth);
+}
+
+.btn-arrow:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Exhausted Items UI */
+.exhausted-item-row {
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 0.625rem 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.exhausted-item-name {
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--text-main);
+}
+
+.exhausted-item-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Side-by-side Modal Selection Buttons */
+.pm-buttons-container {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.pm-buttons-container button {
+    flex: 1;
+}
+
 /* MODALS */
 .modal-overlay {
     position: fixed;

@@ -50,13 +50,13 @@ class SupermarketAutobuyRepositoryIT {
 
 		// Act
 		ProductMapping saved = productMappingRepository.save(mapping);
-		Optional<ProductMapping> found = productMappingRepository.findBySearchTextAndSupermarket("mimosa meio gordo",
-				"CONTINENTE");
+		List<ProductMapping> found = productMappingRepository
+				.findBySearchTextAndSupermarketOrderByPriorityAsc("mimosa meio gordo", "CONTINENTE");
 
 		// Assert
 		assertNotNull(saved.getId());
-		assertTrue(found.isPresent());
-		assertEquals("2001923", found.get().getExternalProductId());
+		assertFalse(found.isEmpty());
+		assertEquals("2001923", found.get(0).getExternalProductId());
 	}
 
 	@Test

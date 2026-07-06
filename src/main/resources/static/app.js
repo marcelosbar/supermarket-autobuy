@@ -3,12 +3,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     // State
     let shoppingList = [];
-    let allMappings = [];
+    let allMappings = {};
     let credentialsStatus = { hasUsername: false, hasPassword: false, username: '' };
     let pollIntervalId = null;
     let lastState = 'IDLE';
     let isRefining = false;
     let lastRenderedResultsJson = '';
+    let modalMode = 'resolve';
+    let currentResolvingQuery = '';
+    let searchResultsCache = [];
+    let lastStatusSearchResults = [];
 
     // DOM Elements
     const credStatusDot = document.getElementById('cred-status-dot');
@@ -31,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentTaskLabel = document.getElementById('current-task-label');
     const currentTaskDetails = document.getElementById('current-task-details');
     const btnCancelRun = document.getElementById('btn-cancel-run');
+
+    const exhaustedResolutionsPanel = document.getElementById('exhausted-resolutions-panel');
+    const exhaustedItemsList = document.getElementById('exhausted-items-list');
+    const btnCancelRunExhausted = document.getElementById('btn-cancel-run-exhausted');
     
     const btnClearLogs = document.getElementById('btn-clear-logs');
     const consoleLogLines = document.getElementById('console-log-lines');
@@ -51,12 +59,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const shutdownOverlay = document.getElementById('shutdown-overlay');
     
     const resolveModal = document.getElementById('resolve-modal');
+    const resolveModalTitle = document.getElementById('resolve-modal-title');
     const resolveQueryTitle = document.getElementById('resolve-query-title');
+    const resolveModalDesc = document.getElementById('resolve-modal-desc');
+    const resolveSearchBoxWrapper = document.getElementById('resolve-search-box-wrapper');
+    const resolveSearchInput = document.getElementById('resolve-search-input');
+    const btnResolveSearch = document.getElementById('btn-resolve-search');
     const resolveProductsGrid = document.getElementById('resolve-products-grid');
     const btnSkipMapping = document.getElementById('btn-skip-mapping');
     const resolveRefineInput = document.getElementById('resolve-refine-input');
     const btnRefineSearch = document.getElementById('btn-refine-search');
     const resolveOriginalQuery = document.getElementById('resolve-original-query');
+    const btnCloseResolve = document.getElementById('btn-close-resolve');
     
     const reviewModal = document.getElementById('review-modal');
     const btnCompleteRun = document.getElementById('btn-complete-run');
@@ -325,37 +339,92 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderMappings() {
         const query = mappingSearchInput.value.trim().toLowerCase();
-        const filtered = allMappings.filter(m => 
-            m.searchText.toLowerCase().includes(query) || 
-            m.productName?.toLowerCase().includes(query) ||
-            m.externalProductId.toLowerCase().includes(query)
-        );
-
         mappingsListContainer.innerHTML = '';
 
-        if (filtered.length === 0) {
-            mappingsListContainer.innerHTML = '<div class="empty-state-text">No product mappings found.</div>';
-            return;
-        }
+        const keys = Object.keys(allMappings);
+        let matchCount = 0;
 
-        filtered.forEach(mapping => {
-            const row = document.createElement('div');
-            row.className = 'mapping-row';
-            row.innerHTML = `
-                <div class="mapping-details">
-                    <span class="mapping-query">"${escapeHtml(mapping.searchText)}"</span>
-                    <span class="mapping-sku-name" title="${escapeHtml(mapping.productName || '')}">
-                        SKU: ${escapeHtml(mapping.externalProductId)} ${mapping.productName ? `— ${escapeHtml(mapping.productName)}` : ''}
-                    </span>
+        keys.forEach(searchText => {
+            const list = allMappings[searchText];
+            const matchesQuery = searchText.toLowerCase().includes(query) ||
+                list.some(m => m.productName?.toLowerCase().includes(query) || m.externalProductId.toLowerCase().includes(query));
+
+            if (!matchesQuery && query !== '') return;
+
+            matchCount++;
+
+            const group = document.createElement('div');
+            group.className = 'mapping-group';
+
+            let rowsHtml = '';
+            list.forEach((m, index) => {
+                const isFirst = index === 0;
+                const isLast = index === list.length - 1;
+
+                rowsHtml += `
+                    <div class="mapping-row alt-row">
+                        <div class="mapping-details">
+                            <span class="mapping-badge ${m.priority === 0 ? 'primary-badge' : 'alt-badge'}">
+                                ${m.priority === 0 ? 'Primary' : 'Alt ' + m.priority}
+                            </span>
+                            <span class="mapping-sku-name" title="${escapeHtml(m.productName || '')}">
+                                SKU: ${escapeHtml(m.externalProductId)} ${m.productName ? `— ${escapeHtml(m.productName)}` : ''}
+                            </span>
+                        </div>
+                        <div class="mapping-actions">
+                            <button class="btn-arrow" onclick="promoteMapping(${m.id})" ${isFirst ? 'disabled' : ''} title="Move Up">↑</button>
+                            <button class="btn-arrow" onclick="demoteMapping(${m.id})" ${isLast ? 'disabled' : ''} title="Move Down">↓</button>
+                            <button class="btn-trash" onclick="deleteMapping(${m.id})" title="Delete mapping">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            group.innerHTML = `
+                <div class="mapping-group-header">
+                    <span class="mapping-query">"${escapeHtml(searchText)}"</span>
+                    <button class="btn btn-secondary btn-small" onclick="openAddAlternativeModal('${escapeHtml(searchText)}')">+ Add Alternative</button>
                 </div>
-                <button class="btn-trash" onclick="deleteMapping(${mapping.id})" title="Delete mapping">🗑️</button>
+                <div class="mapping-group-rows">
+                    ${rowsHtml}
+                </div>
             `;
-            mappingsListContainer.appendChild(row);
+            mappingsListContainer.appendChild(group);
         });
+
+        if (matchCount === 0) {
+            mappingsListContainer.innerHTML = '<div class="empty-state-text">No product mappings found.</div>';
+        }
     }
 
+    globalThis.promoteMapping = async (id) => {
+        try {
+            const res = await fetch(`/api/mappings/${id}/promote`, { method: 'POST' });
+            if (res.ok) {
+                loadMappings();
+            } else {
+                await showAlert('Error', 'Failed to promote mapping.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    globalThis.demoteMapping = async (id) => {
+        try {
+            const res = await fetch(`/api/mappings/${id}/demote`, { method: 'POST' });
+            if (res.ok) {
+                loadMappings();
+            } else {
+                await showAlert('Error', 'Failed to demote mapping.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     globalThis.deleteMapping = async (id) => {
-        if (!await showConfirm('Delete Mapping', 'Are you sure you want to delete this product SKU mapping?', true)) return;
+        if (!await showConfirm('Delete Mapping', 'Are you sure you want to delete this product mapping?', true)) return;
         try {
             const res = await fetch(`/api/mappings/${id}`, { method: 'DELETE' });
             if (res.ok) {
@@ -515,15 +584,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (status.state === 'IDLE' || status.state === 'SUCCESS' || status.state === 'FAILED') {
             runSettingsPanel.style.display = 'block';
             activeRunPanel.style.display = 'none';
+            exhaustedResolutionsPanel.style.display = 'none';
             btnStartRun.disabled = false;
             stopStatusPolling();
             
             if (lastState !== status.state && status.state === 'SUCCESS') {
                 loadMappings();
             }
+        } else if (status.state === 'AWAITING_EXHAUSTED_RESOLUTIONS') {
+            runSettingsPanel.style.display = 'none';
+            activeRunPanel.style.display = 'none';
+            exhaustedResolutionsPanel.style.display = 'block';
+            startStatusPolling();
+            
+            renderExhaustedItems(status.exhaustedItems);
+            lastStatusSearchResults = status.searchResults || [];
         } else {
             runSettingsPanel.style.display = 'none';
             activeRunPanel.style.display = 'block';
+            exhaustedResolutionsPanel.style.display = 'none';
             
             currentTaskLabel.textContent = `Processing: ${status.state.replace('_', ' ')}`;
             if (status.currentItemQuery) {
@@ -534,6 +613,62 @@ document.addEventListener('DOMContentLoaded', () => {
             startStatusPolling();
         }
     }
+
+    function renderExhaustedItems(items) {
+        exhaustedItemsList.innerHTML = '';
+        if (!items || items.length === 0) {
+            exhaustedItemsList.innerHTML = '<div class="empty-state-text">All items resolved.</div>';
+            return;
+        }
+
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'exhausted-item-row';
+            row.innerHTML = `
+                <span class="exhausted-item-name">${escapeHtml(item)}</span>
+                <div class="exhausted-item-actions">
+                    <button class="btn btn-primary btn-small" onclick="openResolveExhaustedModal('${escapeHtml(item)}')">Resolve</button>
+                    <button class="btn btn-secondary btn-small" onclick="resolveExhaustedSkip('${escapeHtml(item)}')">Skip</button>
+                </div>
+            `;
+            exhaustedItemsList.appendChild(row);
+        });
+    }
+
+    globalThis.openResolveExhaustedModal = (query) => {
+        modalMode = 'exhausted';
+        currentResolvingQuery = query;
+
+        resolveModalTitle.textContent = 'Choose Product Match';
+        resolveQueryTitle.textContent = `Resolve unavailable query: "${query}"`;
+        resolveModalDesc.textContent = 'Search the supermarket to find an alternative product to resolve this unavailable item.';
+
+        resolveSearchBoxWrapper.style.display = 'flex';
+        resolveSearchInput.value = query;
+
+        btnSkipMapping.style.display = 'block';
+        btnCloseResolve.style.display = 'none';
+
+        renderResolveProducts(query, lastStatusSearchResults);
+        resolveModal.style.display = 'flex';
+    };
+
+    globalThis.resolveExhaustedSkip = async (query) => {
+        try {
+            const res = await fetch('/api/autobuy/resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ externalId: 'skip', saveMapping: false })
+            });
+            if (res.ok) {
+                addConsoleLog('WARN', `Skipped resolution for item: ${query}`);
+            } else {
+                await showAlert('Error', 'Failed to skip item.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     function handleModals(status) {
         if (status.state === 'AWAITING_MAPPING') {
@@ -548,19 +683,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resolveModal.style.display !== 'flex' || resultsJson !== lastRenderedResultsJson) {
                 if (resolveModal.style.display !== 'flex') {
                     resolveRefineInput.value = '';
+                    modalMode = 'resolve';
+                    currentResolvingQuery = status.currentItemQuery;
+                    resolveModalTitle.textContent = 'Choose Product Match';
+                    resolveQueryTitle.textContent = `No mapping found for query: "${status.currentItemQuery}"`;
+                    resolveModalDesc.textContent = 'Playwright searched the store and found the following top results. Please choose the correct product to map it permanently and continue the run.';
+                    btnSkipMapping.style.display = 'block';
+                    btnCloseResolve.style.display = 'none';
                 }
                 renderResolveProducts(status.currentItemQuery, status.searchResults);
                 resolveModal.style.display = 'flex';
                 lastRenderedResultsJson = resultsJson;
             }
+        } else if (status.state === 'AWAITING_EXHAUSTED_RESOLUTIONS') {
+            // Handled manually via resolution panel buttons
         } else {
-            if (!isRefining || (status.state !== 'RUNNING' && status.state !== 'AWAITING_MAPPING')) {
-                resolveModal.style.display = 'none';
-                lastRenderedResultsJson = '';
-                isRefining = false;
-                resolveRefineInput.disabled = false;
-                btnRefineSearch.disabled = false;
-                btnRefineSearch.textContent = 'Search';
+            if (modalMode !== 'alternative') {
+                if (!isRefining || (status.state !== 'RUNNING' && status.state !== 'AWAITING_MAPPING')) {
+                    resolveModal.style.display = 'none';
+                    lastRenderedResultsJson = '';
+                    isRefining = false;
+                    resolveRefineInput.disabled = false;
+                    btnRefineSearch.disabled = false;
+                    btnRefineSearch.textContent = 'Search';
+                }
             }
         }
 
@@ -607,11 +753,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------
 
     function renderResolveProducts(query, products) {
-        resolveQueryTitle.textContent = `No mapping found for query: "${query}"`;
+        resolveQueryTitle.textContent = modalMode === 'alternative' ? `Alternative mapping for: "${query}"` : `Choose Product Match for: "${query}"`;
         if (resolveOriginalQuery) {
             resolveOriginalQuery.textContent = `"${query}"`;
         }
         resolveProductsGrid.innerHTML = '';
+        searchResultsCache = products || [];
 
         if (!products || products.length === 0) {
             resolveProductsGrid.innerHTML = '<p class="empty-state-text">No products found in search results.</p>';
@@ -629,24 +776,65 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="pm-price">${p.price.toFixed(2)} €</span>
                     <a href="${p.url}" target="_blank" class="pm-link">View Page ↗</a>
                 </div>
-                <button class="btn btn-primary btn-small btn-select-product" onclick="selectProductMatch('${p.externalId}')">Select & Map</button>
+                <div class="pm-buttons-container">
+                    <button class="btn btn-primary btn-small btn-select-product" onclick="selectProductMatch('${p.externalId}', true)" title="Select and save mapping to database">Select & Save</button>
+                    <button class="btn btn-secondary btn-small btn-select-product" onclick="selectProductMatch('${p.externalId}', false)" title="Select only for this run">Select Only</button>
+                </div>
             `;
             resolveProductsGrid.appendChild(card);
         });
     }
 
-    globalThis.selectProductMatch = async (externalId) => {
+    globalThis.openAddAlternativeModal = (searchText) => {
+        modalMode = 'alternative';
+        currentResolvingQuery = searchText;
+        
+        resolveModalTitle.textContent = 'Add Alternative Product';
+        resolveQueryTitle.textContent = `Alternative mapping for: "${searchText}"`;
+        resolveModalDesc.textContent = 'Search the supermarket to find an alternative product. Selecting a product will add it to the mapping chain.';
+        
+        resolveSearchBoxWrapper.style.display = 'flex';
+        resolveSearchInput.value = searchText;
+        
+        btnSkipMapping.style.display = 'none';
+        btnCloseResolve.style.display = 'block';
+        
+        resolveProductsGrid.innerHTML = '<div class="empty-state-text">Enter search query and click search to find alternative products.</div>';
+        resolveModal.style.display = 'flex';
+    };
+
+    globalThis.selectProductMatch = async (externalId, saveMapping = true) => {
         try {
-            const res = await fetch('/api/autobuy/resolve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ externalId })
-            });
+            let res;
+            if (modalMode === 'alternative') {
+                res = await fetch('/api/autobuy/add-alternative', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        searchText: currentResolvingQuery,
+                        supermarket: runSupermarket.value || 'CONTINENTE',
+                        externalId: externalId,
+                        productName: searchResultsCache.find(p => p.externalId === externalId)?.name || ''
+                    })
+                });
+            } else {
+                res = await fetch('/api/autobuy/resolve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ externalId, saveMapping })
+                });
+            }
+
             if (res.ok) {
                 resolveModal.style.display = 'none';
-                addConsoleLog('INFO', `Mapped query to product SKU: ${externalId}`);
+                if (modalMode === 'alternative') {
+                    addConsoleLog('INFO', `Added alternative product SKU: ${externalId}`);
+                    loadMappings();
+                } else {
+                    addConsoleLog('INFO', `Resolved item to product SKU: ${externalId} (Save: ${saveMapping})`);
+                }
             } else {
-                await showAlert('Mapping Error', 'Failed to resolve mapping.');
+                await showAlert('Error', 'Failed to resolve/add mapping.');
             }
         } catch (err) {
             console.error(err);
@@ -658,7 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/autobuy/resolve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ externalId: 'skip' })
+                body: JSON.stringify({ externalId: 'skip', saveMapping: false })
             });
             if (res.ok) {
                 resolveModal.style.display = 'none';
@@ -722,6 +910,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    btnCloseResolve.addEventListener('click', () => {
+        resolveModal.style.display = 'none';
+    });
+
+    btnCancelRunExhausted.addEventListener('click', async () => {
+        if (!await showConfirm('Cancel Execution', 'Are you sure you want to cancel the scraper execution?', true)) return;
+        try {
+            const res = await fetch('/api/autobuy/cancel', { method: 'POST' });
+            if (res.ok) {
+                addConsoleLog('WARN', 'Cancel request sent to scraper.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    });
     // -------------------------------------------------------------
     // FINAL CART REVIEW MODAL ACTIONS
     // -------------------------------------------------------------

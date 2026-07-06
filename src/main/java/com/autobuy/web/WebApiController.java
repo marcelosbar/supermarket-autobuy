@@ -88,8 +88,45 @@ public class WebApiController {
 	// 2. Mapping Endpoints
 
 	@GetMapping("/mappings")
-	public ResponseEntity<List<ProductMapping>> getMappings() {
-		return ResponseEntity.ok(productService.findAllMappings());
+	public ResponseEntity<Map<String, List<ProductMapping>>> getMappings() {
+		List<ProductMapping> all = productService.findAllMappings();
+		Map<String, List<ProductMapping>> grouped = all.stream()
+				.collect(java.util.stream.Collectors.groupingBy(ProductMapping::getSearchText,
+						java.util.stream.Collectors.collectingAndThen(java.util.stream.Collectors.toList(), list -> {
+							list.sort(java.util.Comparator.comparingInt(ProductMapping::getPriority));
+							return list;
+						})));
+		return ResponseEntity.ok(grouped);
+	}
+
+	@PostMapping("/mappings/{id}/promote")
+	public ResponseEntity<Map<String, Object>> promoteMapping(@PathVariable Long id) {
+		try {
+			productService.promoteMapping(id);
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
+	}
+
+	@PostMapping("/mappings/{id}/demote")
+	public ResponseEntity<Map<String, Object>> demoteMapping(@PathVariable Long id) {
+		try {
+			productService.demoteMapping(id);
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
 	}
 
 	@DeleteMapping("/mappings/{id}")
@@ -187,7 +224,62 @@ public class WebApiController {
 	@PostMapping("/autobuy/resolve")
 	public ResponseEntity<Map<String, Object>> resolveMapping(@RequestBody ResolveRequest request) {
 		try {
-			autoBuyWebService.resolveMapping(request.externalId());
+			autoBuyWebService.resolveMapping(request.externalId(), request.saveMapping());
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
+	}
+
+	@GetMapping("/autobuy/search")
+	public ResponseEntity<List<com.autobuy.model.SearchResult>> searchSupermarket(@RequestParam String query,
+			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
+		log.info("Performing guest search for '{}' in {}", query, supermarket);
+		com.autobuy.driver.SupermarketDriver tempDriver = null;
+		if ("CONTINENTE".equalsIgnoreCase(supermarket)) {
+			tempDriver = new com.autobuy.driver.continente.ContinentePlaywrightDriver();
+		}
+
+		if (tempDriver == null) {
+			return ResponseEntity.badRequest().build();
+		}
+
+		try {
+			tempDriver.initialize(null, null, true);
+			List<com.autobuy.model.SearchResult> results = tempDriver.searchProduct(query);
+			return ResponseEntity.ok(results);
+		} catch (Exception e) {
+			log.error("Failed to perform guest search", e);
+			return ResponseEntity.internalServerError().build();
+		} finally {
+			if (tempDriver != null) {
+				try {
+					tempDriver.close();
+				} catch (Exception e) {
+					log.error("Error closing temporary search driver", e);
+				}
+			}
+		}
+	}
+
+	@PostMapping("/autobuy/add-alternative")
+	public ResponseEntity<Map<String, Object>> addAlternative(
+			@RequestBody com.autobuy.web.dto.AddAlternativeRequest request) {
+		try {
+			List<ProductMapping> existing = productService.findMappingsBySearchTextAndSupermarket(
+					request.searchText().toLowerCase().trim(), request.supermarket());
+			int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max().orElse(-1) + 1;
+
+			com.autobuy.model.SearchResult result = new com.autobuy.model.SearchResult(request.externalId(),
+					request.productName(), "", java.math.BigDecimal.ZERO, "", "");
+			productService.saveMappingWithPriority(request.searchText().toLowerCase().trim(), request.supermarket(),
+					result, nextPriority);
+
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);

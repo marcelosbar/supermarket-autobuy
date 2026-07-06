@@ -296,7 +296,7 @@ class WebApiControllerIT {
 		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
 				"cat");
 		var dummyStatus = new AutoBuyStatusResponse(AutoBuyWebService.AutoBuyState.RUNNING, "query", 5,
-				List.of(dummyResult), List.of("log line"), "", List.of());
+				List.of(dummyResult), List.of("log line"), "", List.of(), List.of());
 
 		org.mockito.Mockito.when(autoBuyWebService.getStatus()).thenReturn(dummyStatus);
 
@@ -312,24 +312,26 @@ class WebApiControllerIT {
 	void testResolveMappingEndpoint_Success() throws Exception {
 		String json = """
 				{
-					"externalId": "sku123"
+					"externalId": "sku123",
+					"saveMapping": true
 				}
 				""";
 
 		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(autoBuyWebService).resolveMapping("sku123");
+		org.mockito.Mockito.verify(autoBuyWebService).resolveMapping("sku123", true);
 	}
 
 	@Test
 	void testResolveMappingEndpoint_Failure() throws Exception {
 		org.mockito.Mockito.doThrow(new IllegalArgumentException("Invalid ID")).when(autoBuyWebService)
-				.resolveMapping("invalid-sku");
+				.resolveMapping(org.mockito.Mockito.eq("invalid-sku"), org.mockito.Mockito.anyBoolean());
 
 		String json = """
 				{
-					"externalId": "invalid-sku"
+					"externalId": "invalid-sku",
+					"saveMapping": false
 				}
 				""";
 
