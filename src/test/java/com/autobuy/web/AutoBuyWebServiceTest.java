@@ -600,8 +600,8 @@ class AutoBuyWebServiceTest {
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
 		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
 		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
-		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE"))
-				.thenReturn(Optional.of(mapping));
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(List.of(mapping));
 		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of(searchResult));
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
 
@@ -635,7 +635,7 @@ class AutoBuyWebServiceTest {
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
 		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
 		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
-		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(Optional.empty());
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
 
 		// First search query: "apples"
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(initialResult)));
@@ -663,12 +663,12 @@ class AutoBuyWebServiceTest {
 		assertEquals("skuB", status.searchResults().get(0).externalId());
 
 		// Resolve mapping with skuB
-		service.resolveMapping("skuB");
+		service.resolveMapping("skuB", true);
 
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Verify database mapping was saved for original query "apples"
-		verify(productService).saveMapping("apples", "CONTINENTE", refinedResult);
+		verify(productService).saveMappingWithPriority("apples", "CONTINENTE", refinedResult, 0);
 
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
@@ -683,13 +683,13 @@ class AutoBuyWebServiceTest {
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
 		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
 		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
-		when(productService.findMappingBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(Optional.empty());
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
 
 		// Mock saveMapping throwing an exception
-		doThrow(new RuntimeException("Database error")).when(productService).saveMapping("apples", "CONTINENTE",
-				searchResult);
+		doThrow(new RuntimeException("Database error")).when(productService).saveMappingWithPriority("apples",
+				"CONTINENTE", searchResult, 0);
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
@@ -697,7 +697,7 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
 
 		// Resolve mapping
-		service.resolveMapping("sku123");
+		service.resolveMapping("sku123", true);
 
 		// Should still complete because the exception is caught
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
