@@ -213,6 +213,11 @@ public class AutoBuyWebService {
 					}
 				}
 			}
+			synchronized (this) {
+				if (this.state == AutoBuyState.AWAITING_MAPPING) {
+					this.state = AutoBuyState.RUNNING;
+				}
+			}
 			return new com.autobuy.web.dto.ResolutionResultStatus(true, "Successfully added to cart.");
 		} catch (Exception e) {
 			synchronized (this) {

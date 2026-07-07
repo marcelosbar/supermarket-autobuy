@@ -594,6 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exhaustedResolutionsPanel.style.display = 'none';
             finalReviewPanel.style.display = 'none';
             btnStartRun.disabled = false;
+            resolveModal.style.display = 'none';
             
             if (status.browserOpen) {
                 browserRunningWarning.style.display = 'block';

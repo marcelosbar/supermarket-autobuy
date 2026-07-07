@@ -224,6 +224,35 @@ class AutoBuyWebServiceTest {
 	}
 
 	@Test
+	void testResolveMapping_StateTransitionsToRunning() throws Exception {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("skuB", "Red Apples", "Brand", BigDecimal.valueOf(1.9), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+
+		when(supermarketDriver.addProductToCart("skuB", 2)).thenAnswer(invocation -> {
+			Thread.sleep(100);
+			return true;
+		});
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("skuB", true);
+
+		assertTrue(status.added());
+		assertEquals(AutoBuyWebService.AutoBuyState.RUNNING, service.getStatus().state());
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		service.completeRun();
+	}
+
+	@Test
 	void testCancelRun() {
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
