@@ -665,7 +665,6 @@ public class AutoBuyWebService {
 			action = awaitFuture(future, "Mapping resolution");
 		} finally {
 			synchronized (this) {
-				this.searchResults = new ArrayList<>();
 				this.currentMappingFuture = null;
 				this.mappingInstructions = "";
 			}
@@ -694,7 +693,6 @@ public class AutoBuyWebService {
 			selected = awaitFuture(future, "Exhausted mapping resolution");
 		} finally {
 			synchronized (this) {
-				this.searchResults = new ArrayList<>();
 				this.currentResolutionFuture = null;
 			}
 		}
@@ -738,7 +736,6 @@ public class AutoBuyWebService {
 			action = awaitFuture(future, "Mapping resolution");
 		} finally {
 			synchronized (this) {
-				this.searchResults.clear();
 				this.currentMappingFuture = null;
 			}
 		}
