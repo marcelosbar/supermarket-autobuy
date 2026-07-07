@@ -479,7 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const unmappedItems = shoppingList.filter(item => {
             const queryClean = item.query.toLowerCase().trim();
-            return !allMappings.some(m => m.searchText.toLowerCase().trim() === queryClean && m.supermarket.toUpperCase() === supermarket.toUpperCase());
+            const mappingList = allMappings[queryClean] || Object.entries(allMappings).find(([k]) => k.toLowerCase().trim() === queryClean)?.[1];
+            if (!mappingList || !Array.isArray(mappingList)) {
+                return true;
+            }
+            return !mappingList.some(m => m.supermarket.toUpperCase() === supermarket.toUpperCase());
         });
 
         if (unmappedItems.length > 0) {
