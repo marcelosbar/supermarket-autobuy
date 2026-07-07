@@ -278,35 +278,48 @@ public class AutoBuyWebService {
 	/**
 	 * Cancels the currently running execution.
 	 */
-	public synchronized void cancel() {
+	public void cancel() {
 		log.warn("Auto-buy run canceled by user.");
-		if (activeDriver != null) {
-			try {
-				activeDriver.close();
-			} catch (Exception e) {
-				log.error("Error closing driver on cancel", e);
+		SupermarketDriver driverToClose = null;
+
+		synchronized (this) {
+			this.state = AutoBuyState.FAILED;
+			this.errorMsg = "Execution canceled by user.";
+
+			if (currentMappingFuture != null) {
+				currentMappingFuture.cancel(true);
+				currentMappingFuture = null;
 			}
-			activeDriver = null;
+			if (currentResolutionFuture != null) {
+				currentResolutionFuture.cancel(true);
+				currentResolutionFuture = null;
+			}
+			if (finalReviewFuture != null) {
+				finalReviewFuture.cancel(true);
+				finalReviewFuture = null;
+			}
+			if (currentExecutionFuture != null) {
+				currentExecutionFuture.cancel(true);
+				currentExecutionFuture = null;
+			}
+
+			if (activeDriver != null) {
+				driverToClose = activeDriver;
+				activeDriver = null;
+			}
 		}
 
-		this.state = AutoBuyState.FAILED;
-		this.errorMsg = "Execution canceled by user.";
-
-		if (currentMappingFuture != null) {
-			currentMappingFuture.cancel(true);
-			currentMappingFuture = null;
-		}
-		if (currentResolutionFuture != null) {
-			currentResolutionFuture.cancel(true);
-			currentResolutionFuture = null;
-		}
-		if (finalReviewFuture != null) {
-			finalReviewFuture.cancel(true);
-			finalReviewFuture = null;
-		}
-		if (currentExecutionFuture != null) {
-			currentExecutionFuture.cancel(true);
-			currentExecutionFuture = null;
+		if (driverToClose != null) {
+			final SupermarketDriver finalDriver = driverToClose;
+			java.util.concurrent.CompletableFuture.runAsync(() -> {
+				try {
+					log.info("Closing driver asynchronously on cancel...");
+					finalDriver.close();
+					log.info("Driver closed asynchronously on cancel.");
+				} catch (Exception e) {
+					log.error("Error closing driver asynchronously on cancel", e);
+				}
+			});
 		}
 	}
 
