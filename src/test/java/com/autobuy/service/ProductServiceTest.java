@@ -80,6 +80,28 @@ class ProductServiceTest {
 	}
 
 	@Test
+	void testDeleteMapping_WithRemaining() {
+		ProductMapping mapping = new ProductMapping("cheese", "CONTINENTE", "SKU-CHEESE", "Continente Cheese");
+		mapping.setId(1L);
+		mapping.setPriority(0);
+
+		ProductMapping m1 = new ProductMapping("cheese", "CONTINENTE", "SKU-1", "Cheese 1");
+		m1.setId(2L);
+		m1.setPriority(1);
+
+		when(productMappingRepository.findById(1L)).thenReturn(Optional.of(mapping));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("cheese", "CONTINENTE"))
+				.thenReturn(List.of(m1));
+
+		productService.deleteMapping(1L);
+
+		verify(productMappingRepository).delete(mapping);
+		verify(productMappingRepository).saveAndFlush(m1);
+		assertEquals(0, m1.getPriority());
+		assertNull(m1.getFallbackForId());
+	}
+
+	@Test
 	void testFindOrCreateProduct_DefaultSupermarket() {
 		// New product creation path
 		when(productRepository.findByExternalIdAndSupermarket("EAN-12345", "CONTINENTE")).thenReturn(Optional.empty());
@@ -246,7 +268,28 @@ class ProductServiceTest {
 
 		productService.promoteMapping(11L);
 
-		verify(productMappingRepository, atLeastOnce()).save(m1);
-		verify(productMappingRepository, atLeastOnce()).save(m0);
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m1);
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m0);
+	}
+
+	@Test
+	void testDemoteMapping() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		ProductMapping m1 = new ProductMapping("query", "CONTINENTE", "SKU-1", "Product 1");
+		m1.setId(11L);
+		m1.setPriority(1);
+		m1.setFallbackForId(10L);
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0, m1));
+
+		productService.demoteMapping(10L);
+
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m0);
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m1);
 	}
 }

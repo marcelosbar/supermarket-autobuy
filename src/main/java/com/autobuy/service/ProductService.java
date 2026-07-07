@@ -57,7 +57,7 @@ public class ProductService {
 				} else {
 					m.setFallbackForId(remaining.get(0).getId());
 				}
-				productMappingRepository.save(m);
+				productMappingRepository.saveAndFlush(m);
 			}
 		}
 	}
@@ -139,11 +139,16 @@ public class ProductService {
 		}
 
 		if (above != null) {
-			target.setPriority(currentPriority - 1);
-			above.setPriority(currentPriority);
+			// Temporarily shift 'above' to a unique unused priority (-1) to avoid unique
+			// key index violations
+			above.setPriority(-1);
+			productMappingRepository.saveAndFlush(above);
 
-			productMappingRepository.save(target);
-			productMappingRepository.save(above);
+			target.setPriority(currentPriority - 1);
+			productMappingRepository.saveAndFlush(target);
+
+			above.setPriority(currentPriority);
+			productMappingRepository.saveAndFlush(above);
 
 			// Re-sequence to prevent gaps and fix fallbackForId
 			List<ProductMapping> updated = productMappingRepository
@@ -156,7 +161,7 @@ public class ProductService {
 				} else {
 					m.setFallbackForId(updated.get(0).getId());
 				}
-				productMappingRepository.save(m);
+				productMappingRepository.saveAndFlush(m);
 			}
 		}
 	}
@@ -186,11 +191,16 @@ public class ProductService {
 		}
 
 		if (below != null) {
-			target.setPriority(currentPriority + 1);
-			below.setPriority(currentPriority);
+			// Temporarily shift 'below' to a unique unused priority (-1) to avoid unique
+			// key index violations
+			below.setPriority(-1);
+			productMappingRepository.saveAndFlush(below);
 
-			productMappingRepository.save(target);
-			productMappingRepository.save(below);
+			target.setPriority(currentPriority + 1);
+			productMappingRepository.saveAndFlush(target);
+
+			below.setPriority(currentPriority);
+			productMappingRepository.saveAndFlush(below);
 
 			// Re-sequence to prevent gaps and fix fallbackForId
 			List<ProductMapping> updated = productMappingRepository
@@ -203,7 +213,7 @@ public class ProductService {
 				} else {
 					m.setFallbackForId(updated.get(0).getId());
 				}
-				productMappingRepository.save(m);
+				productMappingRepository.saveAndFlush(m);
 			}
 		}
 	}
