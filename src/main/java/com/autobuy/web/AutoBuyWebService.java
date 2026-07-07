@@ -615,8 +615,13 @@ public class AutoBuyWebService {
 					log.warn(
 							"Selected product SKU {} could not be added to cart. Prompting user for fallback alternative...",
 							selectedProduct.externalId());
-					searchResultsList = driver.searchProduct(item.query());
-					searchWord = item.query();
+					for (int i = 0; i < searchResultsList.size(); i++) {
+						SearchResult r = searchResultsList.get(i);
+						if (r.externalId().equals(selectedProduct.externalId())) {
+							searchResultsList.set(i, new SearchResult(r.externalId(), r.name(), r.brand(), r.price(),
+									r.url(), r.category(), false));
+						}
+					}
 					priority++;
 				}
 			}
