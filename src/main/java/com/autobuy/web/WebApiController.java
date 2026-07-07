@@ -224,9 +224,17 @@ public class WebApiController {
 	@PostMapping("/autobuy/resolve")
 	public ResponseEntity<Map<String, Object>> resolveMapping(@RequestBody ResolveRequest request) {
 		try {
-			autoBuyWebService.resolveMapping(request.externalId(), request.saveMapping());
+			com.autobuy.web.dto.ResolutionResultStatus status = autoBuyWebService.resolveMapping(request.externalId(),
+					request.saveMapping());
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
+			if (status != null) {
+				response.put("added", status.added());
+				response.put(MESSAGE_KEY, status.message());
+			} else {
+				response.put("added", true);
+				response.put(MESSAGE_KEY, "Successfully resolved.");
+			}
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			Map<String, Object> response = new HashMap<>();

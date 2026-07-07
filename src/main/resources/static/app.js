@@ -853,6 +853,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const buttons = resolveProductsGrid.querySelectorAll('.btn-select-product');
+        buttons.forEach(btn => btn.disabled = true);
+        const clickedBtn = Array.from(buttons).find(btn => {
+            const clickAttr = btn.getAttribute('onclick') || '';
+            return clickAttr.includes(`'${externalId}'`) && clickAttr.includes(String(saveMapping));
+        });
+        let originalText = '';
+        if (clickedBtn) {
+            originalText = clickedBtn.textContent;
+            clickedBtn.textContent = 'Verifying...';
+        }
+
         try {
             let res;
             if (modalMode === 'alternative') {
@@ -875,18 +887,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (res.ok) {
-                resolveModal.style.display = 'none';
                 if (modalMode === 'alternative') {
+                    await res.json().catch(() => ({}));
+                    resolveModal.style.display = 'none';
                     addConsoleLog('INFO', `Added alternative product SKU: ${externalId}`);
                     loadMappings();
                 } else {
-                    addConsoleLog('INFO', `Resolved item to product SKU: ${externalId} (Save: ${saveMapping})`);
+                    const data = await res.json().catch(() => ({}));
+                    if (data.added) {
+                        resolveModal.style.display = 'none';
+                        addConsoleLog('INFO', `Resolved item to product SKU: ${externalId} (Save: ${saveMapping})`);
+                    } else {
+                        addConsoleLog('WARN', `Saved mapping for SKU: ${externalId}, but it was out of stock.`);
+                        if (selectedProd) {
+                            selectedProd.available = false;
+                        }
+                        
+                        resolveModalDesc.innerHTML = `<span style="color: #f87171; font-weight: 600;">⚠️ ${escapeHtml(data.message || 'Saved as mapping, but out of stock. Please select a fallback alternative.')}</span>`;
+                        renderResolveProducts(currentResolvingQuery, searchResultsCache);
+                    }
                 }
             } else {
-                await showAlert('Error', 'Failed to resolve/add mapping.');
+                const data = await res.json().catch(() => ({}));
+                const errorMsg = data.message || 'Failed to resolve/add mapping.';
+                await showAlert('Product Unavailable', errorMsg);
+                if (selectedProd) {
+                    selectedProd.available = false;
+                }
+                renderResolveProducts(currentResolvingQuery, searchResultsCache);
             }
         } catch (err) {
             console.error(err);
+            await showAlert('Error', 'An unexpected error occurred.');
+        } finally {
+            buttons.forEach(btn => btn.disabled = false);
+            if (clickedBtn) {
+                clickedBtn.textContent = originalText;
+            }
         }
     };
 
