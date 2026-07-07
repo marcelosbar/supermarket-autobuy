@@ -207,6 +207,29 @@ class ProductServiceTest {
 	}
 
 	@Test
+	void testSaveMappingWithPriority_DuplicateSku() {
+		SearchResult result = new SearchResult("SKU-1", "Name", "Brand", new BigDecimal("1.99"), "http://url",
+				"Category");
+		Product mockProduct = new Product("SKU-1", "CONTINENTE", "Name", "Brand", "http://url", "Category");
+		mockProduct.setId(1L);
+
+		when(productRepository.findByExternalIdAndSupermarket("SKU-1", "CONTINENTE"))
+				.thenReturn(Optional.of(mockProduct));
+
+		ProductMapping primary = new ProductMapping("query", "CONTINENTE", "SKU-1", "Name");
+		primary.setId(10L);
+		primary.setPriority(0);
+
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(primary));
+
+		productService.saveMappingWithPriority("query", "CONTINENTE", result, 1);
+
+		verify(productRepository).findByExternalIdAndSupermarket("SKU-1", "CONTINENTE");
+		verify(productMappingRepository, never()).save(any(ProductMapping.class));
+	}
+
+	@Test
 	void testPromoteMapping() {
 		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
 		m0.setId(10L);

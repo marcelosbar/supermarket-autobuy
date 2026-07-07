@@ -17,6 +17,8 @@ import java.util.Optional;
 @Service
 public class ProductService {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProductService.class);
+
 	private final ProductRepository productRepository;
 	private final ProductMappingRepository productMappingRepository;
 	private final ProductService self;
@@ -95,14 +97,20 @@ public class ProductService {
 		self.findOrCreateProduct(result.externalId(), supermarket, result.name(), result.brand(), result.url(),
 				result.category());
 
+		List<ProductMapping> existing = productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc(query,
+				supermarket);
+
+		boolean alreadyExists = existing.stream().anyMatch(m -> m.getExternalProductId().equals(result.externalId()));
+		if (alreadyExists) {
+			log.info("Mapping already exists for query '{}' and SKU '{}'. Skipping duplicate save.", query,
+					result.externalId());
+			return;
+		}
+
 		ProductMapping mapping = new ProductMapping(query, supermarket, result.externalId(), result.name());
 		mapping.setPriority(priority);
-		if (priority > 0) {
-			List<ProductMapping> existing = productMappingRepository
-					.findBySearchTextAndSupermarketOrderByPriorityAsc(query, supermarket);
-			if (!existing.isEmpty()) {
-				mapping.setFallbackForId(existing.get(0).getId());
-			}
+		if (priority > 0 && !existing.isEmpty()) {
+			mapping.setFallbackForId(existing.get(0).getId());
 		}
 		self.saveMapping(mapping);
 	}
