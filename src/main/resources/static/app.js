@@ -817,8 +817,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <a href="${p.url}" target="_blank" class="pm-link">View Page ↗</a>
                 </div>
                 <div class="pm-buttons-container">
-                    <button class="btn btn-primary btn-small btn-select-product" onclick="selectProductMatch('${p.externalId}', true)" title="Select and save mapping to database">Select & Save</button>
-                    <button class="btn btn-secondary btn-small btn-select-product" onclick="selectProductMatch('${p.externalId}', false)" title="Select only for this run">Select Only</button>
+                    <button class="btn btn-primary btn-small btn-select-product" onclick="selectProductMatch('${p.externalId}', true)" title="Select and save mapping to database" ${isOutOfStock ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>Select & Save</button>
+                    <button class="btn btn-secondary btn-small btn-select-product" onclick="selectProductMatch('${p.externalId}', false)" title="Select only for this run" ${isOutOfStock ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>Select Only</button>
                 </div>
             `;
             resolveProductsGrid.appendChild(card);
