@@ -263,6 +263,9 @@ class ContinenteCartManager {
 	public boolean addProductToCart(String externalId, int quantity) {
 		log.info("Adding product SKU {} (quantity={}) to cart...", externalId, quantity);
 		try {
+			Locator qtyBadge = page.locator(ContinenteSelectors.MINICART_QUANTITY).first();
+			int initialCartQty = getCartQuantityFast(qtyBadge);
+
 			// Find the product tile by data-pid
 			Locator tile = page.locator(String.format(ContinenteSelectors.PRODUCT_TILE_BY_PID, externalId, externalId))
 					.first();
@@ -327,12 +330,38 @@ class ContinenteCartManager {
 				adjustProductQuantity(qtyInput, plusBtn, qtyDisplay, currentQty, quantity);
 			}
 
+			// Verify minicart quantity increased
+			boolean cartUpdated = false;
+			for (int attempt = 0; attempt < 25; attempt++) {
+				int currentCartQty = getCartQuantityFast(qtyBadge);
+				if (currentCartQty > initialCartQty) {
+					cartUpdated = true;
+					break;
+				}
+				page.waitForTimeout(200);
+			}
+			if (!cartUpdated) {
+				log.error("Failed to add SKU {} to cart: Minicart quantity did not increase.", externalId);
+				return false;
+			}
+
 			log.info("Successfully set SKU {} quantity to {} in cart.", externalId, quantity);
 			return true;
 		} catch (Exception e) {
 			log.error("Failed to add SKU {} to cart: {}", externalId, e.getMessage());
 			return false;
 		}
+	}
+
+	private int getCartQuantityFast(Locator qtyBadge) {
+		try {
+			if (qtyBadge.isVisible()) {
+				String text = qtyBadge.innerText().trim();
+				return Integer.parseInt(text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
+			}
+		} catch (Exception _) {
+		}
+		return 0;
 	}
 
 	private int getExistingQuantity(Locator qtyInput, Locator qtyDisplay, Locator plusBtn, String externalId) {

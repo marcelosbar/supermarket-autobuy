@@ -456,10 +456,11 @@ public class AutoBuyWebService {
 
 		log.info("Processing item: '{}' (Quantity: {})", item.query(), item.quantity());
 
-		SearchResult selectedProduct = resolveProduct(driver, item, targetSupermarket);
-		if (selectedProduct == null) {
+		ResolveResult resolveResult = resolveProduct(driver, item, targetSupermarket);
+		if (resolveResult == null || resolveResult.product() == null) {
 			return;
 		}
+		SearchResult selectedProduct = resolveResult.product();
 
 		// Log Price and Add to Cart
 		try {
@@ -468,7 +469,12 @@ public class AutoBuyWebService {
 		} catch (Exception e) {
 			log.error("Failed to log price history", e);
 		}
-		boolean success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
+
+		boolean success = true;
+		if (!resolveResult.alreadyAdded()) {
+			success = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
+		}
+
 		if (success) {
 			log.info("SUCCESS: Added {}x '{}' to cart.", item.quantity(), selectedProduct.name());
 		} else {
@@ -479,7 +485,7 @@ public class AutoBuyWebService {
 		}
 	}
 
-	private SearchResult resolveProduct(SupermarketDriver driver, ShoppingItem item, String targetSupermarket)
+	private ResolveResult resolveProduct(SupermarketDriver driver, ShoppingItem item, String targetSupermarket)
 			throws InterruptedException {
 		List<ProductMapping> mappings = productService
 				.findMappingsBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
@@ -492,7 +498,7 @@ public class AutoBuyWebService {
 				if (!skuResults.isEmpty()) {
 					SearchResult result = skuResults.get(0);
 					if (driver.isProductAvailable(result.externalId())) {
-						return result;
+						return new ResolveResult(result, false);
 					}
 				}
 				log.warn("Mapping SKU {} is unavailable, trying next fallback...", mapping.getExternalProductId());
@@ -542,19 +548,20 @@ public class AutoBuyWebService {
 					}
 				}
 
-				boolean isAvailable = driver.isProductAvailable(selectedProduct.externalId());
-				if (isAvailable) {
+				boolean added = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
+				if (added) {
 					finalSelectedProduct = selectedProduct;
 					break;
 				} else {
-					log.warn("Selected product SKU {} is out of stock. Prompting user for fallback alternative...",
+					log.warn(
+							"Selected product SKU {} could not be added to cart. Prompting user for fallback alternative...",
 							selectedProduct.externalId());
 					searchResultsList = driver.searchProduct(item.query());
 					priority++;
 				}
 			}
 
-			return finalSelectedProduct;
+			return new ResolveResult(finalSelectedProduct, true);
 		}
 	}
 
@@ -707,5 +714,8 @@ public class AutoBuyWebService {
 		this.state = AutoBuyState.FAILED;
 		this.errorMsg = message;
 		log.error("Auto-buy execution failed: {}", message);
+	}
+
+	private record ResolveResult(SearchResult product, boolean alreadyAdded) {
 	}
 }
