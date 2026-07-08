@@ -307,14 +307,29 @@ class ContinenteCartManager {
 
 				// Click it to add the first item
 				addBtn.click();
-				page.waitForTimeout(1000);
 
 				// Verify plus button is now visible to confirm it was added
 				boolean updated = false;
-				for (int attempt = 0; attempt < 15; attempt++) {
+				for (int attempt = 0; attempt < 25; attempt++) {
 					if (plusBtn.isVisible()) {
 						updated = true;
 						break;
+					}
+					// Fast failure detection: check if the add button is disabled or displays out
+					// of stock
+					try {
+						if (addBtn.isVisible() && (addBtn.isDisabled()
+								|| (addBtn.getAttribute("class") != null
+										&& addBtn.getAttribute("class").contains("disabled"))
+								|| (addBtn.innerText() != null && (addBtn.innerText().contains("Indisponível")
+										|| addBtn.innerText().contains("Esgotado")
+										|| addBtn.innerText().contains("Sem stock"))))) {
+							log.warn("Detecting that product SKU {} became unavailable immediately after click.",
+									externalId);
+							break;
+						}
+					} catch (Exception e) {
+						// Ignore element detached errors during state transition
 					}
 					page.waitForTimeout(100);
 				}
