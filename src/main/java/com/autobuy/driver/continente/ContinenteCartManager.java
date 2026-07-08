@@ -318,14 +318,21 @@ class ContinenteCartManager {
 					// Fast failure detection: check if the add button is disabled or displays out
 					// of stock
 					try {
-						if (addBtn.isVisible() && (addBtn.isDisabled()
-								|| (addBtn.getAttribute("class") != null
-										&& addBtn.getAttribute("class").contains("disabled"))
-								|| (addBtn.innerText() != null && (addBtn.innerText().contains("Indisponível")
-										|| addBtn.innerText().contains("Esgotado")
-										|| addBtn.innerText().contains("Sem stock"))))) {
-							log.warn("Detecting that product SKU {} became unavailable immediately after click.",
-									externalId);
+						String tileClass = tile.getAttribute("class");
+						if (tileClass != null && tileClass.contains("ct-product-tile-out-of-stock")) {
+							log.warn("Detecting that product SKU {} tile became out-of-stock.", externalId);
+							break;
+						}
+
+						Locator unavailableBadge = tile.locator(".dual-badge-unavailable-message").first();
+						if (unavailableBadge.isVisible()) {
+							log.warn("Detecting that product SKU {} unavailable badge appeared.", externalId);
+							break;
+						}
+
+						String outOfStockAttr = addBtn.getAttribute("data-outofstock");
+						if (outOfStockAttr != null && "true".equalsIgnoreCase(outOfStockAttr.trim())) {
+							log.warn("Detecting that product SKU {} add button has data-outofstock=true.", externalId);
 							break;
 						}
 					} catch (Exception e) {
