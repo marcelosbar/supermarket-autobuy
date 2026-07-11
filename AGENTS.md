@@ -1,6 +1,7 @@
 # AI Agent Guidelines: Supermarket Auto-Buy
 
 ## 1. Project Directory Layout
+
 * `src/main/java/com/autobuy/`
   * `config/`: Spring Configuration beans (contains `AppConfig`).
   * `driver/`: `SupermarketDriver` and scraper implementations (e.g. Playwright).
@@ -14,29 +15,40 @@
 * `secrets.properties`: (Excluded from git) local key-value store for passwords.
 
 ## 2. CLI Commands
-* **Build & Package:** `.\mvnw.cmd clean package`
-* **Run Tests:** `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`. During active development, add `-Dtest=TestClassName` for targeted test execution. Always use piping to filter verbose output and save LLM token context. Run the whole test suite for final verification only.
-* **Run App:** `.\mvnw.cmd spring-boot:run` (Starts the Web UI and automatically executes Flyway baseline/migrations)
-* **Auto-format Code:** `.\mvnw.cmd spotless:apply` (automatically applies Eclipse JDT 4-space indent style)
+
+* **Build and package** the project using: `.\mvnw.cmd clean package`.
+* **Run tests** using: `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`.
+* **Add target parameter** `-Dtest=TestClassName` during active development to run a single test.
+* **Always use piping** when running tests. This filters verbose output and saves LLM token context.
+* **Run the entire** test suite only for final verification.
+* **Run the application** using: `.\mvnw.cmd spring-boot:run`. This starts the Web UI and runs migrations.
+* **Auto-format code** using: `.\mvnw.cmd spotless:apply`. This applies the Eclipse JDT 4-space indent style.
 
 ## 3. Coding Guidelines & Standards
-* **JDK Version:** Targets Java 25.
-* **SOLID Compliance:** Adhere to all five SOLID principles:
-  * **S – Single Responsibility:** Each class should have one reason to change. Split classes that mix concerns (e.g., business logic and persistence).
-  * **O – Open/Closed:** Favour extension over modification. Use strategy interfaces and composition to add behaviour without editing existing classes.
-  * **L – Liskov Substitution:** Subtypes must be substitutable for their base types without breaking callers. Avoid weakening postconditions or strengthening preconditions in subclasses.
-  * **I – Interface Segregation:** Keep interfaces small and focused. Clients should not be forced to depend on methods they do not use.
-  * **D – Dependency Inversion:** Depend on abstractions, not concretions. Use constructor injection (not field or setter injection) and inject interfaces (e.g., `CredentialProvider`, `SupermarketDriver`), not implementations.
-* **SOLID Exception Rule:** If a class must deviate from any SOLID principle, write an explicit Javadoc explanation containing `<b>SOLID Exception:</b> [Reason]`.
-* **Database & Locks:** Keep H2 database file (`db.mv.db`) outside OneDrive. Run backup snapshot exports only on shutdown using `DatabaseBackupService`.
-* **Testing Pyramid & Separation:** Maintain a healthy testing pyramid (preferring unit tests over integration tests). Keep pure unit tests named with a `*Test.java` suffix (run via `.\mvnw.cmd test` using Surefire), and integration/slice tests named with an `*IT.java` suffix (run via `.\mvnw.cmd verify` using Failsafe). Code coverage (minimum 80% instruction coverage) is evaluated globally during the `verify` phase.
+
+* **Target Java 25** for the compiler and runtime JDK.
+* **Adhere to SOLID** principles across all code changes:
+  * **S - Single Responsibility:** Ensure each class has only one reason to change. Split mixed-concern classes.
+  * **O - Open/Closed:** Favor extension over modification. Use strategy interfaces and composition.
+  * **L - Liskov Substitution:** Ensure subtypes remain substitutable for base types. Do not weaken postconditions.
+  * **I - Interface Segregation:** Keep interfaces small and focused. Do not force dependency on unused methods.
+  * **D - Dependency Inversion:** Depend on abstractions, not concretions. Use constructor injection only.
+* **Inject interface types** instead of concrete classes (e.g., `CredentialProvider`, `SupermarketDriver`).
+* **Document SOLID exceptions** using Javadoc if deviation is necessary. Write `<b>SOLID Exception:</b> [Reason]`.
+* **Store H2 database** files (`db.mv.db`) outside OneDrive to prevent lock issues.
+* **Export backup snapshots** only on shutdown using `DatabaseBackupService`.
+* **Maintain the testing** pyramid by preferring unit tests over integration tests.
+* **Name unit tests** with `*Test.java` suffix. Run them using `.\mvnw.cmd test`.
+* **Name integration tests** with `*IT.java` suffix. Run them using `.\mvnw.cmd verify`.
+* **Ensure 80% instruction** coverage globally. This is evaluated during the `verify` phase.
 
 ## 4. Git Commit Guidelines
-* **Conventional Commits:** Always write commit messages following the Conventional Commits specification (e.g., `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`).
+
+* **Use Conventional Commits** format for all commit messages (e.g., `feat: ...`, `fix: ...`, `refactor: ...`).
 
 ## 5. Design Principles
-* **Minimize Interruptions:** Any action that requires user input should be deferred and batched. Front-load decisions; back-load automation.
-  * **Pre-run:** resolve unknowns (unmapped items) up front before the automated loop begins.
-  * **Post-run:** resolve exceptions (unavailable products) at the end in batch.
-  * **Mid-run:** interruptions should only happen when there is genuinely no other option.
 
+* **Minimize user interruptions** by deferring and batching tasks that require human input.
+* **Resolve unknown items** first (pre-run phase) before starting the main automated shopping loop.
+* **Handle product exceptions** last (post-run phase) in a single batch.
+* **Only interrupt execution** mid-run if no alternative action is possible.
