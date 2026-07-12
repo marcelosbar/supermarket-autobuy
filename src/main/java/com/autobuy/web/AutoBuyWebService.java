@@ -273,6 +273,9 @@ public class AutoBuyWebService {
 		}
 		this.keepBrowserOpen = keepBrowser;
 		this.state = AutoBuyState.SUCCESS;
+		if (!keepBrowser) {
+			this.activeDriver = null;
+		}
 		CompletableFuture<Void> future = this.finalReviewFuture;
 		this.finalReviewFuture = null;
 		if (future != null) {
