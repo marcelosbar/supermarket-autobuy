@@ -288,12 +288,29 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 	public void close() {
 		log.info("Closing Playwright browser context...");
 		try {
-			if (context != null)
-				context.close();
-			if (browser != null)
-				browser.close();
-			if (playwright != null)
-				playwright.close();
+			if (browser != null && browser.isConnected()) {
+				if (context != null) {
+					try {
+						context.close();
+					} catch (Exception e) {
+						log.debug("Context close failed (already closed): {}", e.getMessage());
+					}
+				}
+				try {
+					browser.close();
+				} catch (Exception e) {
+					log.debug("Browser close failed (already closed): {}", e.getMessage());
+				}
+			} else {
+				log.info("Browser is already disconnected/closed by user.");
+			}
+			if (playwright != null) {
+				try {
+					playwright.close();
+				} catch (Exception e) {
+					log.debug("Playwright close failed: {}", e.getMessage());
+				}
+			}
 			log.info("Browser closed successfully.");
 		} catch (Exception e) {
 			log.error("Error closing Playwright browser: {}", e.getMessage());
