@@ -414,6 +414,13 @@ public class WebApiController {
 				response.put(MESSAGE_KEY, "Selection cancelled");
 			}
 			return ResponseEntity.ok(response);
+		} catch (InterruptedException e) {
+			log.error("Failed to open native directory chooser due to thread interruption", e);
+			Thread.currentThread().interrupt();
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, "Error opening native directory chooser: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(response);
 		} catch (Exception e) {
 			log.error("Failed to open native directory chooser", e);
 			Map<String, Object> response = new HashMap<>();
