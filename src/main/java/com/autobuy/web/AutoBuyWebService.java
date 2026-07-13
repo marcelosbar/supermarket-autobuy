@@ -137,71 +137,81 @@ public class AutoBuyWebService {
 	 * Resolves a missing mapping by specifying a chosen search result.
 	 */
 	public com.autobuy.web.dto.ResolutionResultStatus resolveMapping(String externalId, boolean saveMapping) {
-		CompletableFuture<ResolutionAction> future;
+		CompletableFuture<ResolutionAction> mappingFuture = null;
 
 		synchronized (this) {
 			if (state != AutoBuyState.AWAITING_MAPPING && state != AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS) {
 				throw new IllegalStateException("Not currently waiting for product mapping resolution.");
 			}
 
-			if (state == AutoBuyState.AWAITING_MAPPING) {
-				future = this.currentMappingFuture;
-				if (future == null) {
-					throw new IllegalStateException("No active mapping future.");
-				}
+			if (state == AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS) {
+				return handleAwaitingExhaustedResolutions(externalId, saveMapping);
+			}
 
-				if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
-					this.state = AutoBuyState.RUNNING;
-					this.currentMappingFuture = null;
-					future.complete(new ResolutionAction(ResolutionAction.ActionType.SKIP, null));
-					return new com.autobuy.web.dto.ResolutionResultStatus(true, "Skipped mapping.");
-				}
+			// AWAITING_MAPPING path
+			mappingFuture = this.currentMappingFuture;
+			if (mappingFuture == null) {
+				throw new IllegalStateException("No active mapping future.");
+			}
 
-				SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId))
-						.findFirst().orElse(null);
-
-				if (selected == null) {
-					throw new IllegalArgumentException("Selected externalId not found in current search results.");
-				}
-
-				this.additionValidationFuture = new CompletableFuture<>();
-				this.currentMappingFuture = null;
-				future.complete(new ResolutionAction(ResolutionAction.ActionType.SELECT, externalId, saveMapping));
-			} else {
-				CompletableFuture<com.autobuy.web.dto.ResolutionResult> resFuture = this.currentResolutionFuture;
-				if (resFuture == null) {
-					throw new IllegalStateException("No active resolution future.");
-				}
-
-				if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
-					this.state = AutoBuyState.RUNNING;
-					this.currentResolutionFuture = null;
-					resFuture.complete(null);
-					return new com.autobuy.web.dto.ResolutionResultStatus(true, "Skipped exhausted resolution.");
-				}
-
-				if (activeDriver != null) {
-					boolean available = activeDriver.isProductAvailable(externalId);
-					if (!available) {
-						throw new IllegalArgumentException(
-								"The selected product is out of stock or unavailable. Please choose another.");
-					}
-				}
-
-				SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId))
-						.findFirst().orElse(null);
-
-				if (selected == null) {
-					throw new IllegalArgumentException("Selected externalId not found in current search results.");
-				}
-
+			if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
 				this.state = AutoBuyState.RUNNING;
-				this.currentResolutionFuture = null;
-				resFuture.complete(new com.autobuy.web.dto.ResolutionResult(selected, saveMapping));
-				return new com.autobuy.web.dto.ResolutionResultStatus(true, "Successfully resolved.");
+				this.currentMappingFuture = null;
+				mappingFuture.complete(new ResolutionAction(ResolutionAction.ActionType.SKIP, null));
+				return new com.autobuy.web.dto.ResolutionResultStatus(true, "Skipped mapping.");
+			}
+
+			SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId)).findFirst()
+					.orElse(null);
+
+			if (selected == null) {
+				throw new IllegalArgumentException("Selected externalId not found in current search results.");
+			}
+
+			this.additionValidationFuture = new CompletableFuture<>();
+			this.currentMappingFuture = null;
+			mappingFuture.complete(new ResolutionAction(ResolutionAction.ActionType.SELECT, externalId, saveMapping));
+		}
+
+		return waitForAdditionValidation(saveMapping);
+	}
+
+	private com.autobuy.web.dto.ResolutionResultStatus handleAwaitingExhaustedResolutions(String externalId,
+			boolean saveMapping) {
+		CompletableFuture<com.autobuy.web.dto.ResolutionResult> resFuture = this.currentResolutionFuture;
+		if (resFuture == null) {
+			throw new IllegalStateException("No active resolution future.");
+		}
+
+		if (externalId == null || externalId.isBlank() || "skip".equalsIgnoreCase(externalId.trim())) {
+			this.state = AutoBuyState.RUNNING;
+			this.currentResolutionFuture = null;
+			resFuture.complete(null);
+			return new com.autobuy.web.dto.ResolutionResultStatus(true, "Skipped exhausted resolution.");
+		}
+
+		if (activeDriver != null) {
+			boolean available = activeDriver.isProductAvailable(externalId);
+			if (!available) {
+				throw new IllegalArgumentException(
+						"The selected product is out of stock or unavailable. Please choose another.");
 			}
 		}
 
+		SearchResult selected = searchResults.stream().filter(r -> r.externalId().equals(externalId)).findFirst()
+				.orElse(null);
+
+		if (selected == null) {
+			throw new IllegalArgumentException("Selected externalId not found in current search results.");
+		}
+
+		this.currentResolutionFuture = null;
+		this.state = AutoBuyState.RUNNING;
+		resFuture.complete(new com.autobuy.web.dto.ResolutionResult(selected, saveMapping));
+		return new com.autobuy.web.dto.ResolutionResultStatus(true, "Successfully resolved.");
+	}
+
+	private com.autobuy.web.dto.ResolutionResultStatus waitForAdditionValidation(boolean saveMapping) {
 		try {
 			Boolean added = this.additionValidationFuture.get(15, java.util.concurrent.TimeUnit.SECONDS);
 			if (added == null || !added) {
@@ -222,11 +232,17 @@ public class AutoBuyWebService {
 				}
 			}
 			return new com.autobuy.web.dto.ResolutionResultStatus(true, "Successfully added to cart.");
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			synchronized (this) {
+				this.state = AutoBuyState.AWAITING_MAPPING;
+			}
+			throw new com.autobuy.exception.AutoBuyException("Validation interrupted", e);
 		} catch (Exception e) {
 			synchronized (this) {
 				this.state = AutoBuyState.AWAITING_MAPPING;
 			}
-			throw new RuntimeException("Validation failed or timed out: " + e.getMessage());
+			throw new com.autobuy.exception.AutoBuyException("Validation failed or timed out: " + e.getMessage(), e);
 		} finally {
 			synchronized (this) {
 				this.additionValidationFuture = null;
@@ -416,8 +432,7 @@ public class AutoBuyWebService {
 						this.currentItemQuery = failedItem.query();
 						this.currentItemQuantity = failedItem.quantity();
 					}
-					com.autobuy.web.dto.ResolutionResult resolution = pauseAndResolveExhausted(failedItem,
-							targetSupermarket, driver);
+					com.autobuy.web.dto.ResolutionResult resolution = pauseAndResolveExhausted(failedItem, driver);
 					if (resolution == null) {
 						log.info("Skipped item '{}' on user resolution prompt.", failedItem.query());
 						recordSkippedItem(failedItem.query());
@@ -684,8 +699,8 @@ public class AutoBuyWebService {
 		return action;
 	}
 
-	private com.autobuy.web.dto.ResolutionResult pauseAndResolveExhausted(ShoppingItem item, String targetSupermarket,
-			SupermarketDriver driver) throws InterruptedException {
+	private com.autobuy.web.dto.ResolutionResult pauseAndResolveExhausted(ShoppingItem item, SupermarketDriver driver)
+			throws InterruptedException {
 		log.info("Performing store search for '{}'...", item.query());
 		List<SearchResult> results = driver.searchProduct(item.query());
 
@@ -837,7 +852,8 @@ public class AutoBuyWebService {
 		if (activeDriver != null) {
 			try {
 				activeDriver.close();
-			} catch (Exception _) {
+			} catch (Exception e) {
+				log.debug("Ignore driver close errors on application shutdown", e);
 			}
 			activeDriver = null;
 		}
