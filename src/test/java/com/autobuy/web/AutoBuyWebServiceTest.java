@@ -283,6 +283,9 @@ class AutoBuyWebServiceTest {
 		// Cannot complete run when IDLE
 		assertThrows(IllegalStateException.class, () -> service.completeRun());
 
+		// Cannot refine search when IDLE
+		assertThrows(IllegalStateException.class, () -> service.refineSearch("query"));
+
 		// Cannot start auto buy twice
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));

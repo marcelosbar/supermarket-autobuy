@@ -965,6 +965,33 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
+        if (modalMode === 'alternative') {
+            try {
+                const res = await fetch(`/api/autobuy/search?query=${encodeURIComponent(query)}`, {
+                    method: 'GET'
+                });
+
+                if (res.ok) {
+                    const products = await res.json();
+                    renderResolveProducts(query, products);
+                } else {
+                    const errData = await res.json().catch(() => ({}));
+                    await showAlert('Search Error', errData.message || 'Failed to search supermarket.');
+                    resolveProductsGrid.innerHTML = '<p class="empty-state-text">Failed to search supermarket.</p>';
+                }
+            } catch (err) {
+                console.error(err);
+                await showAlert('Search Error', err.message || 'Failed to search supermarket.');
+                resolveProductsGrid.innerHTML = '<p class="empty-state-text">Failed to search supermarket.</p>';
+            } finally {
+                isRefining = false;
+                resolveRefineInput.disabled = false;
+                btnRefineSearch.disabled = false;
+                btnRefineSearch.textContent = 'Search';
+            }
+            return;
+        }
+
         try {
             const res = await fetch('/api/autobuy/refine', {
                 method: 'POST',
