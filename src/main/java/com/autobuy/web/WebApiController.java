@@ -50,6 +50,7 @@ public class WebApiController {
 	private static final String BACKUP_DIR_KEY = "backupDir";
 	private static final String DEFAULT_SUPERMARKET = "CONTINENTE";
 
+	@SuppressWarnings("java:S107")
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
 			CredentialProvider credentialProvider, SettingsProvider settingsProvider,
 			ShoppingListProvider shoppingListProvider, ShutdownService shutdownService,
@@ -247,7 +248,8 @@ public class WebApiController {
 	public ResponseEntity<List<com.autobuy.model.SearchResult>> searchSupermarket(@RequestParam String query,
 			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
 		String sanitizedQuery = query != null ? query.replace('\n', '_').replace('\r', '_') : "";
-		log.info("Performing guest search for '{}' in {}", sanitizedQuery, supermarket);
+		String sanitizedSupermarket = supermarket != null ? supermarket.replace('\n', '_').replace('\r', '_') : "";
+		log.info("Performing guest search for '{}' in {}", sanitizedQuery, sanitizedSupermarket);
 		try {
 			List<com.autobuy.model.SearchResult> results = autoBuyWebService.performGuestSearch(query, supermarket);
 			return ResponseEntity.ok(results);

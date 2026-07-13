@@ -213,6 +213,26 @@ class WebApiControllerIT {
 	}
 
 	@Test
+	void testSearchSupermarket_Success() throws Exception {
+		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
+				"cat");
+		when(autoBuyWebService.performGuestSearch("milk", "CONTINENTE")).thenReturn(List.of(dummyResult));
+
+		mockMvc.perform(get("/api/autobuy/search").param("query", "milk").param("supermarket", "CONTINENTE"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$[0].externalId").value("sku"))
+				.andExpect(jsonPath("$[0].name").value("Product"));
+	}
+
+	@Test
+	void testSearchSupermarket_Failure() throws Exception {
+		when(autoBuyWebService.performGuestSearch("milk", "CONTINENTE"))
+				.thenThrow(new RuntimeException("Search failed"));
+
+		mockMvc.perform(get("/api/autobuy/search").param("query", "milk").param("supermarket", "CONTINENTE"))
+				.andExpect(status().isInternalServerError());
+	}
+
+	@Test
 	void testShutdown() throws Exception {
 		mockMvc.perform(post("/api/shutdown")).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message")

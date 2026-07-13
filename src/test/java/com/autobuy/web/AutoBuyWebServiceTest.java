@@ -808,6 +808,11 @@ class AutoBuyWebServiceTest {
 	}
 
 	@Test
+	void testPerformGuestSearch_NonexistentSupermarket() {
+		assertThrows(IllegalArgumentException.class, () -> service.performGuestSearch("query", "NONEXISTENT"));
+	}
+
+	@Test
 	void testStartAutoBuy_InteractiveResolutionExhaustedSelect() {
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
