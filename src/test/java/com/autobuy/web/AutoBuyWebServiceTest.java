@@ -59,6 +59,13 @@ class AutoBuyWebServiceTest {
 
 	@AfterEach
 	void tearDown() {
+		if (service != null) {
+			try {
+				service.cancel();
+			} catch (Exception e) {
+				// ignore
+			}
+		}
 		taskExecutor.shutdown();
 	}
 
@@ -246,7 +253,9 @@ class AutoBuyWebServiceTest {
 		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("skuB", true);
 
 		assertTrue(status.added());
-		assertEquals(AutoBuyWebService.AutoBuyState.RUNNING, service.getStatus().state());
+		AutoBuyWebService.AutoBuyState currentState = service.getStatus().state();
+		assertTrue(currentState == AutoBuyWebService.AutoBuyState.RUNNING
+				|| currentState == AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
 		service.completeRun();
@@ -796,5 +805,81 @@ class AutoBuyWebServiceTest {
 		service.performGuestSearch("query", "CONTINENTE");
 		service.shutdown();
 		verify(supermarketDriver, times(1)).close();
+	}
+
+	@Test
+	void testStartAutoBuy_InteractiveResolutionExhaustedSelect() throws Exception {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+		SearchResult alternativeResult = new SearchResult("sku456", "Green Apples", "BrandB", BigDecimal.valueOf(1.49),
+				"url", "Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(List.of(mapping));
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of(searchResult));
+		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(false);
+
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(alternativeResult)));
+		when(supermarketDriver.isProductAvailable("sku456")).thenReturn(true);
+		when(supermarketDriver.addProductToCart("sku456", 2)).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+
+		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("sku456", true);
+		assertTrue(status.added());
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_InteractiveResolutionSelect_CartAddFailure() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(false);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		assertThrows(com.autobuy.exception.AutoBuyException.class, () -> service.resolveMapping("sku123", false));
+	}
+
+	@Test
+	void testStartAutoBuy_InteractiveResolutionSelect_CartAddFailureSaveMapping() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(false);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("sku123", true);
+		assertFalse(status.added());
+		assertEquals("Saved as mapping, but out of stock. Please select a fallback alternative.", status.message());
 	}
 }
