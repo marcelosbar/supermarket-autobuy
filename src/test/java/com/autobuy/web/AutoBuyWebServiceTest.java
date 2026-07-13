@@ -960,4 +960,49 @@ class AutoBuyWebServiceTest {
 
 		verify(supermarketDriver).close();
 	}
+
+	@Test
+	void testRefineSearch_NullOrBlankQuery() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		assertThrows(IllegalArgumentException.class, () -> service.refineSearch(null));
+		assertThrows(IllegalArgumentException.class, () -> service.refineSearch(" "));
+	}
+
+	@Test
+	void testCompleteRun_KeepBrowser() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		service.resolveMapping("sku123", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		service.completeRun(true);
+
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
 }
