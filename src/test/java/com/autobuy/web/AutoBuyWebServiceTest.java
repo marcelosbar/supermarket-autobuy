@@ -935,4 +935,29 @@ class AutoBuyWebServiceTest {
 		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("sku123", true);
 		assertTrue(status.added());
 	}
+
+	@Test
+	void testShutdown_WithActiveDriver() throws Exception {
+		java.lang.reflect.Field field = AutoBuyWebService.class.getDeclaredField("activeDriver");
+		field.setAccessible(true);
+		field.set(service, supermarketDriver);
+
+		service.shutdown();
+
+		verify(supermarketDriver).close();
+	}
+
+	@Test
+	void testShutdown_WithActiveDriverCloseException() throws Exception {
+		doThrow(new RuntimeException("close failed")).when(supermarketDriver).close();
+
+		java.lang.reflect.Field field = AutoBuyWebService.class.getDeclaredField("activeDriver");
+		field.setAccessible(true);
+		field.set(service, supermarketDriver);
+
+		// Should catch exception quietly
+		service.shutdown();
+
+		verify(supermarketDriver).close();
+	}
 }
