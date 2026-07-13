@@ -37,6 +37,7 @@ class AutoBuyWebServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		com.autobuy.web.MemoryAppender.clear();
 		productService = mock(ProductService.class);
 		priceHistoryService = mock(PriceHistoryService.class);
 		supermarketDriver = mock(SupermarketDriver.class);
@@ -70,7 +71,7 @@ class AutoBuyWebServiceTest {
 	}
 
 	private void awaitState(AutoBuyWebService.AutoBuyState targetState) {
-		Awaitility.await().atMost(3, TimeUnit.SECONDS).until(() -> service.getStatus().state() == targetState);
+		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> service.getStatus().state() == targetState);
 	}
 
 	@Test

@@ -393,6 +393,95 @@ class WebApiControllerIT {
 	}
 
 	@Test
+	void testResolveMappingEndpoint_SuccessWithStatus() throws Exception {
+		var dummyStatus = new com.autobuy.web.dto.ResolutionResultStatus(true, "Custom status message");
+		when(autoBuyWebService.resolveMapping("sku123", true)).thenReturn(dummyStatus);
+
+		String json = """
+				{
+					"externalId": "sku123",
+					"saveMapping": true
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.added").value(true))
+				.andExpect(jsonPath("$.message").value("Custom status message"));
+	}
+
+	@Test
+	void testPromoteMappingEndpoint_Success() throws Exception {
+		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(productService).promoteMapping(123L);
+	}
+
+	@Test
+	void testPromoteMappingEndpoint_Failure() throws Exception {
+		org.mockito.Mockito.doThrow(new RuntimeException("Promote failed")).when(productService).promoteMapping(123L);
+
+		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Promote failed"));
+	}
+
+	@Test
+	void testDemoteMappingEndpoint_Success() throws Exception {
+		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(productService).demoteMapping(123L);
+	}
+
+	@Test
+	void testDemoteMappingEndpoint_Failure() throws Exception {
+		org.mockito.Mockito.doThrow(new RuntimeException("Demote failed")).when(productService).demoteMapping(123L);
+
+		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Demote failed"));
+	}
+
+	@Test
+	void testAddAlternativeEndpoint_Success() throws Exception {
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+
+		String json = """
+				{
+					"searchText": "apples",
+					"supermarket": "CONTINENTE",
+					"externalId": "sku123",
+					"productName": "Red Apples"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/add-alternative").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(productService).saveMappingWithPriority(org.mockito.Mockito.eq("apples"),
+				org.mockito.Mockito.eq("CONTINENTE"), any(), org.mockito.Mockito.eq(0));
+	}
+
+	@Test
+	void testAddAlternativeEndpoint_Failure() throws Exception {
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenThrow(new RuntimeException("Database error"));
+
+		String json = """
+				{
+					"searchText": "apples",
+					"supermarket": "CONTINENTE",
+					"externalId": "sku123",
+					"productName": "Red Apples"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/add-alternative").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Database error"));
+	}
+
+	@Test
 	void testCompleteRunEndpoint_Success() throws Exception {
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
