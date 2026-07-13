@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastRenderedResultsJson = '';
     let modalMode = 'resolve';
     let currentResolvingQuery = '';
-    let currentMappingInstructions = '';
     let searchResultsCache = [];
     let lastStatusSearchResults = [];
 
@@ -65,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const resolveModalDesc = document.getElementById('resolve-modal-desc');
     const resolveSearchBoxWrapper = document.querySelector('.refine-search-bar');
     const resolveSearchInput = document.getElementById('resolve-refine-input');
-    const btnResolveSearch = document.getElementById('btn-refine-search');
     const resolveProductsGrid = document.getElementById('resolve-products-grid');
     const btnSkipMapping = document.getElementById('btn-skip-mapping');
     const resolveRefineInput = document.getElementById('resolve-refine-input');
@@ -159,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = credUsername.value.trim();
         const password = credPassword.value;
         const supermarket = document.getElementById('cred-supermarket').value;
-        const backupDir = configBackupDir.value.trim().replace(/\\/g, '/');
+        const backupDir = configBackupDir.value.trim().replaceAll('\\', '/');
         configBackupDir.value = backupDir;
 
         // Determine if credentials need to be updated
@@ -719,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const resultsJson = JSON.stringify(status.searchResults);
             const instructions = status.mappingInstructions || '';
-            const prevInstructions = resolveModalDesc.getAttribute('data-instructions') || '';
+            const prevInstructions = resolveModalDesc.dataset.instructions || '';
 
             if (resolveModal.style.display !== 'flex' || resultsJson !== lastRenderedResultsJson || instructions !== prevInstructions) {
                 if (resolveModal.style.display !== 'flex') {
@@ -730,7 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 resolveModalTitle.textContent = 'Choose Product Match';
                 resolveQueryTitle.textContent = `No mapping found for query: "${status.currentItemQuery}"`;
                 
-                resolveModalDesc.setAttribute('data-instructions', instructions);
+                resolveModalDesc.dataset.instructions = instructions;
                 if (instructions) {
                     resolveModalDesc.innerHTML = `<span style="color: #f87171; font-weight: 600;">⚠️ ${escapeHtml(instructions)}</span>`;
                 } else {
@@ -745,16 +743,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else if (status.state === 'AWAITING_EXHAUSTED_RESOLUTIONS') {
             // Handled manually via resolution panel buttons
-        } else {
-            if (modalMode !== 'alternative') {
-                if (!isRefining || (status.state !== 'RUNNING' && status.state !== 'AWAITING_MAPPING')) {
-                    resolveModal.style.display = 'none';
-                    lastRenderedResultsJson = '';
-                    isRefining = false;
-                    resolveRefineInput.disabled = false;
-                    btnRefineSearch.disabled = false;
-                    btnRefineSearch.textContent = 'Search';
-                }
+        } else if (modalMode !== 'alternative') {
+            if (!isRefining || (status.state !== 'RUNNING' && status.state !== 'AWAITING_MAPPING')) {
+                resolveModal.style.display = 'none';
+                lastRenderedResultsJson = '';
+                isRefining = false;
+                resolveRefineInput.disabled = false;
+                btnRefineSearch.disabled = false;
+                btnRefineSearch.textContent = 'Search';
             }
         }
     }
@@ -846,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     globalThis.selectProductMatch = async (externalId, saveMapping = true) => {
         const selectedProd = searchResultsCache.find(p => p.externalId === externalId);
-        const isOutOfStock = selectedProd && selectedProd.available === false;
+        const isOutOfStock = selectedProd?.available === false;
 
         if (isOutOfStock && modalMode === 'exhausted') {
             await showAlert('Product Unavailable', 'This product is out of stock. Please select an available alternative to complete the purchase for this run.');
