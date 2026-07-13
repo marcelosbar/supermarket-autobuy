@@ -19,7 +19,7 @@
 * **Run tests** during active development using: `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`.
 * **Add target parameter** `-Dtest=TestClassName` during active development to run a single test.
 * **Always use piping** when running tests. This filters verbose output and saves LLM token context.
-* **Pre-push Verification**: Always run the entire verification suite (including integration tests and JaCoCo coverage checks) locally before pushing using: `.\mvnw.cmd verify 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`. Do NOT run verification for changes to documentation-only files (such as `.md`, `.txt`, `.gitignore`). Only execute verification when source code or executable logic is modified.
+* **Pre-push Verification**: Always run the entire verification suite (including integration tests and JaCoCo coverage checks) locally before pushing using: `.\mvnw.cmd verify 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`. **Note:** You must commit your changes locally before running this command so that the `diff-coverage` plugin can detect the modified files and execute the delta coverage checks. Do NOT run verification for changes to documentation-only files (such as `.md`, `.txt`, `.gitignore`). Only execute verification when source code or executable logic is modified.
 * **Run the application** using: `.\mvnw.cmd spring-boot:run`. This starts the Web UI and runs migrations.
 * **Auto-format code** using: `.\mvnw.cmd spotless:apply`. This applies the Eclipse JDT 4-space indent style.
 
