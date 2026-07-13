@@ -29,7 +29,8 @@
             src/main/java/com/autobuy/exception/**/*,
             src/main/java/com/autobuy/driver/**/*,
             src/main/java/com/autobuy/model/**/*,
-            src/main/java/com/autobuy/web/dto/**/*
+            src/main/java/com/autobuy/web/dto/**/*,
+            src/main/java/com/autobuy/web/SwingFolderPicker.java
         </sonar.coverage.exclusions>
     </properties>
 
@@ -106,6 +107,7 @@
                         <exclude>com/autobuy/driver/**</exclude>
                         <exclude>com/autobuy/model/**</exclude>
                         <exclude>com/autobuy/web/dto/**</exclude>
+                        <exclude>com/autobuy/web/SwingFolderPicker.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

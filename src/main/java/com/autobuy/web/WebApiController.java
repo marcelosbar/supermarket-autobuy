@@ -17,11 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.File;
-import java.awt.GraphicsEnvironment;
-import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +42,7 @@ public class WebApiController {
 	private final ShoppingListProvider shoppingListProvider;
 	private final ShutdownService shutdownService;
 	private final DatabaseBackupService databaseBackupService;
+	private final FolderPicker folderPicker;
 
 	private static final String DEFAULT_LIST_PATH = "shopping-list.json";
 	private static final String SUCCESS_KEY = "success";
@@ -57,7 +53,8 @@ public class WebApiController {
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
 			CredentialProvider credentialProvider, SettingsProvider settingsProvider,
 			ShoppingListProvider shoppingListProvider, ShutdownService shutdownService,
-			@org.springframework.beans.factory.annotation.Autowired(required = false) DatabaseBackupService databaseBackupService) {
+			@org.springframework.beans.factory.annotation.Autowired(required = false) DatabaseBackupService databaseBackupService,
+			FolderPicker folderPicker) {
 		this.autoBuyWebService = autoBuyWebService;
 		this.productService = productService;
 		this.credentialProvider = credentialProvider;
@@ -65,6 +62,7 @@ public class WebApiController {
 		this.shoppingListProvider = shoppingListProvider;
 		this.shutdownService = shutdownService;
 		this.databaseBackupService = databaseBackupService;
+		this.folderPicker = folderPicker;
 	}
 
 	// 1. Shopping List Endpoints
@@ -248,7 +246,8 @@ public class WebApiController {
 	@GetMapping("/autobuy/search")
 	public ResponseEntity<List<com.autobuy.model.SearchResult>> searchSupermarket(@RequestParam String query,
 			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
-		log.info("Performing guest search for '{}' in {}", query, supermarket);
+		String sanitizedQuery = query != null ? query.replace('\n', '_').replace('\r', '_') : "";
+		log.info("Performing guest search for '{}' in {}", sanitizedQuery, supermarket);
 		try {
 			List<com.autobuy.model.SearchResult> results = autoBuyWebService.performGuestSearch(query, supermarket);
 			return ResponseEntity.ok(results);
@@ -374,83 +373,30 @@ public class WebApiController {
 
 	@PostMapping("/config/select-native-dir")
 	public ResponseEntity<Map<String, Object>> selectNativeDirectory() {
-		if (GraphicsEnvironment.isHeadless()) {
-			log.warn("Cannot open native folder picker: Graphics environment is headless.");
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, "Cannot open native folder picker: Graphics environment is headless.");
-			return ResponseEntity.badRequest().body(response);
-		}
-
 		log.info("selectNativeDirectory endpoint called.");
-		AtomicReference<String> selectedPath = new AtomicReference<>(null);
 		try {
-			log.info("Setting system look and feel...");
-			setSystemLookAndFeel();
-
-			final int[] result = new int[]{JFileChooser.CANCEL_OPTION};
-			SwingUtilities.invokeAndWait(() -> {
-				log.info("Instantiating JFileChooser on EDT...");
-				JFileChooser chooser = new JFileChooser();
-				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-				chooser.setDialogTitle("Select Database Backup Directory");
-				chooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-
-				log.info("Creating JDialog wrapper on EDT...");
-				javax.swing.JDialog dialog = new javax.swing.JDialog((java.awt.Frame) null, "Select Folder", true);
-				dialog.setAlwaysOnTop(true);
-				dialog.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-				dialog.add(chooser);
-				dialog.pack();
-				dialog.setLocationRelativeTo(null);
-
-				chooser.addActionListener(e -> {
-					if (JFileChooser.APPROVE_SELECTION.equals(e.getActionCommand())) {
-						result[0] = JFileChooser.APPROVE_OPTION;
-					}
-					dialog.dispose();
-				});
-
-				log.info("Showing native open dialog on EDT...");
-				dialog.setVisible(true);
-				log.info("Native open dialog closed with result: {}", result[0]);
-
-				if (result[0] == JFileChooser.APPROVE_OPTION) {
-					selectedPath.set(chooser.getSelectedFile().getAbsolutePath().replace('\\', '/'));
-					log.info("Directory selected: {}", selectedPath.get());
-				}
-			});
-
+			String path = folderPicker.selectDirectory();
 			Map<String, Object> response = new HashMap<>();
-			if (selectedPath.get() != null) {
+			if (path != null) {
 				response.put(SUCCESS_KEY, true);
-				response.put("path", selectedPath.get());
+				response.put("path", path);
 			} else {
 				response.put(SUCCESS_KEY, false);
 				response.put(MESSAGE_KEY, "Selection cancelled");
 			}
 			return ResponseEntity.ok(response);
-		} catch (InterruptedException e) {
-			log.error("Failed to open native directory chooser due to thread interruption", e);
-			Thread.currentThread().interrupt();
+		} catch (UnsupportedOperationException e) {
+			log.warn(e.getMessage());
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, "Error opening native directory chooser: " + e.getMessage());
-			return ResponseEntity.internalServerError().body(response);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
 		} catch (Exception e) {
 			log.error("Failed to open native directory chooser", e);
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, false);
 			response.put(MESSAGE_KEY, "Error opening native directory chooser: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(response);
-		}
-	}
-
-	private void setSystemLookAndFeel() {
-		try {
-			javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
-		} catch (Exception e) {
-			log.warn("Failed to set system look and feel: {}", e.getMessage());
 		}
 	}
 

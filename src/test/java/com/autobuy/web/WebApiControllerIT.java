@@ -60,6 +60,9 @@ class WebApiControllerIT {
 	@MockitoBean
 	private ShoppingListProvider shoppingListProvider;
 
+	@MockitoBean
+	private FolderPicker folderPicker;
+
 	@BeforeEach
 	void setUp() {
 		if (credentialProvider instanceof StubCredentialProvider stub) {
@@ -174,7 +177,36 @@ class WebApiControllerIT {
 	}
 
 	@Test
+	void testSelectNativeDirectory_Success() throws Exception {
+		when(folderPicker.selectDirectory()).thenReturn("/custom/backup/dir");
+
+		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true)).andExpect(jsonPath("$.path").value("/custom/backup/dir"));
+	}
+
+	@Test
+	void testSelectNativeDirectory_Cancelled() throws Exception {
+		when(folderPicker.selectDirectory()).thenReturn(null);
+
+		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Selection cancelled"));
+	}
+
+	@Test
+	void testSelectNativeDirectory_Exception() throws Exception {
+		when(folderPicker.selectDirectory()).thenThrow(new RuntimeException("Drive not ready"));
+
+		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Error opening native directory chooser: Drive not ready"));
+	}
+
+	@Test
 	void testSelectNativeDirectory_Headless() throws Exception {
+		when(folderPicker.selectDirectory()).thenThrow(new UnsupportedOperationException(
+				"Cannot open native folder picker: Graphics environment is headless."));
+
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message")
 						.value("Cannot open native folder picker: Graphics environment is headless."));

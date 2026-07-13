@@ -821,14 +821,15 @@ public class AutoBuyWebService {
 				throw new IllegalArgumentException("No driver found for supermarket: " + supermarket);
 			}
 			guestSearchDriver = driver;
-			log.info("Initializing guest search driver for {}...", supermarket);
+			String sanitizedSupermarket = supermarket != null ? supermarket.replace('\n', '_').replace('\r', '_') : "";
+			log.info("Initializing guest search driver for {}...", sanitizedSupermarket);
 			guestSearchDriver.initialize(null, null, false);
 		}
 
 		try {
 			return guestSearchDriver.searchProduct(query);
 		} catch (Exception e) {
-			log.error("Guest search failed. Resetting cached guest search driver.", e);
+			log.error("Guest search failed. Resetting cached guest search driver.");
 			closeGuestSearchDriver();
 			throw e;
 		}
