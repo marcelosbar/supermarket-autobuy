@@ -15,12 +15,11 @@
 * `secrets.properties`: (Excluded from git) local key-value store for passwords.
 
 ## 2. CLI Commands
-
 * **Build and package** the project using: `.\mvnw.cmd clean package`.
 * **Run tests** using: `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`.
 * **Add target parameter** `-Dtest=TestClassName` during active development to run a single test.
 * **Always use piping** when running tests. This filters verbose output and saves LLM token context.
-* **Run the entire** test suite only for final verification.
+* **Run the entire** test suite only for final verification. **Do NOT run tests for changes to documentation-only files (such as `.md`, `.txt`, `.gitignore`). Only execute tests when source code or executable logic is modified.**
 * **Run the application** using: `.\mvnw.cmd spring-boot:run`. This starts the Web UI and runs migrations.
 * **Auto-format code** using: `.\mvnw.cmd spotless:apply`. This applies the Eclipse JDT 4-space indent style.
 
