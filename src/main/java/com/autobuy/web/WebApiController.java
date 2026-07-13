@@ -388,6 +388,7 @@ public class WebApiController {
 			log.info("Setting system look and feel...");
 			setSystemLookAndFeel();
 
+			final int[] result = new int[]{JFileChooser.CANCEL_OPTION};
 			SwingUtilities.invokeAndWait(() -> {
 				log.info("Instantiating JFileChooser on EDT...");
 				JFileChooser chooser = new JFileChooser();
@@ -395,11 +396,26 @@ public class WebApiController {
 				chooser.setDialogTitle("Select Database Backup Directory");
 				chooser.setCurrentDirectory(new File(System.getProperty("user.home")));
 
-				log.info("Showing native open dialog on EDT...");
-				int result = chooser.showOpenDialog(null);
-				log.info("Native open dialog closed with result: {}", result);
+				log.info("Creating JDialog wrapper on EDT...");
+				javax.swing.JDialog dialog = new javax.swing.JDialog((java.awt.Frame) null, "Select Folder", true);
+				dialog.setAlwaysOnTop(true);
+				dialog.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+				dialog.add(chooser);
+				dialog.pack();
+				dialog.setLocationRelativeTo(null);
 
-				if (result == JFileChooser.APPROVE_OPTION) {
+				chooser.addActionListener(e -> {
+					if (JFileChooser.APPROVE_SELECTION.equals(e.getActionCommand())) {
+						result[0] = JFileChooser.APPROVE_OPTION;
+					}
+					dialog.dispose();
+				});
+
+				log.info("Showing native open dialog on EDT...");
+				dialog.setVisible(true);
+				log.info("Native open dialog closed with result: {}", result[0]);
+
+				if (result[0] == JFileChooser.APPROVE_OPTION) {
 					selectedPath.set(chooser.getSelectedFile().getAbsolutePath().replace('\\', '/'));
 					log.info("Directory selected: {}", selectedPath.get());
 				}
