@@ -258,7 +258,7 @@ public class WebApiController {
 		}
 
 		try {
-			tempDriver.initialize(null, null, true);
+			tempDriver.initialize(null, null, false);
 			List<com.autobuy.model.SearchResult> results = tempDriver.searchProduct(query);
 			return ResponseEntity.ok(results);
 		} catch (Exception e) {
