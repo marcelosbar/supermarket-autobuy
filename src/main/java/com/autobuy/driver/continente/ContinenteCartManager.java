@@ -309,37 +309,7 @@ class ContinenteCartManager {
 				addBtn.click();
 
 				// Verify plus button is now visible to confirm it was added
-				boolean updated = false;
-				for (int attempt = 0; attempt < 25; attempt++) {
-					if (plusBtn.isVisible()) {
-						updated = true;
-						break;
-					}
-					// Fast failure detection: check if the add button is disabled or displays out
-					// of stock
-					try {
-						String tileClass = tile.getAttribute("class");
-						if (tileClass != null && tileClass.contains("ct-product-tile-out-of-stock")) {
-							log.warn("Detecting that product SKU {} tile became out-of-stock.", externalId);
-							break;
-						}
-
-						Locator unavailableBadge = tile.locator(".dual-badge-unavailable-message").first();
-						if (unavailableBadge.isVisible()) {
-							log.warn("Detecting that product SKU {} unavailable badge appeared.", externalId);
-							break;
-						}
-
-						String outOfStockAttr = addBtn.getAttribute("data-outofstock");
-						if (outOfStockAttr != null && "true".equalsIgnoreCase(outOfStockAttr.trim())) {
-							log.warn("Detecting that product SKU {} add button has data-outofstock=true.", externalId);
-							break;
-						}
-					} catch (Exception e) {
-						// Ignore element detached errors during state transition
-					}
-					page.waitForTimeout(100);
-				}
+				boolean updated = waitForFirstCartAddition(plusBtn, tile, addBtn, externalId);
 				if (!updated) {
 					log.error("Failed to add SKU {} to cart (plus button did not appear).", externalId);
 					return false;
@@ -375,13 +345,52 @@ class ContinenteCartManager {
 		}
 	}
 
+	private boolean waitForFirstCartAddition(Locator plusBtn, Locator tile, Locator addBtn, String externalId) {
+		for (int attempt = 0; attempt < 25; attempt++) {
+			if (plusBtn.isVisible()) {
+				return true;
+			}
+			if (checkProductIsOutOfStock(tile, addBtn, externalId)) {
+				break;
+			}
+			page.waitForTimeout(100);
+		}
+		return false;
+	}
+
+	private boolean checkProductIsOutOfStock(Locator tile, Locator addBtn, String externalId) {
+		try {
+			String tileClass = tile.getAttribute("class");
+			if (tileClass != null && tileClass.contains("ct-product-tile-out-of-stock")) {
+				log.warn("Detecting that product SKU {} tile became out-of-stock.", externalId);
+				return true;
+			}
+
+			Locator unavailableBadge = tile.locator(".dual-badge-unavailable-message").first();
+			if (unavailableBadge.isVisible()) {
+				log.warn("Detecting that product SKU {} unavailable badge appeared.", externalId);
+				return true;
+			}
+
+			String outOfStockAttr = addBtn.getAttribute("data-outofstock");
+			if (outOfStockAttr != null && "true".equalsIgnoreCase(outOfStockAttr.trim())) {
+				log.warn("Detecting that product SKU {} add button has data-outofstock=true.", externalId);
+				return true;
+			}
+		} catch (Exception e) {
+			log.debug("Ignore element detached errors during state transition: {}", e.getMessage());
+		}
+		return false;
+	}
+
 	private int getCartQuantityFast(Locator qtyBadge) {
 		try {
 			if (qtyBadge.isVisible()) {
 				String text = qtyBadge.innerText().trim();
 				return Integer.parseInt(text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
 			}
-		} catch (Exception _) {
+		} catch (Exception e) {
+			log.debug("Fast minicart quantity check failed: {}", e.getMessage());
 		}
 		return 0;
 	}
