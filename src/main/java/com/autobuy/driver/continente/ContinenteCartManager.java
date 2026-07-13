@@ -263,6 +263,9 @@ class ContinenteCartManager {
 	public boolean addProductToCart(String externalId, int quantity) {
 		log.info("Adding product SKU {} (quantity={}) to cart...", externalId, quantity);
 		try {
+			Locator qtyBadge = page.locator(ContinenteSelectors.MINICART_QUANTITY).first();
+			int initialCartQty = getCartQuantityFast(qtyBadge);
+
 			// Find the product tile by data-pid
 			Locator tile = page.locator(String.format(ContinenteSelectors.PRODUCT_TILE_BY_PID, externalId, externalId))
 					.first();
@@ -297,20 +300,41 @@ class ContinenteCartManager {
 			if (currentQty == 0) {
 				// Locate add-to-cart button inside the tile
 				Locator addBtn = tile.locator(ContinenteSelectors.ADD_TO_CART_BUTTON).first();
-				if (!addBtn.isVisible()) {
-					log.error("Add to cart button not visible for product SKU {}", externalId);
+				if (!addBtn.isVisible() || addBtn.getAttribute("class").contains("disabled")) {
+					log.error("Add to cart button not visible or is disabled for product SKU {}", externalId);
 					return false;
 				}
 
 				// Click it to add the first item
 				addBtn.click();
-				page.waitForTimeout(1000);
+
+				// Verify plus button is now visible to confirm it was added
+				boolean updated = waitForFirstCartAddition(plusBtn, tile, addBtn, externalId);
+				if (!updated) {
+					log.error("Failed to add SKU {} to cart (plus button did not appear).", externalId);
+					return false;
+				}
 				currentQty = 1;
 			}
 
 			// If target quantity is greater than current quantity, adjust
 			if (quantity > currentQty) {
 				adjustProductQuantity(qtyInput, plusBtn, qtyDisplay, currentQty, quantity);
+			}
+
+			// Verify minicart quantity increased
+			boolean cartUpdated = false;
+			for (int attempt = 0; attempt < 25; attempt++) {
+				int currentCartQty = getCartQuantityFast(qtyBadge);
+				if (currentCartQty > initialCartQty) {
+					cartUpdated = true;
+					break;
+				}
+				page.waitForTimeout(200);
+			}
+			if (!cartUpdated) {
+				log.error("Failed to add SKU {} to cart: Minicart quantity did not increase.", externalId);
+				return false;
 			}
 
 			log.info("Successfully set SKU {} quantity to {} in cart.", externalId, quantity);
@@ -321,10 +345,60 @@ class ContinenteCartManager {
 		}
 	}
 
+	private boolean waitForFirstCartAddition(Locator plusBtn, Locator tile, Locator addBtn, String externalId) {
+		for (int attempt = 0; attempt < 25; attempt++) {
+			if (plusBtn.isVisible()) {
+				return true;
+			}
+			if (checkProductIsOutOfStock(tile, addBtn, externalId)) {
+				break;
+			}
+			page.waitForTimeout(100);
+		}
+		return false;
+	}
+
+	private boolean checkProductIsOutOfStock(Locator tile, Locator addBtn, String externalId) {
+		try {
+			String tileClass = tile.getAttribute("class");
+			if (tileClass != null && tileClass.contains("ct-product-tile-out-of-stock")) {
+				log.warn("Detecting that product SKU {} tile became out-of-stock.", externalId);
+				return true;
+			}
+
+			Locator unavailableBadge = tile.locator(".dual-badge-unavailable-message").first();
+			if (unavailableBadge.isVisible()) {
+				log.warn("Detecting that product SKU {} unavailable badge appeared.", externalId);
+				return true;
+			}
+
+			String outOfStockAttr = addBtn.getAttribute("data-outofstock");
+			if (outOfStockAttr != null && "true".equalsIgnoreCase(outOfStockAttr.trim())) {
+				log.warn("Detecting that product SKU {} add button has data-outofstock=true.", externalId);
+				return true;
+			}
+		} catch (Exception e) {
+			log.debug("Ignore element detached errors during state transition: {}", e.getMessage());
+		}
+		return false;
+	}
+
+	private int getCartQuantityFast(Locator qtyBadge) {
+		try {
+			if (qtyBadge.isVisible()) {
+				String text = qtyBadge.innerText().trim();
+				return Integer.parseInt(text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
+			}
+		} catch (Exception e) {
+			log.debug("Fast minicart quantity check failed: {}", e.getMessage());
+		}
+		return 0;
+	}
+
 	private int getExistingQuantity(Locator qtyInput, Locator qtyDisplay, Locator plusBtn, String externalId) {
 		int currentQty = 0;
-		// A plus button or visible quantity input means it's already in the cart
-		if (qtyInput.isVisible() || plusBtn.isVisible()) {
+		// A plus button visible means it's already in the cart
+		if (plusBtn.isVisible()) {
 			String qtyText = readRawQuantityText(qtyInput, qtyDisplay);
 			try {
 				currentQty = Integer.parseInt(qtyText.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));

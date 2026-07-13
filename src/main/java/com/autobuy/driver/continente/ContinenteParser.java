@@ -43,8 +43,15 @@ final class ContinenteParser {
 			BigDecimal priceValue = extractProductPrice(tile, name);
 			String category = "Supermercado";
 
+			// Determine availability from elements on the page
+			Locator plusBtn = tile.locator(ContinenteSelectors.INCREASE_QTY_BUTTON).first();
+			Locator qtyInput = tile.locator(ContinenteSelectors.QTY_INPUT).first();
+			Locator addBtn = tile.locator(ContinenteSelectors.ADD_TO_CART_BUTTON).first();
+			boolean available = plusBtn.isVisible() || qtyInput.isVisible()
+					|| (addBtn.isVisible() && addBtn.isEnabled());
+
 			if (externalId != null && !externalId.isBlank() && !name.isBlank()) {
-				results.add(new SearchResult(externalId, name, brand, priceValue, url, category));
+				results.add(new SearchResult(externalId, name, brand, priceValue, url, category, available));
 			}
 		} catch (Exception e) {
 			log.warn("Failed to parse single product tile: {}", e.getMessage());

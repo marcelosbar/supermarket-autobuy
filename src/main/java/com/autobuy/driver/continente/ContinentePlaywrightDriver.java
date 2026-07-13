@@ -178,7 +178,8 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 
 	@Override
 	public List<SearchResult> searchProduct(String query) {
-		log.info("Searching supermarket for query: '{}'...", query);
+		String sanitizedQuery = query != null ? query.replace('\n', '_').replace('\r', '_') : "";
+		log.info("Searching supermarket for query: '{}'...", sanitizedQuery);
 		List<SearchResult> results = new ArrayList<>();
 
 		try {
@@ -235,17 +236,15 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 
 			// Define selectors for quantity controls based on DOM inspection
 			Locator plusBtn = tile.locator(ContinenteSelectors.INCREASE_QTY_BUTTON).first();
-			Locator qtyInput = tile.locator(ContinenteSelectors.QTY_INPUT).first();
 
-			// If it's already in the cart (plus button or qty input is visible), it's
-			// available
-			if (plusBtn.isVisible() || qtyInput.isVisible()) {
+			// If it's already in the cart (plus button is visible), it's available
+			if (plusBtn.isVisible()) {
 				return true;
 			}
 
 			// Otherwise, check if the add-to-cart button is visible and enabled
 			Locator addBtn = tile.locator(ContinenteSelectors.ADD_TO_CART_BUTTON).first();
-			return addBtn.isVisible() && addBtn.isEnabled();
+			return addBtn.isVisible() && addBtn.isEnabled() && !addBtn.getAttribute("class").contains("disabled");
 		} catch (Exception e) {
 			log.error("Error checking availability for SKU {}: {}", externalId, e.getMessage());
 			return false;
@@ -290,15 +289,26 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 	public void close() {
 		log.info("Closing Playwright browser context...");
 		try {
-			if (context != null)
-				context.close();
-			if (browser != null)
-				browser.close();
-			if (playwright != null)
-				playwright.close();
+			if (browser != null && browser.isConnected()) {
+				closeQuietly(context);
+				closeQuietly(browser);
+			} else {
+				log.info("Browser is already disconnected/closed by user.");
+			}
+			closeQuietly(playwright);
 			log.info("Browser closed successfully.");
 		} catch (Exception e) {
 			log.error("Error closing Playwright browser: {}", e.getMessage());
+		}
+	}
+
+	private void closeQuietly(AutoCloseable closeable) {
+		if (closeable != null) {
+			try {
+				closeable.close();
+			} catch (Exception e) {
+				log.debug("Resource close failed: {}", e.getMessage());
+			}
 		}
 	}
 }

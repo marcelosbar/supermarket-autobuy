@@ -18,6 +18,10 @@ import java.math.BigDecimal;
  * @param category
  *            The category of the product
  */
-public record SearchResult(String externalId, String name, String brand, BigDecimal price, String url,
-		String category) {
+public record SearchResult(String externalId, String name, String brand, BigDecimal price, String url, String category,
+		boolean available) {
+
+	public SearchResult(String externalId, String name, String brand, BigDecimal price, String url, String category) {
+		this(externalId, name, brand, price, url, category, true);
+	}
 }

@@ -60,6 +60,9 @@ class WebApiControllerIT {
 	@MockitoBean
 	private ShoppingListProvider shoppingListProvider;
 
+	@MockitoBean
+	private FolderPicker folderPicker;
+
 	@BeforeEach
 	void setUp() {
 		if (credentialProvider instanceof StubCredentialProvider stub) {
@@ -174,10 +177,59 @@ class WebApiControllerIT {
 	}
 
 	@Test
+	void testSelectNativeDirectory_Success() throws Exception {
+		when(folderPicker.selectDirectory()).thenReturn("/custom/backup/dir");
+
+		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true)).andExpect(jsonPath("$.path").value("/custom/backup/dir"));
+	}
+
+	@Test
+	void testSelectNativeDirectory_Cancelled() throws Exception {
+		when(folderPicker.selectDirectory()).thenReturn(null);
+
+		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Selection cancelled"));
+	}
+
+	@Test
+	void testSelectNativeDirectory_Exception() throws Exception {
+		when(folderPicker.selectDirectory()).thenThrow(new RuntimeException("Drive not ready"));
+
+		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Error opening native directory chooser: Drive not ready"));
+	}
+
+	@Test
 	void testSelectNativeDirectory_Headless() throws Exception {
+		when(folderPicker.selectDirectory()).thenThrow(new UnsupportedOperationException(
+				"Cannot open native folder picker: Graphics environment is headless."));
+
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message")
 						.value("Cannot open native folder picker: Graphics environment is headless."));
+	}
+
+	@Test
+	void testSearchSupermarket_Success() throws Exception {
+		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
+				"cat");
+		when(autoBuyWebService.performGuestSearch("milk", "CONTINENTE")).thenReturn(List.of(dummyResult));
+
+		mockMvc.perform(get("/api/autobuy/search").param("query", "milk").param("supermarket", "CONTINENTE"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$[0].externalId").value("sku"))
+				.andExpect(jsonPath("$[0].name").value("Product"));
+	}
+
+	@Test
+	void testSearchSupermarket_Failure() throws Exception {
+		when(autoBuyWebService.performGuestSearch("milk", "CONTINENTE"))
+				.thenThrow(new RuntimeException("Search failed"));
+
+		mockMvc.perform(get("/api/autobuy/search").param("query", "milk").param("supermarket", "CONTINENTE"))
+				.andExpect(status().isInternalServerError());
 	}
 
 	@Test
@@ -296,7 +348,7 @@ class WebApiControllerIT {
 		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
 				"cat");
 		var dummyStatus = new AutoBuyStatusResponse(AutoBuyWebService.AutoBuyState.RUNNING, "query", 5,
-				List.of(dummyResult), List.of("log line"), "", List.of());
+				List.of(dummyResult), List.of("log line"), "", List.of(), List.of());
 
 		org.mockito.Mockito.when(autoBuyWebService.getStatus()).thenReturn(dummyStatus);
 
@@ -312,24 +364,26 @@ class WebApiControllerIT {
 	void testResolveMappingEndpoint_Success() throws Exception {
 		String json = """
 				{
-					"externalId": "sku123"
+					"externalId": "sku123",
+					"saveMapping": true
 				}
 				""";
 
 		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(autoBuyWebService).resolveMapping("sku123");
+		org.mockito.Mockito.verify(autoBuyWebService).resolveMapping("sku123", true);
 	}
 
 	@Test
 	void testResolveMappingEndpoint_Failure() throws Exception {
 		org.mockito.Mockito.doThrow(new IllegalArgumentException("Invalid ID")).when(autoBuyWebService)
-				.resolveMapping("invalid-sku");
+				.resolveMapping(org.mockito.Mockito.eq("invalid-sku"), org.mockito.Mockito.anyBoolean());
 
 		String json = """
 				{
-					"externalId": "invalid-sku"
+					"externalId": "invalid-sku",
+					"saveMapping": false
 				}
 				""";
 
@@ -339,16 +393,106 @@ class WebApiControllerIT {
 	}
 
 	@Test
+	void testResolveMappingEndpoint_SuccessWithStatus() throws Exception {
+		var dummyStatus = new com.autobuy.web.dto.ResolutionResultStatus(true, "Custom status message");
+		when(autoBuyWebService.resolveMapping("sku123", true)).thenReturn(dummyStatus);
+
+		String json = """
+				{
+					"externalId": "sku123",
+					"saveMapping": true
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
+				.andExpect(jsonPath("$.added").value(true))
+				.andExpect(jsonPath("$.message").value("Custom status message"));
+	}
+
+	@Test
+	void testPromoteMappingEndpoint_Success() throws Exception {
+		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(productService).promoteMapping(123L);
+	}
+
+	@Test
+	void testPromoteMappingEndpoint_Failure() throws Exception {
+		org.mockito.Mockito.doThrow(new RuntimeException("Promote failed")).when(productService).promoteMapping(123L);
+
+		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Promote failed"));
+	}
+
+	@Test
+	void testDemoteMappingEndpoint_Success() throws Exception {
+		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(productService).demoteMapping(123L);
+	}
+
+	@Test
+	void testDemoteMappingEndpoint_Failure() throws Exception {
+		org.mockito.Mockito.doThrow(new RuntimeException("Demote failed")).when(productService).demoteMapping(123L);
+
+		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Demote failed"));
+	}
+
+	@Test
+	void testAddAlternativeEndpoint_Success() throws Exception {
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+
+		String json = """
+				{
+					"searchText": "apples",
+					"supermarket": "CONTINENTE",
+					"externalId": "sku123",
+					"productName": "Red Apples"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/add-alternative").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+
+		org.mockito.Mockito.verify(productService).saveMappingWithPriority(org.mockito.Mockito.eq("apples"),
+				org.mockito.Mockito.eq("CONTINENTE"), any(), org.mockito.Mockito.eq(0));
+	}
+
+	@Test
+	void testAddAlternativeEndpoint_Failure() throws Exception {
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenThrow(new RuntimeException("Database error"));
+
+		String json = """
+				{
+					"searchText": "apples",
+					"supermarket": "CONTINENTE",
+					"externalId": "sku123",
+					"productName": "Red Apples"
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/add-alternative").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value("Database error"));
+	}
+
+	@Test
 	void testCompleteRunEndpoint_Success() throws Exception {
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(autoBuyWebService).completeRun();
+		org.mockito.Mockito.verify(autoBuyWebService).completeRun(false);
 	}
 
 	@Test
 	void testCompleteRunEndpoint_Failure() throws Exception {
-		org.mockito.Mockito.doThrow(new IllegalStateException("Not in review")).when(autoBuyWebService).completeRun();
+		org.mockito.Mockito.doThrow(new IllegalStateException("Not in review")).when(autoBuyWebService)
+				.completeRun(anyBoolean());
 
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Not in review"));

@@ -17,10 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.File;
-import java.awt.GraphicsEnvironment;
-import javax.swing.JFileChooser;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +42,7 @@ public class WebApiController {
 	private final ShoppingListProvider shoppingListProvider;
 	private final ShutdownService shutdownService;
 	private final DatabaseBackupService databaseBackupService;
+	private final FolderPicker folderPicker;
 
 	private static final String DEFAULT_LIST_PATH = "shopping-list.json";
 	private static final String SUCCESS_KEY = "success";
@@ -53,10 +50,12 @@ public class WebApiController {
 	private static final String BACKUP_DIR_KEY = "backupDir";
 	private static final String DEFAULT_SUPERMARKET = "CONTINENTE";
 
+	@SuppressWarnings("java:S107")
 	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
 			CredentialProvider credentialProvider, SettingsProvider settingsProvider,
 			ShoppingListProvider shoppingListProvider, ShutdownService shutdownService,
-			@org.springframework.beans.factory.annotation.Autowired(required = false) DatabaseBackupService databaseBackupService) {
+			@org.springframework.beans.factory.annotation.Autowired(required = false) DatabaseBackupService databaseBackupService,
+			FolderPicker folderPicker) {
 		this.autoBuyWebService = autoBuyWebService;
 		this.productService = productService;
 		this.credentialProvider = credentialProvider;
@@ -64,6 +63,7 @@ public class WebApiController {
 		this.shoppingListProvider = shoppingListProvider;
 		this.shutdownService = shutdownService;
 		this.databaseBackupService = databaseBackupService;
+		this.folderPicker = folderPicker;
 	}
 
 	// 1. Shopping List Endpoints
@@ -88,8 +88,45 @@ public class WebApiController {
 	// 2. Mapping Endpoints
 
 	@GetMapping("/mappings")
-	public ResponseEntity<List<ProductMapping>> getMappings() {
-		return ResponseEntity.ok(productService.findAllMappings());
+	public ResponseEntity<Map<String, List<ProductMapping>>> getMappings() {
+		List<ProductMapping> all = productService.findAllMappings();
+		Map<String, List<ProductMapping>> grouped = all.stream()
+				.collect(java.util.stream.Collectors.groupingBy(ProductMapping::getSearchText,
+						java.util.stream.Collectors.collectingAndThen(java.util.stream.Collectors.toList(), list -> {
+							list.sort(java.util.Comparator.comparingInt(ProductMapping::getPriority));
+							return list;
+						})));
+		return ResponseEntity.ok(grouped);
+	}
+
+	@PostMapping("/mappings/{id}/promote")
+	public ResponseEntity<Map<String, Object>> promoteMapping(@PathVariable Long id) {
+		try {
+			productService.promoteMapping(id);
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
+	}
+
+	@PostMapping("/mappings/{id}/demote")
+	public ResponseEntity<Map<String, Object>> demoteMapping(@PathVariable Long id) {
+		try {
+			productService.demoteMapping(id);
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
 	}
 
 	@DeleteMapping("/mappings/{id}")
@@ -187,7 +224,54 @@ public class WebApiController {
 	@PostMapping("/autobuy/resolve")
 	public ResponseEntity<Map<String, Object>> resolveMapping(@RequestBody ResolveRequest request) {
 		try {
-			autoBuyWebService.resolveMapping(request.externalId());
+			com.autobuy.web.dto.ResolutionResultStatus status = autoBuyWebService.resolveMapping(request.externalId(),
+					request.saveMapping());
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, true);
+			if (status != null) {
+				response.put("added", status.added());
+				response.put(MESSAGE_KEY, status.message());
+			} else {
+				response.put("added", true);
+				response.put(MESSAGE_KEY, "Successfully resolved.");
+			}
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
+	}
+
+	@GetMapping("/autobuy/search")
+	public ResponseEntity<List<com.autobuy.model.SearchResult>> searchSupermarket(@RequestParam String query,
+			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
+		String sanitizedQuery = query.replace('\n', '_').replace('\r', '_');
+		String sanitizedSupermarket = supermarket.replace('\n', '_').replace('\r', '_');
+		log.info("Performing guest search for '{}' in {}", sanitizedQuery, sanitizedSupermarket);
+		try {
+			List<com.autobuy.model.SearchResult> results = autoBuyWebService.performGuestSearch(query, supermarket);
+			return ResponseEntity.ok(results);
+		} catch (Exception e) {
+			log.error("Failed to perform guest search", e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
+	@PostMapping("/autobuy/add-alternative")
+	public ResponseEntity<Map<String, Object>> addAlternative(
+			@RequestBody com.autobuy.web.dto.AddAlternativeRequest request) {
+		try {
+			List<ProductMapping> existing = productService.findMappingsBySearchTextAndSupermarket(
+					request.searchText().toLowerCase().trim(), request.supermarket());
+			int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max().orElse(-1) + 1;
+
+			com.autobuy.model.SearchResult result = new com.autobuy.model.SearchResult(request.externalId(),
+					request.productName(), "", java.math.BigDecimal.ZERO, "", "");
+			productService.saveMappingWithPriority(request.searchText().toLowerCase().trim(), request.supermarket(),
+					result, nextPriority);
+
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
@@ -215,9 +299,10 @@ public class WebApiController {
 	}
 
 	@PostMapping("/autobuy/complete")
-	public ResponseEntity<Map<String, Object>> completeRun() {
+	public ResponseEntity<Map<String, Object>> completeRun(
+			@RequestParam(name = "keepBrowser", defaultValue = "false") boolean keepBrowser) {
 		try {
-			autoBuyWebService.completeRun();
+			autoBuyWebService.completeRun(keepBrowser);
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
@@ -290,58 +375,30 @@ public class WebApiController {
 
 	@PostMapping("/config/select-native-dir")
 	public ResponseEntity<Map<String, Object>> selectNativeDirectory() {
-		if (GraphicsEnvironment.isHeadless()) {
-			log.warn("Cannot open native folder picker: Graphics environment is headless.");
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, "Cannot open native folder picker: Graphics environment is headless.");
-			return ResponseEntity.badRequest().body(response);
-		}
-
 		log.info("selectNativeDirectory endpoint called.");
-		AtomicReference<String> selectedPath = new AtomicReference<>(null);
 		try {
-			log.info("Setting system look and feel...");
-			setSystemLookAndFeel();
-
-			log.info("Instantiating JFileChooser...");
-			JFileChooser chooser = new JFileChooser();
-			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-			chooser.setDialogTitle("Select Database Backup Directory");
-			chooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-
-			log.info("Showing native open dialog...");
-			int result = chooser.showOpenDialog(null);
-			log.info("Native open dialog closed with result: {}", result);
-
-			if (result == JFileChooser.APPROVE_OPTION) {
-				selectedPath.set(chooser.getSelectedFile().getAbsolutePath().replace('\\', '/'));
-				log.info("Directory selected: {}", selectedPath.get());
-			}
-
+			String path = folderPicker.selectDirectory();
 			Map<String, Object> response = new HashMap<>();
-			if (selectedPath.get() != null) {
+			if (path != null) {
 				response.put(SUCCESS_KEY, true);
-				response.put("path", selectedPath.get());
+				response.put("path", path);
 			} else {
 				response.put(SUCCESS_KEY, false);
 				response.put(MESSAGE_KEY, "Selection cancelled");
 			}
 			return ResponseEntity.ok(response);
+		} catch (UnsupportedOperationException e) {
+			log.warn(e.getMessage());
+			Map<String, Object> response = new HashMap<>();
+			response.put(SUCCESS_KEY, false);
+			response.put(MESSAGE_KEY, e.getMessage());
+			return ResponseEntity.badRequest().body(response);
 		} catch (Exception e) {
 			log.error("Failed to open native directory chooser", e);
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, false);
 			response.put(MESSAGE_KEY, "Error opening native directory chooser: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(response);
-		}
-	}
-
-	private void setSystemLookAndFeel() {
-		try {
-			javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
-		} catch (Exception e) {
-			log.warn("Failed to set system look and feel: {}", e.getMessage());
 		}
 	}
 

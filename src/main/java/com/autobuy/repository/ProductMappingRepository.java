@@ -10,7 +10,8 @@ import java.util.Optional;
  */
 @Repository
 public interface ProductMappingRepository extends JpaRepository<ProductMapping, Long> {
-	Optional<ProductMapping> findBySearchTextAndSupermarket(String searchText, String supermarket);
+	java.util.List<ProductMapping> findBySearchTextAndSupermarketOrderByPriorityAsc(String searchText,
+			String supermarket);
 
 	Optional<ProductMapping> findBySupermarketAndExternalProductId(String supermarket, String externalProductId);
 }

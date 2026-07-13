@@ -6,7 +6,8 @@ import jakarta.persistence.*;
  * Maps a generic search query to an exact supermarket SKU.
  */
 @Entity
-@Table(name = "product_mappings", uniqueConstraints = {@UniqueConstraint(columnNames = {"searchText", "supermarket"})})
+@Table(name = "product_mappings", uniqueConstraints = {
+		@UniqueConstraint(columnNames = {"searchText", "supermarket", "priority"})})
 public class ProductMapping {
 
 	@Id
@@ -24,6 +25,11 @@ public class ProductMapping {
 
 	private String productName;
 
+	@Column(nullable = false)
+	private int priority = 0;
+
+	private Long fallbackForId;
+
 	// Constructors
 	public ProductMapping() {
 	}
@@ -33,6 +39,7 @@ public class ProductMapping {
 		this.supermarket = supermarket;
 		this.externalProductId = externalProductId;
 		this.productName = productName;
+		this.priority = 0;
 	}
 
 	// Getters and Setters
@@ -71,10 +78,24 @@ public class ProductMapping {
 		this.productName = productName;
 	}
 
+	public int getPriority() {
+		return priority;
+	}
+	public void setPriority(int priority) {
+		this.priority = priority;
+	}
+
+	public Long getFallbackForId() {
+		return fallbackForId;
+	}
+	public void setFallbackForId(Long fallbackForId) {
+		this.fallbackForId = fallbackForId;
+	}
+
 	@Override
 	public String toString() {
 		return "ProductMapping{" + "id=" + id + ", searchText='" + searchText + '\'' + ", supermarket='" + supermarket
 				+ '\'' + ", externalProductId='" + externalProductId + '\'' + ", productName='" + productName + '\''
-				+ '}';
+				+ ", priority=" + priority + ", fallbackForId=" + fallbackForId + '}';
 	}
 }

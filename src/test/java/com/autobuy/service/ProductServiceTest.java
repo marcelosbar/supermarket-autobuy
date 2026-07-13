@@ -67,8 +67,38 @@ class ProductServiceTest {
 
 	@Test
 	void testDeleteMapping() {
+		ProductMapping mapping = new ProductMapping("cheese", "CONTINENTE", "SKU-CHEESE", "Continente Cheese");
+		mapping.setId(1L);
+		when(productMappingRepository.findById(1L)).thenReturn(Optional.of(mapping));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("cheese", "CONTINENTE"))
+				.thenReturn(List.of());
+
 		productService.deleteMapping(1L);
-		verify(productMappingRepository).deleteById(1L);
+
+		verify(productMappingRepository).delete(mapping);
+		verify(productMappingRepository).findBySearchTextAndSupermarketOrderByPriorityAsc("cheese", "CONTINENTE");
+	}
+
+	@Test
+	void testDeleteMapping_WithRemaining() {
+		ProductMapping mapping = new ProductMapping("cheese", "CONTINENTE", "SKU-CHEESE", "Continente Cheese");
+		mapping.setId(1L);
+		mapping.setPriority(0);
+
+		ProductMapping m1 = new ProductMapping("cheese", "CONTINENTE", "SKU-1", "Cheese 1");
+		m1.setId(2L);
+		m1.setPriority(1);
+
+		when(productMappingRepository.findById(1L)).thenReturn(Optional.of(mapping));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("cheese", "CONTINENTE"))
+				.thenReturn(List.of(m1));
+
+		productService.deleteMapping(1L);
+
+		verify(productMappingRepository).delete(mapping);
+		verify(productMappingRepository).saveAndFlush(m1);
+		assertEquals(0, m1.getPriority());
+		assertNull(m1.getFallbackForId());
 	}
 
 	@Test
@@ -121,14 +151,14 @@ class ProductServiceTest {
 	}
 
 	@Test
-	void testFindMappingBySearchTextAndSupermarket() {
+	void testFindMappingsBySearchTextAndSupermarket() {
 		ProductMapping mapping = new ProductMapping("butter", "ALDI", "SKU-BUTTER", "Milbona Butter");
-		when(productMappingRepository.findBySearchTextAndSupermarket("butter", "ALDI"))
-				.thenReturn(Optional.of(mapping));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("butter", "ALDI"))
+				.thenReturn(List.of(mapping));
 
-		Optional<ProductMapping> found = productService.findMappingBySearchTextAndSupermarket("butter", "ALDI");
-		assertTrue(found.isPresent());
-		assertEquals("SKU-BUTTER", found.get().getExternalProductId());
+		List<ProductMapping> found = productService.findMappingsBySearchTextAndSupermarket("butter", "ALDI");
+		assertEquals(1, found.size());
+		assertEquals("SKU-BUTTER", found.get(0).getExternalProductId());
 	}
 
 	@Test
@@ -168,5 +198,180 @@ class ProductServiceTest {
 
 		verify(productRepository).findByExternalIdAndSupermarket("SKU-1", "CONTINENTE");
 		verify(productMappingRepository).save(any(ProductMapping.class));
+	}
+
+	@Test
+	void testSaveMappingWithPriority() {
+		SearchResult result = new SearchResult("SKU-Alt", "Alt Product", "Brand", new BigDecimal("2.99"), "http://url",
+				"Category");
+		Product mockProduct = new Product("SKU-Alt", "CONTINENTE", "Alt Product", "Brand", "http://url", "Category");
+		mockProduct.setId(2L);
+
+		when(productRepository.findByExternalIdAndSupermarket("SKU-Alt", "CONTINENTE"))
+				.thenReturn(Optional.of(mockProduct));
+
+		ProductMapping primary = new ProductMapping("query", "CONTINENTE", "SKU-Prim", "Primary Product");
+		primary.setId(10L);
+
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(primary));
+
+		ProductMapping savedAlt = new ProductMapping("query", "CONTINENTE", "SKU-Alt", "Alt Product");
+		savedAlt.setPriority(1);
+		savedAlt.setFallbackForId(10L);
+
+		when(productMappingRepository.save(any(ProductMapping.class))).thenReturn(savedAlt);
+
+		productService.saveMappingWithPriority("query", "CONTINENTE", result, 1);
+
+		verify(productRepository).findByExternalIdAndSupermarket("SKU-Alt", "CONTINENTE");
+		verify(productMappingRepository).save(any(ProductMapping.class));
+	}
+
+	@Test
+	void testSaveMappingWithPriority_DuplicateSku() {
+		SearchResult result = new SearchResult("SKU-1", "Name", "Brand", new BigDecimal("1.99"), "http://url",
+				"Category");
+		Product mockProduct = new Product("SKU-1", "CONTINENTE", "Name", "Brand", "http://url", "Category");
+		mockProduct.setId(1L);
+
+		when(productRepository.findByExternalIdAndSupermarket("SKU-1", "CONTINENTE"))
+				.thenReturn(Optional.of(mockProduct));
+
+		ProductMapping primary = new ProductMapping("query", "CONTINENTE", "SKU-1", "Name");
+		primary.setId(10L);
+		primary.setPriority(0);
+
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(primary));
+
+		productService.saveMappingWithPriority("query", "CONTINENTE", result, 1);
+
+		verify(productRepository).findByExternalIdAndSupermarket("SKU-1", "CONTINENTE");
+		verify(productMappingRepository, never()).save(any(ProductMapping.class));
+	}
+
+	@Test
+	void testPromoteMapping() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		ProductMapping m1 = new ProductMapping("query", "CONTINENTE", "SKU-1", "Product 1");
+		m1.setId(11L);
+		m1.setPriority(1);
+		m1.setFallbackForId(10L);
+
+		when(productMappingRepository.findById(11L)).thenReturn(Optional.of(m1));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0, m1));
+
+		productService.promoteMapping(11L);
+
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m1);
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m0);
+	}
+
+	@Test
+	void testDemoteMapping() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		ProductMapping m1 = new ProductMapping("query", "CONTINENTE", "SKU-1", "Product 1");
+		m1.setId(11L);
+		m1.setPriority(1);
+		m1.setFallbackForId(10L);
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0, m1));
+
+		productService.demoteMapping(10L);
+
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m0);
+		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m1);
+	}
+
+	@Test
+	void testDeleteMapping_Nonexistent() {
+		when(productMappingRepository.findById(99L)).thenReturn(Optional.empty());
+		productService.deleteMapping(99L);
+		verify(productMappingRepository, never()).delete(any());
+	}
+
+	@Test
+	void testPromoteMapping_Nonexistent() {
+		when(productMappingRepository.findById(99L)).thenReturn(Optional.empty());
+		productService.promoteMapping(99L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testPromoteMapping_AlreadyPrimary() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		productService.promoteMapping(10L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testPromoteMapping_NoAboveElement() {
+		ProductMapping m1 = new ProductMapping("query", "CONTINENTE", "SKU-1", "Product 1");
+		m1.setId(11L);
+		m1.setPriority(2); // gap, no priority 1 above
+
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		when(productMappingRepository.findById(11L)).thenReturn(Optional.of(m1));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0, m1));
+
+		productService.promoteMapping(11L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testDemoteMapping_Nonexistent() {
+		when(productMappingRepository.findById(99L)).thenReturn(Optional.empty());
+		productService.demoteMapping(99L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testDemoteMapping_AlreadyAtBottom() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0));
+
+		productService.demoteMapping(10L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testDemoteMapping_NoBelowElement() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		ProductMapping m2 = new ProductMapping("query", "CONTINENTE", "SKU-2", "Product 2");
+		m2.setId(12L);
+		m2.setPriority(2); // gap, no priority 1 below m0
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0, m2));
+
+		productService.demoteMapping(10L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
 	}
 }
