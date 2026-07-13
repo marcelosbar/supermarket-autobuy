@@ -62,7 +62,7 @@ class AutoBuyWebServiceTest {
 		if (service != null) {
 			try {
 				service.cancel();
-			} catch (Exception e) {
+			} catch (Exception _) {
 				// ignore
 			}
 		}
@@ -808,7 +808,7 @@ class AutoBuyWebServiceTest {
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionExhaustedSelect() throws Exception {
+	void testStartAutoBuy_InteractiveResolutionExhaustedSelect() {
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
