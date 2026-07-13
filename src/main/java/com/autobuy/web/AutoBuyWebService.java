@@ -797,7 +797,7 @@ public class AutoBuyWebService {
 				throw new IllegalArgumentException("No driver found for supermarket: " + supermarket);
 			}
 			guestSearchDriver = driver;
-			String sanitizedSupermarket = supermarket != null ? supermarket.replace('\n', '_').replace('\r', '_') : "";
+			String sanitizedSupermarket = supermarket.replace('\n', '_').replace('\r', '_');
 			log.info("Initializing guest search driver for {}...", sanitizedSupermarket);
 			guestSearchDriver.initialize(null, null, false);
 		}

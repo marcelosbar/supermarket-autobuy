@@ -178,6 +178,37 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>io.github.surpsg</groupId>
+                <artifactId>diff-coverage-maven-plugin</artifactId>
+                <version>1.3.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>diffCoverage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <diffSource>
+                        <git>origin/main</git>
+                    </diffSource>
+                    <dataFileIncludes>**/target/*.exec</dataFileIncludes>
+                    <violations>
+                        <failOnViolation>true</failOnViolation>
+                        <minCoverage>0.80</minCoverage>
+                    </violations>
+                    <excludes>
+                        <exclude>com/autobuy/SupermarketAutobuyApplication.class</exclude>
+                        <exclude>com/autobuy/config/**</exclude>
+                        <exclude>com/autobuy/exception/**</exclude>
+                        <exclude>com/autobuy/driver/**</exclude>
+                        <exclude>com/autobuy/model/**</exclude>
+                        <exclude>com/autobuy/web/dto/**</exclude>
+                        <exclude>com/autobuy/web/SwingFolderPicker.class</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <version>3.8.1</version>

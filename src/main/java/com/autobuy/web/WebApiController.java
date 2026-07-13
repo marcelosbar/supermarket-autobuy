@@ -247,8 +247,8 @@ public class WebApiController {
 	@GetMapping("/autobuy/search")
 	public ResponseEntity<List<com.autobuy.model.SearchResult>> searchSupermarket(@RequestParam String query,
 			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
-		String sanitizedQuery = query != null ? query.replace('\n', '_').replace('\r', '_') : "";
-		String sanitizedSupermarket = supermarket != null ? supermarket.replace('\n', '_').replace('\r', '_') : "";
+		String sanitizedQuery = query.replace('\n', '_').replace('\r', '_');
+		String sanitizedSupermarket = supermarket.replace('\n', '_').replace('\r', '_');
 		log.info("Performing guest search for '{}' in {}", sanitizedQuery, sanitizedSupermarket);
 		try {
 			List<com.autobuy.model.SearchResult> results = autoBuyWebService.performGuestSearch(query, supermarket);

@@ -292,4 +292,86 @@ class ProductServiceTest {
 		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m0);
 		verify(productMappingRepository, atLeastOnce()).saveAndFlush(m1);
 	}
+
+	@Test
+	void testDeleteMapping_Nonexistent() {
+		when(productMappingRepository.findById(99L)).thenReturn(Optional.empty());
+		productService.deleteMapping(99L);
+		verify(productMappingRepository, never()).delete(any());
+	}
+
+	@Test
+	void testPromoteMapping_Nonexistent() {
+		when(productMappingRepository.findById(99L)).thenReturn(Optional.empty());
+		productService.promoteMapping(99L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testPromoteMapping_AlreadyPrimary() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		productService.promoteMapping(10L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testPromoteMapping_NoAboveElement() {
+		ProductMapping m1 = new ProductMapping("query", "CONTINENTE", "SKU-1", "Product 1");
+		m1.setId(11L);
+		m1.setPriority(2); // gap, no priority 1 above
+
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		when(productMappingRepository.findById(11L)).thenReturn(Optional.of(m1));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0, m1));
+
+		productService.promoteMapping(11L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testDemoteMapping_Nonexistent() {
+		when(productMappingRepository.findById(99L)).thenReturn(Optional.empty());
+		productService.demoteMapping(99L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testDemoteMapping_AlreadyAtBottom() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0));
+
+		productService.demoteMapping(10L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void testDemoteMapping_NoBelowElement() {
+		ProductMapping m0 = new ProductMapping("query", "CONTINENTE", "SKU-0", "Product 0");
+		m0.setId(10L);
+		m0.setPriority(0);
+
+		ProductMapping m2 = new ProductMapping("query", "CONTINENTE", "SKU-2", "Product 2");
+		m2.setId(12L);
+		m2.setPriority(2); // gap, no priority 1 below m0
+
+		when(productMappingRepository.findById(10L)).thenReturn(Optional.of(m0));
+		when(productMappingRepository.findBySearchTextAndSupermarketOrderByPriorityAsc("query", "CONTINENTE"))
+				.thenReturn(List.of(m0, m2));
+
+		productService.demoteMapping(10L);
+		verify(productMappingRepository, never()).saveAndFlush(any());
+	}
 }
