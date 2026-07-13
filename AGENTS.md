@@ -25,7 +25,6 @@
 * **Auto-format code** using: `.\mvnw.cmd spotless:apply`. This applies the Eclipse JDT 4-space indent style.
 
 ## 3. Coding Guidelines & Standards
-
 * **Target Java 25** for the compiler and runtime JDK.
 * **Adhere to SOLID** principles across all code changes:
   * **S - Single Responsibility:** Ensure each class has only one reason to change. Split mixed-concern classes.
@@ -41,6 +40,7 @@
 * **Name unit tests** with `*Test.java` suffix. Run them using `.\mvnw.cmd test`.
 * **Name integration tests** with `*IT.java` suffix. Run them using `.\mvnw.cmd verify`.
 * **Ensure 80% instruction** coverage globally. This is evaluated during the `verify` phase.
+* **Always Write/Update Unit Tests:** When writing new code or modifying existing code (including bug fixes), you must always write or update unit/integration tests that verify the changes. Do not propose implementation plans or submit code without specifying and writing the corresponding test cases. Do not rely solely on manual verification.
 
 ## 4. Git Commit Guidelines
 
