@@ -16,10 +16,10 @@
 
 ## 2. CLI Commands
 * **Build and package** the project using: `.\mvnw.cmd clean package`.
-* **Run tests** using: `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`.
+* **Run tests** during active development using: `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`.
 * **Add target parameter** `-Dtest=TestClassName` during active development to run a single test.
 * **Always use piping** when running tests. This filters verbose output and saves LLM token context.
-* **Run the entire** test suite only for final verification. **Do NOT run tests for changes to documentation-only files (such as `.md`, `.txt`, `.gitignore`). Only execute tests when source code or executable logic is modified.**
+* **Pre-push Verification**: Always run the entire verification suite (including integration tests and JaCoCo coverage checks) locally before pushing using: `.\mvnw.cmd verify 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`. Do NOT run verification for changes to documentation-only files (such as `.md`, `.txt`, `.gitignore`). Only execute verification when source code or executable logic is modified.
 * **Run the application** using: `.\mvnw.cmd spring-boot:run`. This starts the Web UI and runs migrations.
 * **Auto-format code** using: `.\mvnw.cmd spotless:apply`. This applies the Eclipse JDT 4-space indent style.
 
