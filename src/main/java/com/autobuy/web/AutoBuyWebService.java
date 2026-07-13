@@ -424,53 +424,7 @@ public class AutoBuyWebService {
 
 			// Defer resolutions to the end of the run
 			if (state != AutoBuyState.FAILED && !exhaustedItems.isEmpty()) {
-				log.info("Awaiting user resolution for {} unavailable/unmapped items...", exhaustedItems.size());
-				while (!exhaustedItems.isEmpty() && state != AutoBuyState.FAILED
-						&& !Thread.currentThread().isInterrupted()) {
-					ShoppingItem failedItem = exhaustedItems.get(0);
-					synchronized (this) {
-						this.currentItemQuery = failedItem.query();
-						this.currentItemQuantity = failedItem.quantity();
-					}
-					com.autobuy.web.dto.ResolutionResult resolution = pauseAndResolveExhausted(failedItem, driver);
-					if (resolution == null) {
-						log.info("Skipped item '{}' on user resolution prompt.", failedItem.query());
-						recordSkippedItem(failedItem.query());
-					} else {
-						SearchResult selected = resolution.product();
-						boolean success = driver.addProductToCart(selected.externalId(), failedItem.quantity());
-						if (success) {
-							log.info("SUCCESS: Added {}x '{}' to cart.", failedItem.quantity(), selected.name());
-							try {
-								priceHistoryService.logPrice(selected, targetSupermarket);
-								log.info("Logged price for {}: {} €", selected.name(), selected.price());
-							} catch (Exception e) {
-								log.error("Failed to log price history", e);
-							}
-							if (resolution.saveMapping()) {
-								try {
-									List<ProductMapping> existing = productService
-											.findMappingsBySearchTextAndSupermarket(
-													failedItem.query().toLowerCase().trim(), targetSupermarket);
-									int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max()
-											.orElse(-1) + 1;
-									productService.saveMappingWithPriority(failedItem.query().toLowerCase().trim(),
-											targetSupermarket, selected, nextPriority);
-									log.info("Saved product mapping: '{}' -> SKU: {} (Priority: {})",
-											failedItem.query(), selected.externalId(), nextPriority);
-								} catch (Exception e) {
-									log.error("Failed to save product mapping", e);
-								}
-							}
-						} else {
-							log.warn("SKIPPED: '{}' is unavailable — not added to cart.", selected.name());
-							recordSkippedItem(failedItem.query());
-						}
-					}
-					synchronized (this) {
-						exhaustedItems.remove(failedItem);
-					}
-				}
+				resolveExhaustedItems(driver, targetSupermarket);
 			}
 
 			// 6. Complete Automation and hold session for manual review
@@ -525,6 +479,61 @@ public class AutoBuyWebService {
 		return ordered;
 	}
 
+	private void logPriceHistorySafely(SearchResult selected, String targetSupermarket) {
+		try {
+			priceHistoryService.logPrice(selected, targetSupermarket);
+			log.info("Logged price for {}: {} €", selected.name(), selected.price());
+		} catch (Exception e) {
+			log.error("Failed to log price history", e);
+		}
+	}
+
+	private void saveProductMappingSafely(ShoppingItem failedItem, SearchResult selected, String targetSupermarket) {
+		try {
+			List<ProductMapping> existing = productService
+					.findMappingsBySearchTextAndSupermarket(failedItem.query().toLowerCase().trim(), targetSupermarket);
+			int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max().orElse(-1) + 1;
+			productService.saveMappingWithPriority(failedItem.query().toLowerCase().trim(), targetSupermarket, selected,
+					nextPriority);
+			log.info("Saved product mapping: '{}' -> SKU: {} (Priority: {})", failedItem.query(), selected.externalId(),
+					nextPriority);
+		} catch (Exception e) {
+			log.error("Failed to save product mapping", e);
+		}
+	}
+
+	private void resolveExhaustedItems(SupermarketDriver driver, String targetSupermarket) throws InterruptedException {
+		log.info("Awaiting user resolution for {} unavailable/unmapped items...", exhaustedItems.size());
+		while (!exhaustedItems.isEmpty() && state != AutoBuyState.FAILED && !Thread.currentThread().isInterrupted()) {
+			ShoppingItem failedItem = exhaustedItems.get(0);
+			synchronized (this) {
+				this.currentItemQuery = failedItem.query();
+				this.currentItemQuantity = failedItem.quantity();
+			}
+			com.autobuy.web.dto.ResolutionResult resolution = pauseAndResolveExhausted(failedItem, driver);
+			if (resolution == null) {
+				log.info("Skipped item '{}' on user resolution prompt.", failedItem.query());
+				recordSkippedItem(failedItem.query());
+			} else {
+				SearchResult selected = resolution.product();
+				boolean success = driver.addProductToCart(selected.externalId(), failedItem.quantity());
+				if (success) {
+					log.info("SUCCESS: Added {}x '{}' to cart.", failedItem.quantity(), selected.name());
+					logPriceHistorySafely(selected, targetSupermarket);
+					if (resolution.saveMapping()) {
+						saveProductMappingSafely(failedItem, selected, targetSupermarket);
+					}
+				} else {
+					log.warn("SKIPPED: '{}' is unavailable — not added to cart.", selected.name());
+					recordSkippedItem(failedItem.query());
+				}
+			}
+			synchronized (this) {
+				exhaustedItems.remove(failedItem);
+			}
+		}
+	}
+
 	private void processShoppingItem(SupermarketDriver driver, ShoppingItem item, String targetSupermarket)
 			throws InterruptedException {
 		synchronized (this) {
@@ -541,12 +550,7 @@ public class AutoBuyWebService {
 		SearchResult selectedProduct = resolveResult.product();
 
 		// Log Price and Add to Cart
-		try {
-			priceHistoryService.logPrice(selectedProduct, targetSupermarket);
-			log.info("Logged price for {}: {} €", selectedProduct.name(), selectedProduct.price());
-		} catch (Exception e) {
-			log.error("Failed to log price history", e);
-		}
+		logPriceHistorySafely(selectedProduct, targetSupermarket);
 
 		boolean success = true;
 		if (!resolveResult.alreadyAdded()) {
@@ -569,103 +573,132 @@ public class AutoBuyWebService {
 				.findMappingsBySearchTextAndSupermarket(item.query().toLowerCase().trim(), targetSupermarket);
 
 		if (!mappings.isEmpty()) {
-			for (ProductMapping mapping : mappings) {
-				log.info("Trying mapping: '{}' (Priority: {}) -> SKU: {}", item.query(), mapping.getPriority(),
-						mapping.getExternalProductId());
-				List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
-				if (!skuResults.isEmpty()) {
-					SearchResult result = skuResults.get(0);
-					if (driver.isProductAvailable(result.externalId())) {
-						return new ResolveResult(result, false);
-					}
-				}
-				log.warn("Mapping SKU {} is unavailable, trying next fallback...", mapping.getExternalProductId());
-			}
-			log.warn("All alternative mappings for '{}' are unavailable. Deferring to end.", item.query());
-			synchronized (this) {
-				this.exhaustedItems.add(item);
-			}
-			return null;
+			return resolveFromMappings(driver, item, mappings);
 		} else {
-			log.info("No mapping found for query '{}'. Performing store search...", item.query());
-			List<SearchResult> searchResultsList = driver.searchProduct(item.query());
-			if (searchResultsList.isEmpty()) {
-				log.warn("No products found for query '{}'. Skipping.", item.query());
-				recordSkippedItem(item.query());
-				return null;
+			return performStoreSearchAndResolve(driver, item, targetSupermarket);
+		}
+	}
+
+	private ResolveResult resolveFromMappings(SupermarketDriver driver, ShoppingItem item,
+			List<ProductMapping> mappings) {
+		for (ProductMapping mapping : mappings) {
+			log.info("Trying mapping: '{}' (Priority: {}) -> SKU: {}", item.query(), mapping.getPriority(),
+					mapping.getExternalProductId());
+			List<SearchResult> skuResults = driver.searchProduct(mapping.getExternalProductId());
+			if (!skuResults.isEmpty()) {
+				SearchResult result = skuResults.get(0);
+				if (driver.isProductAvailable(result.externalId())) {
+					return new ResolveResult(result, false);
+				}
 			}
+			log.warn("Mapping SKU {} is unavailable, trying next fallback...", mapping.getExternalProductId());
+		}
+		log.warn("All alternative mappings for '{}' are unavailable. Deferring to end.", item.query());
+		synchronized (this) {
+			this.exhaustedItems.add(item);
+		}
+		return null;
+	}
 
-			int priority = 0;
-			SearchResult finalSelectedProduct = null;
-			String searchWord = item.query();
+	private record SelectResult(SearchResult product, boolean shouldIncrementPriority) {
+	}
 
-			while (true) {
-				ResolutionAction action = pauseAndResolveMapping(searchWord, searchResultsList, priority);
-				if (action == null || action.type() == ResolutionAction.ActionType.SKIP) {
-					log.info("Skipped mapping for '{}' on user prompt.", item.query());
-					if (priority == 0) {
-						recordSkippedItem(item.query());
-					} else {
-						log.warn("User skipped fallback prompts for '{}'. Deferring to end.", item.query());
-						synchronized (this) {
-							this.exhaustedItems.add(item);
-						}
-					}
-					completeAdditionValidation(true);
-					break;
-				}
+	private SelectResult handleSelectAction(ResolutionAction action, SupermarketDriver driver, ShoppingItem item,
+			String targetSupermarket, List<SearchResult> searchResultsList, int priority) {
+		String externalId = action.value();
+		SearchResult selectedProduct = searchResultsList.stream().filter(r -> r.externalId().equals(externalId))
+				.findFirst().orElse(null);
 
-				if (action.type() == ResolutionAction.ActionType.REFINE) {
-					String newQuery = action.value();
-					log.info("Refining search for '{}' with new query: '{}'...", item.query(), newQuery);
-					searchWord = newQuery;
-					searchResultsList = driver.searchProduct(searchWord);
-					continue;
-				}
+		if (selectedProduct == null) {
+			log.warn("Selected product SKU {} not found in current search results.", externalId);
+			return new SelectResult(null, false);
+		}
 
-				// Action is SELECT
-				String externalId = action.value();
-				SearchResult selectedProduct = searchResultsList.stream().filter(r -> r.externalId().equals(externalId))
-						.findFirst().orElse(null);
+		if (action.saveMapping()) {
+			saveProductMappingSafely(item, selectedProduct, targetSupermarket, priority);
+		}
 
-				if (selectedProduct == null) {
-					log.warn("Selected product SKU {} not found in current search results.", externalId);
-					continue;
-				}
+		boolean added = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
+		if (added) {
+			completeAdditionValidation(true);
+			return new SelectResult(selectedProduct, false);
+		} else {
+			completeAdditionValidation(false);
+			log.warn("Selected product SKU {} could not be added to cart. Prompting user for fallback alternative...",
+					selectedProduct.externalId());
+			markProductUnavailableInList(searchResultsList, selectedProduct.externalId());
+			return new SelectResult(null, true);
+		}
+	}
 
-				if (action.saveMapping()) {
-					try {
-						productService.saveMappingWithPriority(item.query().toLowerCase().trim(), targetSupermarket,
-								selectedProduct, priority);
-						log.info("Saved product mapping: '{}' -> SKU: {} (Priority: {})", item.query(),
-								selectedProduct.externalId(), priority);
-					} catch (Exception e) {
-						log.error("Failed to save product mapping", e);
-					}
-				}
+	private ResolveResult performStoreSearchAndResolve(SupermarketDriver driver, ShoppingItem item,
+			String targetSupermarket) throws InterruptedException {
+		log.info("No mapping found for query '{}'. Performing store search...", item.query());
+		List<SearchResult> searchResultsList = driver.searchProduct(item.query());
+		if (searchResultsList.isEmpty()) {
+			log.warn("No products found for query '{}'. Skipping.", item.query());
+			recordSkippedItem(item.query());
+			return null;
+		}
 
-				boolean added = driver.addProductToCart(selectedProduct.externalId(), item.quantity());
-				if (added) {
-					finalSelectedProduct = selectedProduct;
-					completeAdditionValidation(true);
-					break;
+		int priority = 0;
+		SearchResult finalSelectedProduct = null;
+		String searchWord = item.query();
+		boolean resolved = false;
+
+		while (!resolved && !Thread.currentThread().isInterrupted()) {
+			ResolutionAction action = pauseAndResolveMapping(searchWord, searchResultsList, priority);
+			if (action == null || action.type() == ResolutionAction.ActionType.SKIP) {
+				log.info("Skipped mapping for '{}' on user prompt.", item.query());
+				if (priority == 0) {
+					recordSkippedItem(item.query());
 				} else {
-					completeAdditionValidation(false);
-					log.warn(
-							"Selected product SKU {} could not be added to cart. Prompting user for fallback alternative...",
-							selectedProduct.externalId());
-					for (int i = 0; i < searchResultsList.size(); i++) {
-						SearchResult r = searchResultsList.get(i);
-						if (r.externalId().equals(selectedProduct.externalId())) {
-							searchResultsList.set(i, new SearchResult(r.externalId(), r.name(), r.brand(), r.price(),
-									r.url(), r.category(), false));
-						}
+					log.warn("User skipped fallback prompts for '{}'. Deferring to end.", item.query());
+					synchronized (this) {
+						this.exhaustedItems.add(item);
 					}
+				}
+				completeAdditionValidation(true);
+				resolved = true;
+			} else if (action.type() == ResolutionAction.ActionType.REFINE) {
+				String newQuery = action.value();
+				log.info("Refining search for '{}' with new query: '{}'...", item.query(), newQuery);
+				searchWord = newQuery;
+				searchResultsList = driver.searchProduct(searchWord);
+			} else {
+				SelectResult result = handleSelectAction(action, driver, item, targetSupermarket, searchResultsList,
+						priority);
+				if (result.product() != null) {
+					finalSelectedProduct = result.product();
+					resolved = true;
+				} else if (result.shouldIncrementPriority()) {
 					priority++;
 				}
 			}
+		}
 
-			return new ResolveResult(finalSelectedProduct, true);
+		return new ResolveResult(finalSelectedProduct, true);
+	}
+
+	private void saveProductMappingSafely(ShoppingItem item, SearchResult selectedProduct, String targetSupermarket,
+			int priority) {
+		try {
+			productService.saveMappingWithPriority(item.query().toLowerCase().trim(), targetSupermarket,
+					selectedProduct, priority);
+			log.info("Saved product mapping: '{}' -> SKU: {} (Priority: {})", item.query(),
+					selectedProduct.externalId(), priority);
+		} catch (Exception e) {
+			log.error("Failed to save product mapping", e);
+		}
+	}
+
+	private void markProductUnavailableInList(List<SearchResult> searchResultsList, String externalId) {
+		for (int i = 0; i < searchResultsList.size(); i++) {
+			SearchResult r = searchResultsList.get(i);
+			if (r.externalId().equals(externalId)) {
+				searchResultsList.set(i,
+						new SearchResult(r.externalId(), r.name(), r.brand(), r.price(), r.url(), r.category(), false));
+			}
 		}
 	}
 

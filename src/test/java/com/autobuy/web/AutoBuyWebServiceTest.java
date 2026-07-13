@@ -232,7 +232,7 @@ class AutoBuyWebServiceTest {
 	}
 
 	@Test
-	void testResolveMapping_StateTransitionsToRunning() throws Exception {
+	void testResolveMapping_StateTransitionsToRunning() {
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("skuB", "Red Apples", "Brand", BigDecimal.valueOf(1.9), "url",
 				"Fruit");
@@ -243,10 +243,7 @@ class AutoBuyWebServiceTest {
 		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
 
-		when(supermarketDriver.addProductToCart("skuB", 2)).thenAnswer(invocation -> {
-			Thread.sleep(100);
-			return true;
-		});
+		when(supermarketDriver.addProductToCart("skuB", 2)).thenReturn(true);
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);

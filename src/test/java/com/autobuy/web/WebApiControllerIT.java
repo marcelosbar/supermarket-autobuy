@@ -238,7 +238,7 @@ class WebApiControllerIT {
 				.andExpect(jsonPath("$.message")
 						.value("Application is shutting down gracefully. Backup will be created."));
 
-		org.mockito.Mockito.verify(shutdownService).initiateShutdown(1000);
+		verify(shutdownService).initiateShutdown(1000);
 	}
 
 	@TestConfiguration
@@ -324,13 +324,13 @@ class WebApiControllerIT {
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("Auto-Buy started successfully."));
 
-		org.mockito.Mockito.verify(autoBuyWebService).startAutoBuy("shopping-list.json", "CONTINENTE", false);
+		verify(autoBuyWebService).startAutoBuy("shopping-list.json", "CONTINENTE", false);
 	}
 
 	@Test
 	void testRunAutoBuy_IllegalState() throws Exception {
-		org.mockito.Mockito.doThrow(new IllegalStateException("Already running")).when(autoBuyWebService)
-				.startAutoBuy("shopping-list.json", "CONTINENTE", false);
+		doThrow(new IllegalStateException("Already running")).when(autoBuyWebService).startAutoBuy("shopping-list.json",
+				"CONTINENTE", false);
 
 		String json = """
 				{
@@ -350,7 +350,7 @@ class WebApiControllerIT {
 		var dummyStatus = new AutoBuyStatusResponse(AutoBuyWebService.AutoBuyState.RUNNING, "query", 5,
 				List.of(dummyResult), List.of("log line"), "", List.of(), List.of());
 
-		org.mockito.Mockito.when(autoBuyWebService.getStatus()).thenReturn(dummyStatus);
+		when(autoBuyWebService.getStatus()).thenReturn(dummyStatus);
 
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.state").value("RUNNING"))
@@ -372,13 +372,13 @@ class WebApiControllerIT {
 		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(autoBuyWebService).resolveMapping("sku123", true);
+		verify(autoBuyWebService).resolveMapping("sku123", true);
 	}
 
 	@Test
 	void testResolveMappingEndpoint_Failure() throws Exception {
-		org.mockito.Mockito.doThrow(new IllegalArgumentException("Invalid ID")).when(autoBuyWebService)
-				.resolveMapping(org.mockito.Mockito.eq("invalid-sku"), org.mockito.Mockito.anyBoolean());
+		doThrow(new IllegalArgumentException("Invalid ID")).when(autoBuyWebService).resolveMapping(eq("invalid-sku"),
+				anyBoolean());
 
 		String json = """
 				{
@@ -415,12 +415,12 @@ class WebApiControllerIT {
 		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(productService).promoteMapping(123L);
+		verify(productService).promoteMapping(123L);
 	}
 
 	@Test
 	void testPromoteMappingEndpoint_Failure() throws Exception {
-		org.mockito.Mockito.doThrow(new RuntimeException("Promote failed")).when(productService).promoteMapping(123L);
+		doThrow(new RuntimeException("Promote failed")).when(productService).promoteMapping(123L);
 
 		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Promote failed"));
@@ -431,12 +431,12 @@ class WebApiControllerIT {
 		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(productService).demoteMapping(123L);
+		verify(productService).demoteMapping(123L);
 	}
 
 	@Test
 	void testDemoteMappingEndpoint_Failure() throws Exception {
-		org.mockito.Mockito.doThrow(new RuntimeException("Demote failed")).when(productService).demoteMapping(123L);
+		doThrow(new RuntimeException("Demote failed")).when(productService).demoteMapping(123L);
 
 		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Demote failed"));
@@ -458,8 +458,7 @@ class WebApiControllerIT {
 		mockMvc.perform(post("/api/autobuy/add-alternative").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(productService).saveMappingWithPriority(org.mockito.Mockito.eq("apples"),
-				org.mockito.Mockito.eq("CONTINENTE"), any(), org.mockito.Mockito.eq(0));
+		verify(productService).saveMappingWithPriority(eq("apples"), eq("CONTINENTE"), any(), eq(0));
 	}
 
 	@Test
@@ -486,13 +485,12 @@ class WebApiControllerIT {
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(autoBuyWebService).completeRun(false);
+		verify(autoBuyWebService).completeRun(false);
 	}
 
 	@Test
 	void testCompleteRunEndpoint_Failure() throws Exception {
-		org.mockito.Mockito.doThrow(new IllegalStateException("Not in review")).when(autoBuyWebService)
-				.completeRun(anyBoolean());
+		doThrow(new IllegalStateException("Not in review")).when(autoBuyWebService).completeRun(anyBoolean());
 
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Not in review"));
@@ -503,12 +501,12 @@ class WebApiControllerIT {
 		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
-		org.mockito.Mockito.verify(autoBuyWebService).cancel();
+		verify(autoBuyWebService).cancel();
 	}
 
 	@Test
 	void testCancelRunEndpoint_Failure() throws Exception {
-		org.mockito.Mockito.doThrow(new RuntimeException("Cancel failed")).when(autoBuyWebService).cancel();
+		doThrow(new RuntimeException("Cancel failed")).when(autoBuyWebService).cancel();
 
 		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Cancel failed"));
