@@ -887,4 +887,51 @@ class AutoBuyWebServiceTest {
 		assertFalse(status.added());
 		assertEquals("Saved as mapping, but out of stock. Please select a fallback alternative.", status.message());
 	}
+
+	@Test
+	void testStartAutoBuy_InteractiveResolutionSelect_ProductNotFoundInSearchResults() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		// Resolve with a SKU that is not in the search results
+		assertThrows(IllegalArgumentException.class, () -> service.resolveMapping("nonexistent-sku", false));
+	}
+
+	@Test
+	void testStartAutoBuy_InteractiveResolutionSelect_SaveMappingThrowsException() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
+
+		// Make saveMappingWithPriority throw an exception
+		doThrow(new RuntimeException("DB down")).when(productService).saveMappingWithPriority(anyString(), anyString(),
+				any(), anyInt());
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		// Resolve with saveMapping=true: should catch DB exception quietly and still
+		// succeed adding to cart
+		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("sku123", true);
+		assertTrue(status.added());
+	}
 }

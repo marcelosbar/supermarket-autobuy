@@ -744,30 +744,6 @@ public class AutoBuyWebService {
 			throw new InterruptedException(operationName + " cancelled.");
 		}
 	}
-
-	private ResolutionAction pauseAndResolveMapping(String query, List<SearchResult> results)
-			throws InterruptedException {
-		CompletableFuture<ResolutionAction> future;
-		synchronized (this) {
-			this.searchResults = new ArrayList<>(results);
-			this.state = AutoBuyState.AWAITING_MAPPING;
-			this.currentMappingFuture = new CompletableFuture<>();
-			future = this.currentMappingFuture;
-		}
-
-		log.info("PAUSED: Awaiting product mapping resolution from the Web UI for '{}'...", query);
-
-		ResolutionAction action = null;
-		try {
-			action = awaitFuture(future, "Mapping resolution");
-		} finally {
-			synchronized (this) {
-				this.currentMappingFuture = null;
-			}
-		}
-
-		return action;
-	}
 	private boolean initializeDriverAndLogin(SupermarketDriver driver, String targetSupermarket, String username,
 			String password, boolean headless) {
 		try {

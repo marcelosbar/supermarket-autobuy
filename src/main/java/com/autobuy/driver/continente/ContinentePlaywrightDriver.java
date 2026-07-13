@@ -178,7 +178,8 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 
 	@Override
 	public List<SearchResult> searchProduct(String query) {
-		log.info("Searching supermarket for query: '{}'...", query);
+		String sanitizedQuery = query != null ? query.replace('\n', '_').replace('\r', '_') : "";
+		log.info("Searching supermarket for query: '{}'...", sanitizedQuery);
 		List<SearchResult> results = new ArrayList<>();
 
 		try {
