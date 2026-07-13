@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.core.task.AsyncTaskExecutor;
+import jakarta.annotation.PreDestroy;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +47,7 @@ public class AutoBuyWebService {
 
 	// Execution synchronization
 	private SupermarketDriver activeDriver = null;
+	private SupermarketDriver guestSearchDriver = null;
 	private boolean keepBrowserOpen = false;
 	private Future<?> currentExecutionFuture = null;
 	private CompletableFuture<ResolutionAction> currentMappingFuture = null;
@@ -83,6 +85,7 @@ public class AutoBuyWebService {
 	 * Starts the background auto-buy execution run.
 	 */
 	public synchronized void startAutoBuy(String listPath, String targetSupermarket, boolean headless) {
+		closeGuestSearchDriver();
 		if (state == AutoBuyState.AWAITING_FINAL_REVIEW) {
 			log.info("Closing previous browser session and resetting state before starting new run...");
 			if (finalReviewFuture != null) {
@@ -793,5 +796,50 @@ public class AutoBuyWebService {
 	}
 
 	private record ResolveResult(SearchResult product, boolean alreadyAdded) {
+	}
+
+	public synchronized List<SearchResult> performGuestSearch(String query, String supermarket) {
+		if (guestSearchDriver == null) {
+			SupermarketDriver driver = drivers.stream()
+					.filter(d -> d.getSupermarketName().equalsIgnoreCase(supermarket)).findFirst().orElse(null);
+			if (driver == null) {
+				throw new IllegalArgumentException("No driver found for supermarket: " + supermarket);
+			}
+			guestSearchDriver = driver;
+			log.info("Initializing guest search driver for {}...", supermarket);
+			guestSearchDriver.initialize(null, null, false);
+		}
+
+		try {
+			return guestSearchDriver.searchProduct(query);
+		} catch (Exception e) {
+			log.error("Guest search failed. Resetting cached guest search driver.", e);
+			closeGuestSearchDriver();
+			throw e;
+		}
+	}
+
+	public synchronized void closeGuestSearchDriver() {
+		if (guestSearchDriver != null) {
+			try {
+				log.info("Closing guest search driver...");
+				guestSearchDriver.close();
+			} catch (Exception e) {
+				log.error("Error closing guest search driver", e);
+			}
+			guestSearchDriver = null;
+		}
+	}
+
+	@PreDestroy
+	public synchronized void shutdown() {
+		closeGuestSearchDriver();
+		if (activeDriver != null) {
+			try {
+				activeDriver.close();
+			} catch (Exception _) {
+			}
+			activeDriver = null;
+		}
 	}
 }

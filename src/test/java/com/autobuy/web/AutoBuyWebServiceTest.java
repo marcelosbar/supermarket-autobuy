@@ -737,4 +737,64 @@ class AutoBuyWebServiceTest {
 		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
 	}
+
+	@Test
+	void testPerformGuestSearch_CachesDriver() {
+		List<SearchResult> expected = List.of(new SearchResult("sku1", "Test", "Brand", BigDecimal.ONE, "url", "cat"));
+		when(supermarketDriver.searchProduct("query")).thenReturn(expected);
+
+		// First call: should initialize and search
+		List<SearchResult> results1 = service.performGuestSearch("query", "CONTINENTE");
+		assertEquals(expected, results1);
+		verify(supermarketDriver, times(1)).initialize(null, null, false);
+		verify(supermarketDriver, times(1)).searchProduct("query");
+
+		// Second call: should reuse cached driver without re-initializing
+		List<SearchResult> results2 = service.performGuestSearch("query", "CONTINENTE");
+		assertEquals(expected, results2);
+		verify(supermarketDriver, times(1)).initialize(null, null, false); // still 1
+		verify(supermarketDriver, times(2)).searchProduct("query");
+	}
+
+	@Test
+	void testPerformGuestSearch_SelfHealsOnFailure() {
+		when(supermarketDriver.searchProduct("fail")).thenThrow(new RuntimeException("Search failed"));
+
+		// Perform guest search and expect exception
+		assertThrows(RuntimeException.class, () -> service.performGuestSearch("fail", "CONTINENTE"));
+		verify(supermarketDriver, times(1)).close(); // Should be closed on error
+
+		// Next guest search should recreate/re-initialize the driver
+		List<SearchResult> expected = List.of(new SearchResult("sku1", "Test", "Brand", BigDecimal.ONE, "url", "cat"));
+		when(supermarketDriver.searchProduct("ok")).thenReturn(expected);
+
+		List<SearchResult> results = service.performGuestSearch("ok", "CONTINENTE");
+		assertEquals(expected, results);
+		verify(supermarketDriver, times(2)).initialize(null, null, false); // Initialized again
+	}
+
+	@Test
+	void testStartAutoBuy_ClosesGuestSearchDriver() {
+		// Populate the cached guestSearchDriver
+		service.performGuestSearch("query", "CONTINENTE");
+		verify(supermarketDriver, times(1)).initialize(null, null, false);
+
+		// Start auto buy: should close the guest search driver first
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+		verify(supermarketDriver, times(1)).close(); // guest search driver was closed
+	}
+
+	@Test
+	void testShutdown_ClosesGuestSearchDriver() {
+		service.performGuestSearch("query", "CONTINENTE");
+		service.shutdown();
+		verify(supermarketDriver, times(1)).close();
+	}
 }

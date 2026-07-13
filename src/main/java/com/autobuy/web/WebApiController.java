@@ -248,30 +248,12 @@ public class WebApiController {
 	public ResponseEntity<List<com.autobuy.model.SearchResult>> searchSupermarket(@RequestParam String query,
 			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
 		log.info("Performing guest search for '{}' in {}", query, supermarket);
-		com.autobuy.driver.SupermarketDriver tempDriver = null;
-		if ("CONTINENTE".equalsIgnoreCase(supermarket)) {
-			tempDriver = new com.autobuy.driver.continente.ContinentePlaywrightDriver();
-		}
-
-		if (tempDriver == null) {
-			return ResponseEntity.badRequest().build();
-		}
-
 		try {
-			tempDriver.initialize(null, null, false);
-			List<com.autobuy.model.SearchResult> results = tempDriver.searchProduct(query);
+			List<com.autobuy.model.SearchResult> results = autoBuyWebService.performGuestSearch(query, supermarket);
 			return ResponseEntity.ok(results);
 		} catch (Exception e) {
 			log.error("Failed to perform guest search", e);
 			return ResponseEntity.internalServerError().build();
-		} finally {
-			if (tempDriver != null) {
-				try {
-					tempDriver.close();
-				} catch (Exception e) {
-					log.error("Error closing temporary search driver", e);
-				}
-			}
 		}
 	}
 
