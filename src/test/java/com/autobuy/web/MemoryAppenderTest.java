@@ -4,11 +4,11 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class MemoryAppenderTest {
@@ -20,7 +20,7 @@ class MemoryAppenderTest {
 
 	@Test
 	void testAppendAndGetLogs() {
-		ILoggingEvent event = Mockito.mock(ILoggingEvent.class);
+		ILoggingEvent event = mock(ILoggingEvent.class);
 		when(event.getLevel()).thenReturn(Level.INFO);
 		when(event.getFormattedMessage()).thenReturn("Test log message");
 
@@ -34,7 +34,7 @@ class MemoryAppenderTest {
 
 	@Test
 	void testClearLogs() {
-		ILoggingEvent event = Mockito.mock(ILoggingEvent.class);
+		ILoggingEvent event = mock(ILoggingEvent.class);
 		when(event.getLevel()).thenReturn(Level.DEBUG);
 		when(event.getFormattedMessage()).thenReturn("Debug message");
 
@@ -51,7 +51,7 @@ class MemoryAppenderTest {
 		MemoryAppender appender = new MemoryAppender();
 
 		for (int i = 1; i <= 505; i++) {
-			ILoggingEvent event = Mockito.mock(ILoggingEvent.class);
+			ILoggingEvent event = mock(ILoggingEvent.class);
 			when(event.getLevel()).thenReturn(Level.INFO);
 			when(event.getFormattedMessage()).thenReturn("Message " + i);
 			appender.append(event);

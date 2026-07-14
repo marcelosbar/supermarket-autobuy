@@ -113,7 +113,7 @@ Run the JUnit unit tests using:
 .\mvnw.cmd test
 ```
 
-To run both unit and integration tests, verify formatting, and enforce code coverage checks:
+To run both unit and integration tests, verify formatting, and enforce code coverage checks (note that you must commit your changes locally first so that the `diff-coverage` plugin can detect the diff against `origin/main`):
 ```powershell
 .\mvnw.cmd verify
 ```
