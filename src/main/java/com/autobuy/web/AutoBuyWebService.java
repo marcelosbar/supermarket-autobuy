@@ -649,16 +649,7 @@ public class AutoBuyWebService {
 		while (!resolved && !Thread.currentThread().isInterrupted()) {
 			ResolutionAction action = pauseAndResolveMapping(searchWord, searchResultsList, priority);
 			if (action == null || action.type() == ResolutionAction.ActionType.SKIP) {
-				log.info("Skipped mapping for '{}' on user prompt.", item.query());
-				if (priority == 0) {
-					recordSkippedItem(item.query());
-				} else {
-					log.warn("User skipped fallback prompts for '{}'. Deferring to end.", item.query());
-					synchronized (this) {
-						this.exhaustedItems.add(item);
-					}
-				}
-				completeAdditionValidation(true);
+				handleSkipAction(item, priority);
 				resolved = true;
 			} else if (action.type() == ResolutionAction.ActionType.REFINE) {
 				String newQuery = action.value();
@@ -678,6 +669,19 @@ public class AutoBuyWebService {
 		}
 
 		return new ResolveResult(finalSelectedProduct, true);
+	}
+
+	private void handleSkipAction(ShoppingItem item, int priority) {
+		log.info("Skipped mapping for '{}' on user prompt.", item.query());
+		if (priority == 0) {
+			recordSkippedItem(item.query());
+		} else {
+			log.warn("User skipped fallback prompts for '{}'. Deferring to end.", item.query());
+			synchronized (this) {
+				this.exhaustedItems.add(item);
+			}
+		}
+		completeAdditionValidation(true);
 	}
 
 	private void saveProductMappingSafely(ShoppingItem item, SearchResult selectedProduct, String targetSupermarket,

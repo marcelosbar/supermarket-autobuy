@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.awaitility.Awaitility;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import com.autobuy.model.ResolutionAction;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -1000,6 +1002,151 @@ class AutoBuyWebServiceTest {
 
 		service.completeRun(true);
 
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_RefineSearch() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult result1 = new SearchResult("sku1", "Red Apples", "Brand", BigDecimal.valueOf(1.9), "url", "Fruit");
+		SearchResult result2 = new SearchResult("sku2", "Green Apples", "Brand", BigDecimal.valueOf(2.0), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+
+		// First search returns result1
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(result1)));
+		// Second search (refined) returns result2
+		when(supermarketDriver.searchProduct("green apples")).thenReturn(new ArrayList<>(List.of(result2)));
+
+		when(supermarketDriver.addProductToCart("sku2", 2)).thenReturn(true);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		// Refine search with "green apples"
+		service.refineSearch("green apples");
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		// Resolve mapping with sku2
+		service.resolveMapping("sku2", true);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_ExhaustedResolution_AddCartFailureAndSaveMappingFalse() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+		SearchResult alternativeResult = new SearchResult("sku456", "Green Apples", "BrandB", BigDecimal.valueOf(2.1),
+				"url", "Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(List.of(mapping));
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of(searchResult));
+		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(false);
+
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(alternativeResult)));
+		// Cart add fails for resolved alternative
+		when(supermarketDriver.addProductToCart("sku456", 2)).thenReturn(false);
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+
+		// Resolve mapping with saveMapping = false
+		service.resolveMapping("sku456", false);
+
+		// Since cart add failed, it is skipped and deferred to skippedItems list
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		var status = service.getStatus();
+		assertEquals(1, status.skippedItems().size());
+		assertEquals("apples", status.skippedItems().get(0));
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testStartAutoBuy_ExhaustedResolution_ExceptionsCaughtQuietly() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+		SearchResult alternativeResult = new SearchResult("sku456", "Green Apples", "BrandB", BigDecimal.valueOf(2.1),
+				"url", "Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(List.of(mapping));
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of(searchResult));
+		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(false);
+
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(alternativeResult)));
+		when(supermarketDriver.addProductToCart("sku456", 2)).thenReturn(true);
+
+		// Make logPrice throw exception
+		doThrow(new RuntimeException("DB error")).when(priceHistoryService).logPrice(any(), anyString());
+		// Make saveMappingWithPriority throw exception
+		doThrow(new RuntimeException("DB error")).when(productService).saveMappingWithPriority(anyString(), anyString(),
+				any(), anyInt());
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+
+		// Resolve mapping with saveMapping = true
+		service.resolveMapping("sku456", true);
+
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+
+		service.completeRun();
+		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void testStartAutoBuy_SelectNonexistentSkuReflection() throws Exception {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
+				"Fruit");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		// Get currentMappingFuture using reflection
+		java.lang.reflect.Field field = AutoBuyWebService.class.getDeclaredField("currentMappingFuture");
+		field.setAccessible(true);
+		CompletableFuture<ResolutionAction> future = (CompletableFuture<ResolutionAction>) field.get(service);
+
+		// Complete the future with SELECT of nonexistent-sku
+		future.complete(new ResolutionAction(ResolutionAction.ActionType.SELECT, "nonexistent-sku", false));
+
+		// The background thread should log a warning about nonexistent SKU and prompt
+		// the user again
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+
+		// Clean up by skipping
+		service.resolveMapping("skip", false);
+		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		service.completeRun();
 		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
 	}
 }
