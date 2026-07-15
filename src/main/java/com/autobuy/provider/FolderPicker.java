@@ -1,4 +1,4 @@
-package com.autobuy.web;
+package com.autobuy.provider;
 
 /**
  * Interface representing a folder picker utility. Adheres to the Dependency

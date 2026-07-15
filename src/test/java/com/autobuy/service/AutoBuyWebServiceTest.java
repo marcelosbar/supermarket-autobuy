@@ -1,13 +1,12 @@
-package com.autobuy.web;
+package com.autobuy.service;
 
+import com.autobuy.config.MemoryAppender;
 import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.ProductMapping;
 import com.autobuy.model.SearchResult;
 import com.autobuy.model.ShoppingItem;
 import com.autobuy.provider.CredentialProvider;
 import com.autobuy.provider.ShoppingListProvider;
-import com.autobuy.service.PriceHistoryService;
-import com.autobuy.service.ProductService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +39,7 @@ class AutoBuyWebServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		com.autobuy.web.MemoryAppender.clear();
+		MemoryAppender.clear();
 		productService = mock(ProductService.class);
 		priceHistoryService = mock(PriceHistoryService.class);
 		supermarketDriver = mock(SupermarketDriver.class);
@@ -1148,5 +1147,48 @@ class AutoBuyWebServiceTest {
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 		service.completeRun();
 		awaitState(AutoBuyState.SUCCESS);
+	}
+
+	@Test
+	void testInterruptDuringRunningState() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenAnswer(invocation -> {
+			Thread.currentThread().interrupt();
+			throw new InterruptedException("Simulated interruption during RUNNING state");
+		});
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyState.FAILED);
+		var status = service.getStatus();
+		assertTrue(status.error().contains("Execution interrupted") || status.error().contains("interrupted"));
+	}
+
+	@Test
+	void testCancelDuringExhaustedResolutionsState() {
+		ShoppingItem item = new ShoppingItem("apples", 2);
+		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
+
+		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(List.of(mapping));
+		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of());
+		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
+
+		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+
+		service.cancel();
+
+		awaitState(AutoBuyState.FAILED);
+		var status = service.getStatus();
+		assertTrue(status.error().contains("canceled by user"));
 	}
 }
