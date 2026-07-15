@@ -65,20 +65,25 @@ autobuy.backup-dir=C:/Users/your-username/OneDrive/SupermarketBackup
 
 ## Application Architecture
 
-The application is built using a **Layered Architecture** style, ensuring clear separation of concerns, easy testing, and SOLID compliance:
+The application is built using a **Layered Architecture** style with strict dependency rules:
 
 ```mermaid
 graph TD
-    UI[Web UI HTML/JS] <--> Controller[Controller: WebApiController]
-    Controller --> Service[Service Layer: AutoBuyWebService, ProductService, PriceHistoryService]
-    Service --> Repo[Repository Layer: JPA/H2]
-    Service --> Driver[Driver Layer: Playwright]
+    UI["Web UI (HTML/JS)"] <--> Controller["Controller Layer (web/)"]
+    Controller --> Service["Service Layer (service/)"]
+    Service --> Repo["Repository Layer (repository/ & model/)"]
+    Service --> Provider["Provider Layer (provider/)"]
+    Service --> Driver["Driver Layer (driver/)"]
 ```
 
-1. **Controller Layer (`web/`):** Handles REST API requests, translates input parameters into DTOs (`web/dto/`), and delegates orchestration to services. Caught exceptions are processed globally by `GlobalExceptionHandler`.
-2. **Service Layer:** Manages core business logic and transactional boundaries. Includes core transactional services (under the `service/` package, such as `ProductService` and `PriceHistoryService`) and the web UI orchestrator service (`com.autobuy.web.AutoBuyWebService`). Methods modifying persistent state are decorated with `@Transactional`.
-3. **Repository Layer (`repository/` & `model/`):** Utilizes Spring Data JPA for H2 database access. Entity relations (such as `PriceHistory.product`) are configured with `FetchType.LAZY` for performance.
-4. **Driver Layer (`driver/`):** Contains the automated scraper implementations (e.g., Playwright driving browser sessions on supermarket websites).
+1. **Controller Layer (`web/`):** Handles REST API requests, translates between HTTP and typed DTO records (`web/dto/`), and delegates all business logic to services. Exceptions are processed globally by `GlobalExceptionHandler`.
+2. **Service Layer (`service/`):** Core business logic and transactional boundaries (`ProductService`, `PriceHistoryService`, `AutoBuyWebService`). Methods modifying persistent state are decorated with `@Transactional`.
+3. **Repository Layer (`repository/` & `model/`):** Spring Data JPA for H2 database access. Entity relations (such as `PriceHistory.product`) are configured with `FetchType.LAZY` for performance.
+4. **Provider Layer (`provider/`):** Interfaces for external data sources (credentials, shopping lists, settings). Implementations are swappable (e.g., `CredentialProvider` → `PropertiesCredentialProvider`).
+5. **Driver Layer (`driver/`):** The `SupermarketDriver` interface and store-specific Playwright implementations for browser automation.
+
+> [!NOTE]
+> Each layer may only depend on layers below it. See [AGENTS.md](AGENTS.md) for the full dependency matrix and per-package `package-info.java` files for detailed constraints.
 
 ---
 
@@ -140,5 +145,6 @@ To run security scans and SonarCloud analysis in CI, configure the following sec
 ---
 
 ## AI Agent Context
-* Refer to [AGENTS.md](AGENTS.md) for code styling guidelines, SOLID rules, and compiler requirements.
+* Refer to [AGENTS.md](AGENTS.md) for architecture rules, layer dependencies, coding standards, and testing conventions.
+* Each Java package contains a `package-info.java` with package-specific constraints.
 
