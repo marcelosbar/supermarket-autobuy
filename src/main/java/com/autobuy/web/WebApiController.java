@@ -1,18 +1,13 @@
 package com.autobuy.web;
 
-import com.autobuy.provider.FolderPicker;
-import com.autobuy.provider.SettingsProvider;
-import com.autobuy.service.AutoBuyWebService;
-import com.autobuy.service.DatabaseBackupService;
-import com.autobuy.service.ShutdownService;
-import com.autobuy.model.ProductMapping;
-import com.autobuy.model.ShoppingItem;
-import com.autobuy.provider.CredentialProvider;
-import com.autobuy.provider.ShoppingListProvider;
+import com.autobuy.model.SearchResult;
+import com.autobuy.service.AutoBuyExecutionContext;
+import com.autobuy.service.AutoBuyOrchestrationService;
+import com.autobuy.service.GuestSearchService;
+import com.autobuy.service.ProductResolutionService;
 import com.autobuy.web.dto.AutoBuyStatusResponse;
-import com.autobuy.web.dto.CredentialsRequest;
-import com.autobuy.web.dto.ResolveRequest;
 import com.autobuy.web.dto.RefineRequest;
+import com.autobuy.web.dto.ResolveRequest;
 import com.autobuy.web.dto.RunRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,12 +19,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * REST Controller exposing endpoints to manage shopping list, mappings,
- * credentials, and autobuy execution.
- *
- * <p>
- * Uses constructor injection to adhere to the Dependency Inversion Principle
- * (DIP).
+ * REST Controller exposing endpoints to manage autobuy execution, status, and
+ * interactive resolution.
  */
 @RestController
 @RequestMapping("/api")
@@ -37,174 +28,33 @@ public class WebApiController {
 
 	private static final Logger log = LoggerFactory.getLogger(WebApiController.class);
 
-	private final AutoBuyWebService autoBuyWebService;
-	private final com.autobuy.service.ProductService productService;
-	private final CredentialProvider credentialProvider;
-	private final SettingsProvider settingsProvider;
-	private final ShoppingListProvider shoppingListProvider;
-	private final ShutdownService shutdownService;
-	private final DatabaseBackupService databaseBackupService;
-	private final FolderPicker folderPicker;
+	private final AutoBuyOrchestrationService autoBuyOrchestrationService;
+	private final AutoBuyExecutionContext autoBuyExecutionContext;
+	private final ProductResolutionService productResolutionService;
+	private final GuestSearchService guestSearchService;
 
 	private static final String DEFAULT_LIST_PATH = "shopping-list.json";
 	private static final String SUCCESS_KEY = "success";
 	private static final String MESSAGE_KEY = "message";
-	private static final String BACKUP_DIR_KEY = "backupDir";
 	private static final String DEFAULT_SUPERMARKET = "CONTINENTE";
 
-	@SuppressWarnings("java:S107")
-	public WebApiController(AutoBuyWebService autoBuyWebService, com.autobuy.service.ProductService productService,
-			CredentialProvider credentialProvider, SettingsProvider settingsProvider,
-			ShoppingListProvider shoppingListProvider, ShutdownService shutdownService,
-			@org.springframework.beans.factory.annotation.Autowired(required = false) DatabaseBackupService databaseBackupService,
-			FolderPicker folderPicker) {
-		this.autoBuyWebService = autoBuyWebService;
-		this.productService = productService;
-		this.credentialProvider = credentialProvider;
-		this.settingsProvider = settingsProvider;
-		this.shoppingListProvider = shoppingListProvider;
-		this.shutdownService = shutdownService;
-		this.databaseBackupService = databaseBackupService;
-		this.folderPicker = folderPicker;
+	public WebApiController(AutoBuyOrchestrationService autoBuyOrchestrationService,
+			AutoBuyExecutionContext autoBuyExecutionContext, ProductResolutionService productResolutionService,
+			GuestSearchService guestSearchService) {
+		this.autoBuyOrchestrationService = autoBuyOrchestrationService;
+		this.autoBuyExecutionContext = autoBuyExecutionContext;
+		this.productResolutionService = productResolutionService;
+		this.guestSearchService = guestSearchService;
 	}
-
-	// 1. Shopping List Endpoints
-
-	@GetMapping("/shopping-list")
-	public ResponseEntity<List<ShoppingItem>> getShoppingList() {
-		List<ShoppingItem> items = shoppingListProvider.getShoppingList(DEFAULT_LIST_PATH);
-		return ResponseEntity.ok(items);
-	}
-
-	@PostMapping("/shopping-list")
-	public ResponseEntity<List<ShoppingItem>> saveShoppingList(@RequestBody List<ShoppingItem> items) {
-		try {
-			shoppingListProvider.saveShoppingList(DEFAULT_LIST_PATH, items);
-			return ResponseEntity.ok(items);
-		} catch (Exception e) {
-			log.error("Failed to save shopping list via provider", e);
-			return ResponseEntity.internalServerError().build();
-		}
-	}
-
-	// 2. Mapping Endpoints
-
-	@GetMapping("/mappings")
-	public ResponseEntity<Map<String, List<ProductMapping>>> getMappings() {
-		List<ProductMapping> all = productService.findAllMappings();
-		Map<String, List<ProductMapping>> grouped = all.stream()
-				.collect(java.util.stream.Collectors.groupingBy(ProductMapping::getSearchText,
-						java.util.stream.Collectors.collectingAndThen(java.util.stream.Collectors.toList(), list -> {
-							list.sort(java.util.Comparator.comparingInt(ProductMapping::getPriority));
-							return list;
-						})));
-		return ResponseEntity.ok(grouped);
-	}
-
-	@PostMapping("/mappings/{id}/promote")
-	public ResponseEntity<Map<String, Object>> promoteMapping(@PathVariable Long id) {
-		try {
-			productService.promoteMapping(id);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	@PostMapping("/mappings/{id}/demote")
-	public ResponseEntity<Map<String, Object>> demoteMapping(@PathVariable Long id) {
-		try {
-			productService.demoteMapping(id);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	@DeleteMapping("/mappings/{id}")
-	public ResponseEntity<Void> deleteMapping(@PathVariable Long id) {
-		if (productService.findMappingById(id).isPresent()) {
-			productService.deleteMapping(id);
-			log.info("Deleted product mapping ID {}", id);
-			return ResponseEntity.noContent().build();
-		}
-		return ResponseEntity.notFound().build();
-	}
-
-	// 3. Credentials Endpoints
-
-	@GetMapping("/credentials")
-	public ResponseEntity<Map<String, Object>> getCredentialsStatus(
-			@RequestParam(defaultValue = DEFAULT_SUPERMARKET) String supermarket) {
-		String username = credentialProvider.getUsername(supermarket);
-		String password = credentialProvider.getPassword(supermarket);
-
-		Map<String, Object> status = new HashMap<>();
-		status.put("supermarket", supermarket.toUpperCase());
-		status.put("hasUsername", username != null && !username.isBlank());
-		status.put("hasPassword", password != null && !password.isBlank());
-		status.put("username", username != null ? username : "");
-		return ResponseEntity.ok(status);
-	}
-
-	@PostMapping("/credentials")
-	public ResponseEntity<Map<String, Object>> saveCredentials(@RequestBody CredentialsRequest request) {
-		try {
-			// Double-safeguard: If username is unchanged and password is blank/omitted,
-			// skip saving
-			String existingUsername = credentialProvider.getUsername(request.supermarket());
-			String existingPassword = credentialProvider.getPassword(request.supermarket());
-			boolean hasExisting = existingUsername != null && !existingUsername.isBlank() && existingPassword != null
-					&& !existingPassword.isBlank();
-
-			if (hasExisting && request.username() != null && request.username().trim().equals(existingUsername.trim())
-					&& (request.password() == null || request.password().isBlank())) {
-				log.info("Credentials unchanged (password omitted), skipping credentials update.");
-				Map<String, Object> response = new HashMap<>();
-				response.put(SUCCESS_KEY, true);
-				response.put(MESSAGE_KEY, "Credentials unchanged.");
-				return ResponseEntity.ok(response);
-			}
-
-			credentialProvider.saveCredentials(request.supermarket(), request.username(), request.password());
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			response.put(MESSAGE_KEY, "Credentials saved successfully.");
-			return ResponseEntity.ok(response);
-		} catch (UnsupportedOperationException e) {
-			log.error("SOLID Exception: CredentialProvider does not support saving credentials dynamically.", e);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, "Database/properties credentials saving not supported in this profile.");
-			return ResponseEntity.internalServerError().body(response);
-		} catch (com.autobuy.exception.CredentialException e) {
-			log.error("Failed to save credentials", e);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, "Failed to save credentials: " + e.getMessage());
-			return ResponseEntity.internalServerError().body(response);
-		}
-	}
-
-	// 4. Execution Endpoints
 
 	@PostMapping("/autobuy/run")
 	public ResponseEntity<Map<String, Object>> runAutoBuy(@RequestBody RunRequest request) {
 		try {
-			boolean headless = false; // Always run headfully to allow visual mapping/checkout review
+			boolean headless = false;
 			String supermarket = request.supermarket() != null ? request.supermarket() : DEFAULT_SUPERMARKET;
 
-			autoBuyWebService.startAutoBuy(DEFAULT_LIST_PATH, supermarket, headless);
+			guestSearchService.close(); // Close any active guest search driver to prevent conflicts
+			autoBuyOrchestrationService.startAutoBuy(DEFAULT_LIST_PATH, supermarket, headless);
 
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
@@ -220,14 +70,14 @@ public class WebApiController {
 
 	@GetMapping("/autobuy/status")
 	public ResponseEntity<AutoBuyStatusResponse> getStatus() {
-		return ResponseEntity.ok(autoBuyWebService.getStatus());
+		return ResponseEntity.ok(autoBuyExecutionContext.getStatus());
 	}
 
 	@PostMapping("/autobuy/resolve")
 	public ResponseEntity<Map<String, Object>> resolveMapping(@RequestBody ResolveRequest request) {
 		try {
-			com.autobuy.web.dto.ResolutionResultStatus status = autoBuyWebService.resolveMapping(request.externalId(),
-					request.saveMapping());
+			com.autobuy.web.dto.ResolutionResultStatus status = productResolutionService
+					.resolveMapping(request.externalId(), request.saveMapping());
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			if (status != null) {
@@ -247,13 +97,13 @@ public class WebApiController {
 	}
 
 	@GetMapping("/autobuy/search")
-	public ResponseEntity<List<com.autobuy.model.SearchResult>> searchSupermarket(@RequestParam String query,
+	public ResponseEntity<List<SearchResult>> searchSupermarket(@RequestParam String query,
 			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
 		String sanitizedQuery = query.replace('\n', '_').replace('\r', '_');
 		String sanitizedSupermarket = supermarket.replace('\n', '_').replace('\r', '_');
 		log.info("Performing guest search for '{}' in {}", sanitizedQuery, sanitizedSupermarket);
 		try {
-			List<com.autobuy.model.SearchResult> results = autoBuyWebService.performGuestSearch(query, supermarket);
+			List<SearchResult> results = guestSearchService.performGuestSearch(query, supermarket);
 			return ResponseEntity.ok(results);
 		} catch (Exception e) {
 			log.error("Failed to perform guest search", e);
@@ -261,34 +111,10 @@ public class WebApiController {
 		}
 	}
 
-	@PostMapping("/autobuy/add-alternative")
-	public ResponseEntity<Map<String, Object>> addAlternative(
-			@RequestBody com.autobuy.web.dto.AddAlternativeRequest request) {
-		try {
-			List<ProductMapping> existing = productService.findMappingsBySearchTextAndSupermarket(
-					request.searchText().toLowerCase().trim(), request.supermarket());
-			int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max().orElse(-1) + 1;
-
-			com.autobuy.model.SearchResult result = new com.autobuy.model.SearchResult(request.externalId(),
-					request.productName(), "", java.math.BigDecimal.ZERO, "", "");
-			productService.saveMappingWithPriority(request.searchText().toLowerCase().trim(), request.supermarket(),
-					result, nextPriority);
-
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
 	@PostMapping("/autobuy/refine")
 	public ResponseEntity<Map<String, Object>> refineSearch(@RequestBody RefineRequest request) {
 		try {
-			autoBuyWebService.refineSearch(request.query());
+			productResolutionService.refineSearch(request.query());
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
@@ -304,7 +130,7 @@ public class WebApiController {
 	public ResponseEntity<Map<String, Object>> completeRun(
 			@RequestParam(name = "keepBrowser", defaultValue = "false") boolean keepBrowser) {
 		try {
-			autoBuyWebService.completeRun(keepBrowser);
+			autoBuyOrchestrationService.completeRun(keepBrowser);
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
@@ -319,7 +145,7 @@ public class WebApiController {
 	@PostMapping("/autobuy/cancel")
 	public ResponseEntity<Map<String, Object>> cancelRun() {
 		try {
-			autoBuyWebService.cancel();
+			autoBuyOrchestrationService.cancel();
 			Map<String, Object> response = new HashMap<>();
 			response.put(SUCCESS_KEY, true);
 			return ResponseEntity.ok(response);
@@ -329,88 +155,5 @@ public class WebApiController {
 			response.put(MESSAGE_KEY, e.getMessage());
 			return ResponseEntity.badRequest().body(response);
 		}
-	}
-
-	@GetMapping("/config/backup-dir")
-	public ResponseEntity<Map<String, Object>> getBackupDir() {
-		Map<String, Object> response = new HashMap<>();
-		String dir = (settingsProvider != null) ? settingsProvider.getBackupDir() : null;
-		response.put(BACKUP_DIR_KEY, dir != null ? dir : "");
-		return ResponseEntity.ok(response);
-	}
-
-	@PostMapping("/config/backup-dir")
-	public ResponseEntity<Map<String, Object>> saveBackupDir(@RequestBody Map<String, String> request) {
-		try {
-			String path = request.get(BACKUP_DIR_KEY);
-			String resolvedPath = (path == null || path.trim().isEmpty()) ? null : path.trim();
-
-			if (settingsProvider != null) {
-				settingsProvider.saveBackupDir(resolvedPath);
-			}
-
-			if (databaseBackupService != null) {
-				databaseBackupService.setBackupDir(resolvedPath);
-			}
-
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			log.error("Failed to save backup directory", e);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, "Failed to save backup directory: " + e.getMessage());
-			return ResponseEntity.internalServerError().body(response);
-		}
-	}
-
-	@GetMapping("/autobuy/backup-status")
-	public ResponseEntity<Map<String, Object>> getBackupStatus() {
-		Map<String, Object> status = new HashMap<>();
-		String currentDir = (databaseBackupService != null) ? databaseBackupService.getBackupDir() : null;
-		boolean isConfigured = currentDir != null && !currentDir.trim().isEmpty();
-		status.put(BACKUP_DIR_KEY, currentDir != null ? currentDir : "");
-		status.put("isConfigured", isConfigured);
-		return ResponseEntity.ok(status);
-	}
-
-	@PostMapping("/config/select-native-dir")
-	public ResponseEntity<Map<String, Object>> selectNativeDirectory() {
-		log.info("selectNativeDirectory endpoint called.");
-		try {
-			String path = folderPicker.selectDirectory();
-			Map<String, Object> response = new HashMap<>();
-			if (path != null) {
-				response.put(SUCCESS_KEY, true);
-				response.put("path", path);
-			} else {
-				response.put(SUCCESS_KEY, false);
-				response.put(MESSAGE_KEY, "Selection cancelled");
-			}
-			return ResponseEntity.ok(response);
-		} catch (UnsupportedOperationException e) {
-			log.warn(e.getMessage());
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		} catch (Exception e) {
-			log.error("Failed to open native directory chooser", e);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, "Error opening native directory chooser: " + e.getMessage());
-			return ResponseEntity.internalServerError().body(response);
-		}
-	}
-
-	@PostMapping("/shutdown")
-	public ResponseEntity<Map<String, Object>> shutdown() {
-		log.info("Shutdown requested. Initiating graceful shutdown via ShutdownService...");
-		shutdownService.initiateShutdown(1000); // 1 second delay
-		Map<String, Object> response = new HashMap<>();
-		response.put(SUCCESS_KEY, true);
-		response.put(MESSAGE_KEY, "Application is shutting down gracefully. Backup will be created.");
-		return ResponseEntity.ok(response);
 	}
 }
