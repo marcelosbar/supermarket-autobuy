@@ -9,6 +9,7 @@ import com.autobuy.provider.ShoppingListProvider;
 import com.autobuy.service.ShutdownService;
 import com.autobuy.service.DatabaseBackupService;
 import com.autobuy.model.ProductMapping;
+import com.autobuy.model.AutoBuyState;
 import com.autobuy.web.dto.AutoBuyStatusResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -347,8 +348,8 @@ class WebApiControllerIT {
 	void testGetAutoBuyStatus() throws Exception {
 		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
 				"cat");
-		var dummyStatus = new AutoBuyStatusResponse(AutoBuyWebService.AutoBuyState.RUNNING, "query", 5,
-				List.of(dummyResult), List.of("log line"), "", List.of(), List.of());
+		var dummyStatus = new AutoBuyStatusResponse(AutoBuyState.RUNNING, "query", 5, List.of(dummyResult),
+				List.of("log line"), "", List.of(), List.of());
 
 		when(autoBuyWebService.getStatus()).thenReturn(dummyStatus);
 

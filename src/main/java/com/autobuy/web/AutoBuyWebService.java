@@ -67,10 +67,6 @@ public class AutoBuyWebService {
 		this.taskExecutor = autoBuyTaskExecutor;
 	}
 
-	public enum AutoBuyState {
-		IDLE, RUNNING, AWAITING_MAPPING, AWAITING_EXHAUSTED_RESOLUTIONS, AWAITING_FINAL_REVIEW, SUCCESS, FAILED
-	}
-
 	/**
 	 * Gets the current status of the auto-buy thread.
 	 */
