@@ -21,6 +21,7 @@ import org.awaitility.Awaitility;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 import com.autobuy.model.ResolutionAction;
+import com.autobuy.model.AutoBuyState;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -72,21 +73,21 @@ class AutoBuyWebServiceTest {
 		taskExecutor.shutdown();
 	}
 
-	private void awaitState(AutoBuyWebService.AutoBuyState targetState) {
+	private void awaitState(AutoBuyState targetState) {
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> service.getStatus().state() == targetState);
 	}
 
 	@Test
 	void testGetStatusIdleByDefault() {
 		var status = service.getStatus();
-		assertEquals(AutoBuyWebService.AutoBuyState.IDLE, status.state());
+		assertEquals(AutoBuyState.IDLE, status.state());
 		assertTrue(status.logs().isEmpty());
 	}
 
 	@Test
 	void testStartAutoBuy_DriverNotFound() {
 		service.startAutoBuy("list.json", "NONEXISTENT", false);
-		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
+		awaitState(AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("No driver found"));
 	}
@@ -96,7 +97,7 @@ class AutoBuyWebServiceTest {
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of());
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
+		awaitState(AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("Shopping list is empty"));
 	}
@@ -108,7 +109,7 @@ class AutoBuyWebServiceTest {
 		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("");
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
+		awaitState(AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("Credentials for CONTINENTE are not configured"));
 	}
@@ -122,7 +123,7 @@ class AutoBuyWebServiceTest {
 				anyBoolean());
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
+		awaitState(AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("Failed to initialize driver"));
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
@@ -148,7 +149,7 @@ class AutoBuyWebServiceTest {
 
 		// The service will initialize and login, find mapping, add to cart, and then
 		// transition to final review
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Assert status details during the run
 		var status = service.getStatus();
@@ -159,7 +160,7 @@ class AutoBuyWebServiceTest {
 		service.completeRun();
 
 		// Should transition to success
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 
 		verify(priceHistoryService).logPrice(searchResult, "CONTINENTE");
 		verify(supermarketDriver).navigateToCart();
@@ -185,19 +186,19 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Unmapped item triggers immediate pause
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Resolve mapping for apples
 		service.resolveMapping("skuB", true);
 
 		// Should complete the run
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		verify(productService).saveMappingWithPriority("apples", "CONTINENTE", searchResult2, 0);
 		verify(supermarketDriver).addProductToCart("skuB", 2);
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
@@ -215,21 +216,21 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Skip this item
 		service.resolveMapping("skip", false);
 
 		// Should skip and complete the run (move to final review since shopping list
 		// only had 1 item)
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Verify no mapping was saved and no item was added to cart
 		verify(productService, never()).saveMappingWithPriority(anyString(), anyString(), any(), anyInt());
 		verify(supermarketDriver, never()).addProductToCart(anyString(), anyInt());
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
@@ -248,16 +249,15 @@ class AutoBuyWebServiceTest {
 		when(supermarketDriver.addProductToCart("skuB", 2)).thenReturn(true);
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("skuB", true);
 
 		assertTrue(status.added());
-		AutoBuyWebService.AutoBuyState currentState = service.getStatus().state();
-		assertTrue(currentState == AutoBuyWebService.AutoBuyState.RUNNING
-				|| currentState == AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		AutoBuyState currentState = service.getStatus().state();
+		assertTrue(currentState == AutoBuyState.RUNNING || currentState == AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 		service.completeRun();
 	}
 
@@ -273,12 +273,12 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Cancel execution
 		service.cancel();
 
-		awaitState(AutoBuyWebService.AutoBuyState.FAILED);
+		awaitState(AutoBuyState.FAILED);
 		var status = service.getStatus();
 		assertTrue(status.error().contains("canceled by user"));
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
@@ -342,7 +342,7 @@ class AutoBuyWebServiceTest {
 
 		// Item B (bananas) is unmapped, so it runs first and pauses for mapping
 		// immediately (mid-run)
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 		assertEquals("bananas", service.getStatus().currentItemQuery());
 
 		// Resolve mapping for bananas
@@ -350,11 +350,11 @@ class AutoBuyWebServiceTest {
 
 		// Then mapped items (apples, carrots) process automatically and transition to
 		// final review
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Complete run
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 
 		// Verify order of calls
 		InOrder inOrder = inOrder(supermarketDriver);
@@ -397,10 +397,10 @@ class AutoBuyWebServiceTest {
 
 		// All mapped, no interactive prompt triggered, transitions straight to final
 		// review
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 
 		// Verify order of calls
 		InOrder inOrder = inOrder(supermarketDriver);
@@ -433,18 +433,18 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// First unmapped item (apples) pauses immediately mid-run
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 		assertEquals("apples", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuA", true);
 
 		// Second unmapped item (bananas) pauses immediately mid-run
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 		assertEquals("bananas", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuB", true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 
 		// Verify order of calls
 		InOrder inOrder = inOrder(supermarketDriver);
@@ -496,22 +496,22 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Process unmapped in relative order: bananas, carrots, eggplant
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 		assertEquals("bananas", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuB", true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 		assertEquals("carrots", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuC", true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 		assertEquals("eggplant", service.getStatus().currentItemQuery());
 		service.resolveMapping("skuE", true);
 
 		// Then mapped: apples, dates
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 
 		// Verify order of calls
 		InOrder inOrder = inOrder(supermarketDriver);
@@ -545,19 +545,19 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Should transition straight to exhausted resolutions
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		// Skip it
 		service.resolveMapping("skip", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		var status = service.getStatus();
 		assertEquals(1, status.skippedItems().size());
 		assertEquals("apples", status.skippedItems().get(0));
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -580,19 +580,19 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Should transition straight to exhausted resolutions
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		// Skip it
 		service.resolveMapping("skip", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		var status = service.getStatus();
 		assertEquals(1, status.skippedItems().size());
 		assertEquals("apples", status.skippedItems().get(0));
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -616,19 +616,19 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Should transition to exhausted resolutions because cart add failed
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		// Skip it
 		service.resolveMapping("skip", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		var status = service.getStatus();
 		assertEquals(1, status.skippedItems().size());
 		assertEquals("apples", status.skippedItems().get(0));
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -653,13 +653,13 @@ class AutoBuyWebServiceTest {
 
 		// The service should still transition to final review because the exception is
 		// caught
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Complete the run
 		service.completeRun();
 
 		// Should transition to success
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 
 		verify(supermarketDriver).navigateToCart();
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
@@ -687,7 +687,7 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Pause for mapping
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		var status = service.getStatus();
 		assertEquals(1, status.searchResults().size());
@@ -697,7 +697,7 @@ class AutoBuyWebServiceTest {
 		service.refineSearch("red apples");
 
 		// Should trigger new search and pause again
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		status = service.getStatus();
 		assertEquals(1, status.searchResults().size());
@@ -706,13 +706,13 @@ class AutoBuyWebServiceTest {
 		// Resolve mapping with skuB
 		service.resolveMapping("skuB", true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		// Verify database mapping was saved for original query "apples"
 		verify(productService).saveMappingWithPriority("apples", "CONTINENTE", refinedResult, 0);
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -735,16 +735,16 @@ class AutoBuyWebServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		// Pause for mapping
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Resolve mapping
 		service.resolveMapping("sku123", true);
 
 		// Should still complete because the exception is caught
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -835,15 +835,15 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("sku456", true);
 		assertTrue(status.added());
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -861,7 +861,7 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		assertThrows(com.autobuy.exception.AutoBuyException.class, () -> service.resolveMapping("sku123", false));
 	}
@@ -881,7 +881,7 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		com.autobuy.web.dto.ResolutionResultStatus status = service.resolveMapping("sku123", true);
 		assertFalse(status.added());
@@ -902,7 +902,7 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Resolve with a SKU that is not in the search results
 		assertThrows(IllegalArgumentException.class, () -> service.resolveMapping("nonexistent-sku", false));
@@ -927,7 +927,7 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Resolve with saveMapping=true: should catch DB exception quietly and still
 		// succeed adding to cart
@@ -974,7 +974,7 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		assertThrows(IllegalArgumentException.class, () -> service.refineSearch(null));
 		assertThrows(IllegalArgumentException.class, () -> service.refineSearch(" "));
@@ -995,14 +995,14 @@ class AutoBuyWebServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 		service.resolveMapping("sku123", false);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun(true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -1025,18 +1025,18 @@ class AutoBuyWebServiceTest {
 		when(supermarketDriver.addProductToCart("sku2", 2)).thenReturn(true);
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Refine search with "green apples"
 		service.refineSearch("green apples");
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Resolve mapping with sku2
 		service.resolveMapping("sku2", true);
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -1061,20 +1061,20 @@ class AutoBuyWebServiceTest {
 		when(supermarketDriver.addProductToCart("sku456", 2)).thenReturn(false);
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		// Resolve mapping with saveMapping = false
 		service.resolveMapping("sku456", false);
 
 		// Since cart add failed, it is skipped and deferred to skippedItems list
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		var status = service.getStatus();
 		assertEquals(1, status.skippedItems().size());
 		assertEquals("apples", status.skippedItems().get(0));
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -1104,15 +1104,15 @@ class AutoBuyWebServiceTest {
 				any(), anyInt());
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
+		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		// Resolve mapping with saveMapping = true
 		service.resolveMapping("sku456", true);
 
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
@@ -1129,7 +1129,7 @@ class AutoBuyWebServiceTest {
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Get currentMappingFuture using reflection
 		java.lang.reflect.Field field = AutoBuyWebService.class.getDeclaredField("currentMappingFuture");
@@ -1141,12 +1141,12 @@ class AutoBuyWebServiceTest {
 
 		// The background thread should log a warning about nonexistent SKU and prompt
 		// the user again
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_MAPPING);
+		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		// Clean up by skipping
 		service.resolveMapping("skip", false);
-		awaitState(AutoBuyWebService.AutoBuyState.AWAITING_FINAL_REVIEW);
+		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 		service.completeRun();
-		awaitState(AutoBuyWebService.AutoBuyState.SUCCESS);
+		awaitState(AutoBuyState.SUCCESS);
 	}
 }
