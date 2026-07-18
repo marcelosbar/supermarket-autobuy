@@ -15,7 +15,6 @@ import com.autobuy.service.GuestSearchService;
 import com.autobuy.service.ProductResolutionService;
 import com.autobuy.model.ProductMapping;
 import com.autobuy.config.MemoryAppender;
-import org.slf4j.LoggerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,6 +88,18 @@ class WebApiControllerIT {
 			stub.throwBackupDirException = false;
 		}
 		when(shoppingListProvider.getShoppingList(anyString())).thenReturn(List.of());
+
+		// Programmatically configure MemoryAppender for the integration tests
+		ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory
+				.getLogger("com.autobuy");
+		if (logger.getAppender("WEB_MEMORY_APPENDER") == null) {
+			MemoryAppender appender = new MemoryAppender();
+			appender.setName("WEB_MEMORY_APPENDER");
+			appender.setContext((ch.qos.logback.classic.LoggerContext) org.slf4j.LoggerFactory.getILoggerFactory());
+			appender.start();
+			logger.addAppender(appender);
+		}
+		MemoryAppender.clear();
 	}
 
 	@Test
@@ -483,7 +494,7 @@ class WebApiControllerIT {
 		when(autoBuyExecutionContext.getMappingInstructions()).thenReturn("");
 
 		MemoryAppender.clear();
-		LoggerFactory.getLogger(WebApiControllerIT.class).info("log line");
+		org.slf4j.LoggerFactory.getLogger("com.autobuy").info("log line");
 
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.state").value("RUNNING"))
