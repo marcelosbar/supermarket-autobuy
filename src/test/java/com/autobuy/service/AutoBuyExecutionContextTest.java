@@ -4,7 +4,6 @@ import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.AutoBuyState;
 import com.autobuy.model.SearchResult;
 import com.autobuy.model.ShoppingItem;
-import com.autobuy.config.MemoryAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,30 +20,27 @@ class AutoBuyExecutionContextTest {
 	@BeforeEach
 	void setUp() {
 		context = new AutoBuyExecutionContext();
-		MemoryAppender.clear();
 	}
 
 	@Test
-	void testGetStatusIdleByDefault() {
-		var status = context.getStatus();
-		assertEquals(AutoBuyState.IDLE, status.state());
-		assertTrue(status.logs().isEmpty());
+	void testIdleByDefault() {
+		assertEquals(AutoBuyState.IDLE, context.getState());
+		assertEquals("", context.getErrorMsg());
+		assertTrue(context.getSkippedItems().isEmpty());
 	}
 
 	@Test
 	void testUpdateStateFailure() {
 		context.updateStateFailure("Execution failed");
-		var status = context.getStatus();
-		assertEquals(AutoBuyState.FAILED, status.state());
-		assertEquals("Execution failed", status.error());
+		assertEquals(AutoBuyState.FAILED, context.getState());
+		assertEquals("Execution failed", context.getErrorMsg());
 	}
 
 	@Test
 	void testRecordSkippedItem() {
 		context.recordSkippedItem("itemA");
 		context.recordSkippedItem("itemB");
-		var status = context.getStatus();
-		assertEquals(List.of("itemA", "itemB"), status.skippedItems());
+		assertEquals(List.of("itemA", "itemB"), context.getSkippedItems());
 	}
 
 	@Test
@@ -60,15 +56,14 @@ class AutoBuyExecutionContextTest {
 
 		context.reset();
 
-		var status = context.getStatus();
-		assertEquals(AutoBuyState.RUNNING, status.state());
-		assertEquals("", status.currentItemQuery());
-		assertEquals(0, status.currentItemQuantity());
-		assertTrue(status.searchResults().isEmpty());
-		assertTrue(status.skippedItems().isEmpty());
-		assertTrue(status.exhaustedItems().isEmpty());
-		assertEquals("", status.mappingInstructions());
-		assertFalse(status.browserOpen());
+		assertEquals(AutoBuyState.RUNNING, context.getState());
+		assertEquals("", context.getCurrentItemQuery());
+		assertEquals(0, context.getCurrentItemQuantity());
+		assertTrue(context.getSearchResults().isEmpty());
+		assertTrue(context.getSkippedItems().isEmpty());
+		assertTrue(context.getExhaustedItems().isEmpty());
+		assertEquals("", context.getMappingInstructions());
+		assertFalse(context.isBrowserOpen());
 	}
 
 	@Test

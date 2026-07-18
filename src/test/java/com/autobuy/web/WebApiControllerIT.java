@@ -14,7 +14,8 @@ import com.autobuy.service.AutoBuyOrchestrationService;
 import com.autobuy.service.GuestSearchService;
 import com.autobuy.service.ProductResolutionService;
 import com.autobuy.model.ProductMapping;
-import com.autobuy.web.dto.AutoBuyStatusResponse;
+import com.autobuy.config.MemoryAppender;
+import org.slf4j.LoggerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -470,17 +471,26 @@ class WebApiControllerIT {
 	void testGetAutoBuyStatus() throws Exception {
 		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
 				"cat");
-		var dummyStatus = new AutoBuyStatusResponse(com.autobuy.model.AutoBuyState.RUNNING, "query", 5,
-				List.of(dummyResult), List.of("log line"), "", List.of(), List.of());
 
-		when(autoBuyExecutionContext.getStatus()).thenReturn(dummyStatus);
+		when(autoBuyExecutionContext.getState()).thenReturn(com.autobuy.model.AutoBuyState.RUNNING);
+		when(autoBuyExecutionContext.getCurrentItemQuery()).thenReturn("query");
+		when(autoBuyExecutionContext.getCurrentItemQuantity()).thenReturn(5);
+		when(autoBuyExecutionContext.getSearchResults()).thenReturn(List.of(dummyResult));
+		when(autoBuyExecutionContext.getErrorMsg()).thenReturn("");
+		when(autoBuyExecutionContext.getSkippedItems()).thenReturn(List.of());
+		when(autoBuyExecutionContext.getExhaustedItems()).thenReturn(List.of());
+		when(autoBuyExecutionContext.isBrowserOpen()).thenReturn(false);
+		when(autoBuyExecutionContext.getMappingInstructions()).thenReturn("");
+
+		MemoryAppender.clear();
+		LoggerFactory.getLogger(WebApiControllerIT.class).info("log line");
 
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.state").value("RUNNING"))
 				.andExpect(jsonPath("$.currentItemQuery").value("query"))
 				.andExpect(jsonPath("$.currentItemQuantity").value(5))
 				.andExpect(jsonPath("$.searchResults[0].externalId").value("sku"))
-				.andExpect(jsonPath("$.logs[0]").value("log line"));
+				.andExpect(jsonPath("$.logs[0]").value("INFO - log line"));
 	}
 
 	@Test
@@ -704,7 +714,7 @@ class WebApiControllerIT {
 
 	@Test
 	void testGlobalExceptionHandler_DriverException() throws Exception {
-		when(autoBuyExecutionContext.getStatus()).thenThrow(new DriverException("Driver failed to initialize"));
+		when(autoBuyExecutionContext.getState()).thenThrow(new DriverException("Driver failed to initialize"));
 
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadGateway())
 				.andExpect(jsonPath("$.type").value("DRIVER_ERROR"))
@@ -713,7 +723,7 @@ class WebApiControllerIT {
 
 	@Test
 	void testGlobalExceptionHandler_IllegalArgumentException() throws Exception {
-		when(autoBuyExecutionContext.getStatus()).thenThrow(new IllegalArgumentException("Invalid argument"));
+		when(autoBuyExecutionContext.getState()).thenThrow(new IllegalArgumentException("Invalid argument"));
 
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.type").value("VALIDATION_ERROR"))
@@ -722,7 +732,7 @@ class WebApiControllerIT {
 
 	@Test
 	void testGlobalExceptionHandler_IllegalStateException() throws Exception {
-		when(autoBuyExecutionContext.getStatus()).thenThrow(new IllegalStateException("State error"));
+		when(autoBuyExecutionContext.getState()).thenThrow(new IllegalStateException("State error"));
 
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isConflict())
 				.andExpect(jsonPath("$.type").value("STATE_ERROR")).andExpect(jsonPath("$.error").value("State error"));
@@ -730,7 +740,7 @@ class WebApiControllerIT {
 
 	@Test
 	void testGlobalExceptionHandler_GeneralException() throws Exception {
-		when(autoBuyExecutionContext.getStatus()).thenThrow(new RuntimeException("General error"));
+		when(autoBuyExecutionContext.getState()).thenThrow(new RuntimeException("General error"));
 
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))

@@ -76,16 +76,14 @@ class AutoBuyOrchestrationServiceTest {
 	}
 
 	private void awaitState(AutoBuyState targetState) {
-		Awaitility.await().atMost(10, TimeUnit.SECONDS)
-				.until(() -> executionContext.getStatus().state() == targetState);
+		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> executionContext.getState() == targetState);
 	}
 
 	@Test
 	void testStartAutoBuy_DriverNotFound() {
 		service.startAutoBuy("list.json", "NONEXISTENT", false);
 		awaitState(AutoBuyState.FAILED);
-		var status = executionContext.getStatus();
-		assertTrue(status.error().contains("No driver found"));
+		assertTrue(executionContext.getErrorMsg().contains("No driver found"));
 	}
 
 	@Test
@@ -94,8 +92,7 @@ class AutoBuyOrchestrationServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 		awaitState(AutoBuyState.FAILED);
-		var status = executionContext.getStatus();
-		assertTrue(status.error().contains("Shopping list is empty"));
+		assertTrue(executionContext.getErrorMsg().contains("Shopping list is empty"));
 	}
 
 	@Test
@@ -106,8 +103,7 @@ class AutoBuyOrchestrationServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 		awaitState(AutoBuyState.FAILED);
-		var status = executionContext.getStatus();
-		assertTrue(status.error().contains("Credentials for CONTINENTE are not configured"));
+		assertTrue(executionContext.getErrorMsg().contains("Credentials for CONTINENTE are not configured"));
 	}
 
 	@Test
@@ -120,8 +116,7 @@ class AutoBuyOrchestrationServiceTest {
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 		awaitState(AutoBuyState.FAILED);
-		var status = executionContext.getStatus();
-		assertTrue(status.error().contains("Failed to initialize driver"));
+		assertTrue(executionContext.getErrorMsg().contains("Failed to initialize driver"));
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
@@ -145,9 +140,8 @@ class AutoBuyOrchestrationServiceTest {
 
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		var status = executionContext.getStatus();
-		assertEquals("apples", status.currentItemQuery());
-		assertEquals(2, status.currentItemQuantity());
+		assertEquals("apples", executionContext.getCurrentItemQuery());
+		assertEquals(2, executionContext.getCurrentItemQuantity());
 
 		service.completeRun();
 
@@ -238,7 +232,7 @@ class AutoBuyOrchestrationServiceTest {
 		var status = productResolutionService.resolveMapping("skuB", true);
 
 		assertTrue(status.added());
-		AutoBuyState currentState = executionContext.getStatus().state();
+		AutoBuyState currentState = executionContext.getState();
 		assertTrue(currentState == AutoBuyState.RUNNING || currentState == AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
@@ -262,8 +256,7 @@ class AutoBuyOrchestrationServiceTest {
 		service.cancel();
 
 		awaitState(AutoBuyState.FAILED);
-		var status = executionContext.getStatus();
-		assertTrue(status.error().contains("canceled by user"));
+		assertTrue(executionContext.getErrorMsg().contains("canceled by user"));
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
@@ -319,7 +312,7 @@ class AutoBuyOrchestrationServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		awaitState(AutoBuyState.AWAITING_MAPPING);
-		assertEquals("bananas", executionContext.getStatus().currentItemQuery());
+		assertEquals("bananas", executionContext.getCurrentItemQuery());
 
 		productResolutionService.resolveMapping("skuB", true);
 
@@ -400,9 +393,8 @@ class AutoBuyOrchestrationServiceTest {
 
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		var status = executionContext.getStatus();
-		assertEquals(1, status.skippedItems().size());
-		assertEquals("apples", status.skippedItems().get(0));
+		assertEquals(1, executionContext.getSkippedItems().size());
+		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
 		service.completeRun();
 		awaitState(AutoBuyState.SUCCESS);
@@ -432,9 +424,8 @@ class AutoBuyOrchestrationServiceTest {
 
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		var status = executionContext.getStatus();
-		assertEquals(1, status.skippedItems().size());
-		assertEquals("apples", status.skippedItems().get(0));
+		assertEquals(1, executionContext.getSkippedItems().size());
+		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
 		service.completeRun();
 		awaitState(AutoBuyState.SUCCESS);
@@ -465,9 +456,8 @@ class AutoBuyOrchestrationServiceTest {
 
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		var status = executionContext.getStatus();
-		assertEquals(1, status.skippedItems().size());
-		assertEquals("apples", status.skippedItems().get(0));
+		assertEquals(1, executionContext.getSkippedItems().size());
+		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
 		service.completeRun();
 		awaitState(AutoBuyState.SUCCESS);
@@ -523,17 +513,15 @@ class AutoBuyOrchestrationServiceTest {
 
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
-		var status = executionContext.getStatus();
-		assertEquals(1, status.searchResults().size());
-		assertEquals("skuA", status.searchResults().get(0).externalId());
+		assertEquals(1, executionContext.getSearchResults().size());
+		assertEquals("skuA", executionContext.getSearchResults().get(0).externalId());
 
 		productResolutionService.refineSearch("red apples");
 
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
-		status = executionContext.getStatus();
-		assertEquals(1, status.searchResults().size());
-		assertEquals("skuB", status.searchResults().get(0).externalId());
+		assertEquals(1, executionContext.getSearchResults().size());
+		assertEquals("skuB", executionContext.getSearchResults().get(0).externalId());
 
 		productResolutionService.resolveMapping("skuB", true);
 
@@ -697,9 +685,8 @@ class AutoBuyOrchestrationServiceTest {
 
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
-		var status = executionContext.getStatus();
-		assertEquals(1, status.skippedItems().size());
-		assertEquals("apples", status.skippedItems().get(0));
+		assertEquals(1, executionContext.getSkippedItems().size());
+		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
 		service.completeRun();
 		awaitState(AutoBuyState.SUCCESS);
@@ -765,7 +752,7 @@ class AutoBuyOrchestrationServiceTest {
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		awaitState(AutoBuyState.FAILED);
-		assertTrue(executionContext.getStatus().error().contains("Execution interrupted"));
+		assertTrue(executionContext.getErrorMsg().contains("Execution interrupted"));
 	}
 
 	@Test
@@ -788,8 +775,7 @@ class AutoBuyOrchestrationServiceTest {
 		service.cancel();
 
 		awaitState(AutoBuyState.FAILED);
-		var status = executionContext.getStatus();
-		assertTrue(status.error().contains("canceled by user"));
+		assertTrue(executionContext.getErrorMsg().contains("canceled by user"));
 	}
 
 	@Test

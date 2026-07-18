@@ -9,11 +9,14 @@ import com.autobuy.web.dto.AutoBuyStatusResponse;
 import com.autobuy.web.dto.RefineRequest;
 import com.autobuy.web.dto.ResolveRequest;
 import com.autobuy.web.dto.RunRequest;
+import com.autobuy.config.MemoryAppender;
+import com.autobuy.model.ShoppingItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +57,7 @@ public class WebApiController {
 			String supermarket = request.supermarket() != null ? request.supermarket() : DEFAULT_SUPERMARKET;
 
 			guestSearchService.close(); // Close any active guest search driver to prevent conflicts
+			MemoryAppender.clear(); // Clear application logs for the new run
 			autoBuyOrchestrationService.startAutoBuy(DEFAULT_LIST_PATH, supermarket, headless);
 
 			Map<String, Object> response = new HashMap<>();
@@ -70,7 +74,14 @@ public class WebApiController {
 
 	@GetMapping("/status")
 	public ResponseEntity<AutoBuyStatusResponse> getStatus() {
-		return ResponseEntity.ok(autoBuyExecutionContext.getStatus());
+		List<String> exhaustedQueries = autoBuyExecutionContext.getExhaustedItems().stream().map(ShoppingItem::query)
+				.toList();
+		AutoBuyStatusResponse status = new AutoBuyStatusResponse(autoBuyExecutionContext.getState(),
+				autoBuyExecutionContext.getCurrentItemQuery(), autoBuyExecutionContext.getCurrentItemQuantity(),
+				autoBuyExecutionContext.getSearchResults(), new ArrayList<>(MemoryAppender.getLogs()),
+				autoBuyExecutionContext.getErrorMsg(), autoBuyExecutionContext.getSkippedItems(), exhaustedQueries,
+				autoBuyExecutionContext.isBrowserOpen(), autoBuyExecutionContext.getMappingInstructions());
+		return ResponseEntity.ok(status);
 	}
 
 	@PostMapping("/resolve")

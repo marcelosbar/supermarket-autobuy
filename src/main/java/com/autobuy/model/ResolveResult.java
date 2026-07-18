@@ -1,6 +1,4 @@
-package com.autobuy.service;
-
-import com.autobuy.model.SearchResult;
+package com.autobuy.model;
 
 /**
  * Result of product resolution.

@@ -4,6 +4,7 @@ import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.AutoBuyState;
 import com.autobuy.model.ShoppingItem;
 import com.autobuy.model.SearchResult;
+import com.autobuy.model.ResolveResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.AsyncTaskExecutor;

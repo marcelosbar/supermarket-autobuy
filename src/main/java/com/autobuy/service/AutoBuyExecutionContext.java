@@ -4,8 +4,6 @@ import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.AutoBuyState;
 import com.autobuy.model.SearchResult;
 import com.autobuy.model.ShoppingItem;
-import com.autobuy.config.MemoryAppender;
-import com.autobuy.web.dto.AutoBuyStatusResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,13 +30,6 @@ public class AutoBuyExecutionContext {
 	private boolean browserOpen = false;
 	private SupermarketDriver activeDriver = null;
 
-	public synchronized AutoBuyStatusResponse getStatus() {
-		List<String> exhaustedQueries = exhaustedItems.stream().map(ShoppingItem::query).toList();
-		return new AutoBuyStatusResponse(state, currentItemQuery, currentItemQuantity, new ArrayList<>(searchResults),
-				new ArrayList<>(MemoryAppender.getLogs()), errorMsg, new ArrayList<>(skippedItems), exhaustedQueries,
-				browserOpen, mappingInstructions);
-	}
-
 	public synchronized void updateStateFailure(String message) {
 		this.state = AutoBuyState.FAILED;
 		this.errorMsg = message;
@@ -59,7 +50,6 @@ public class AutoBuyExecutionContext {
 		this.exhaustedItems.clear();
 		this.mappingInstructions = "";
 		this.browserOpen = false;
-		MemoryAppender.clear();
 	}
 
 	public synchronized void transitionTo(AutoBuyState newState) {
