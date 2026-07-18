@@ -30,7 +30,7 @@
             src/main/java/com/autobuy/driver/**/*,
             src/main/java/com/autobuy/model/**/*,
             src/main/java/com/autobuy/web/dto/**/*,
-            src/main/java/com/autobuy/web/SwingFolderPicker.java
+            src/main/java/com/autobuy/provider/SwingFolderPicker.java
         </sonar.coverage.exclusions>
     </properties>
 
@@ -107,7 +107,7 @@
                         <exclude>com/autobuy/driver/**</exclude>
                         <exclude>com/autobuy/model/**</exclude>
                         <exclude>com/autobuy/web/dto/**</exclude>
-                        <exclude>com/autobuy/web/SwingFolderPicker.class</exclude>
+                        <exclude>com/autobuy/provider/SwingFolderPicker.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
@@ -204,7 +204,7 @@
                         <exclude>com/autobuy/driver/**</exclude>
                         <exclude>com/autobuy/model/**</exclude>
                         <exclude>com/autobuy/web/dto/**</exclude>
-                        <exclude>com/autobuy/web/SwingFolderPicker.class</exclude>
+                        <exclude>com/autobuy/provider/SwingFolderPicker.class</exclude>
                     </excludes>
                 </configuration>
             </plugin>

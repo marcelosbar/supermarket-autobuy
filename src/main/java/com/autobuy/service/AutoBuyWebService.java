@@ -1,11 +1,10 @@
-package com.autobuy.web;
+package com.autobuy.service;
 
+import com.autobuy.config.MemoryAppender;
 import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.*;
 import com.autobuy.provider.CredentialProvider;
 import com.autobuy.provider.ShoppingListProvider;
-import com.autobuy.service.PriceHistoryService;
-import com.autobuy.service.ProductService;
 import com.autobuy.web.dto.AutoBuyStatusResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

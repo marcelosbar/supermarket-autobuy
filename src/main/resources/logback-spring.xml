@@ -10,7 +10,7 @@
 
     <!-- In-memory appender for the Web UI — disabled during tests -->
     <springProfile name="!test">
-        <appender name="WEB_MEMORY_APPENDER" class="com.autobuy.web.MemoryAppender"/>
+        <appender name="WEB_MEMORY_APPENDER" class="com.autobuy.config.MemoryAppender"/>
 
         <logger name="com.autobuy" level="INFO" additivity="true">
             <appender-ref ref="WEB_MEMORY_APPENDER"/>
