@@ -36,13 +36,13 @@ class GlobalExceptionHandlerIT {
 
 	@Test
 	void credentialException_returns400WithCredentialErrorType() throws Exception {
-		mockMvc.perform(get("/test/credential-error")).andExpect(status().isBadRequest())
+		mockMvc.perform(get("/api/test/credential-error")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.type").value("CREDENTIAL_ERROR"));
 	}
 
 	@Test
 	void illegalStateException_returns409WithStateErrorType() throws Exception {
-		mockMvc.perform(get("/test/state-error")).andExpect(status().isConflict())
+		mockMvc.perform(get("/api/test/state-error")).andExpect(status().isConflict())
 				.andExpect(jsonPath("$.type").value("STATE_ERROR"));
 	}
 

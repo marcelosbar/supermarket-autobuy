@@ -869,7 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             let res;
             if (modalMode === 'alternative') {
-                res = await fetch('/api/autobuy/add-alternative', {
+                res = await fetch('/api/mappings/alternative', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1079,7 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnShutdown) {
         btnShutdown.addEventListener('click', async () => {
             try {
-                const statusRes = await fetch('/api/autobuy/backup-status');
+                const statusRes = await fetch('/api/config/backup-status');
                 let proceed = true;
                 let isConfigured = false;
 
@@ -1115,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 btnShutdown.disabled = true;
-                const shutdownRes = await fetch('/api/shutdown', { method: 'POST' });
+                const shutdownRes = await fetch('/api/system/shutdown', { method: 'POST' });
 
                 if (shutdownRes.ok) {
                     const shutdownMessage = document.getElementById('shutdown-message');
