@@ -14,7 +14,7 @@ import java.util.Map;
  * Controller exposing credential management endpoints.
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/credentials")
 public class CredentialsController {
 
 	private static final Logger log = LoggerFactory.getLogger(CredentialsController.class);
@@ -28,7 +28,7 @@ public class CredentialsController {
 		this.credentialProvider = credentialProvider;
 	}
 
-	@GetMapping("/credentials")
+	@GetMapping
 	public ResponseEntity<Map<String, Object>> getCredentialsStatus(
 			@RequestParam(defaultValue = DEFAULT_SUPERMARKET) String supermarket) {
 		String username = credentialProvider.getUsername(supermarket);
@@ -42,7 +42,7 @@ public class CredentialsController {
 		return ResponseEntity.ok(status);
 	}
 
-	@PostMapping("/credentials")
+	@PostMapping
 	public ResponseEntity<Map<String, Object>> saveCredentials(@RequestBody CredentialsRequest request) {
 		try {
 			String existingUsername = credentialProvider.getUsername(request.supermarket());

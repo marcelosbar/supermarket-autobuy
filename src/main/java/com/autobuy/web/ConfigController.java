@@ -16,7 +16,7 @@ import java.util.Map;
  * Controller exposing backup and environment configuration endpoints.
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/config")
 public class ConfigController {
 
 	private static final Logger log = LoggerFactory.getLogger(ConfigController.class);
@@ -36,7 +36,7 @@ public class ConfigController {
 		this.folderPicker = folderPicker;
 	}
 
-	@GetMapping("/config/backup-dir")
+	@GetMapping("/backup-dir")
 	public ResponseEntity<Map<String, Object>> getBackupDir() {
 		Map<String, Object> response = new HashMap<>();
 		String dir = (settingsProvider != null) ? settingsProvider.getBackupDir() : null;
@@ -44,7 +44,7 @@ public class ConfigController {
 		return ResponseEntity.ok(response);
 	}
 
-	@PostMapping("/config/backup-dir")
+	@PostMapping("/backup-dir")
 	public ResponseEntity<Map<String, Object>> saveBackupDir(@RequestBody Map<String, String> request) {
 		try {
 			String path = request.get(BACKUP_DIR_KEY);
@@ -70,7 +70,7 @@ public class ConfigController {
 		}
 	}
 
-	@GetMapping("/autobuy/backup-status")
+	@GetMapping("/backup-status")
 	public ResponseEntity<Map<String, Object>> getBackupStatus() {
 		Map<String, Object> status = new HashMap<>();
 		String currentDir = (databaseBackupService != null) ? databaseBackupService.getBackupDir() : null;
@@ -80,7 +80,7 @@ public class ConfigController {
 		return ResponseEntity.ok(status);
 	}
 
-	@PostMapping("/config/select-native-dir")
+	@PostMapping("/select-native-dir")
 	public ResponseEntity<Map<String, Object>> selectNativeDirectory() {
 		log.info("selectNativeDirectory endpoint called.");
 		try {

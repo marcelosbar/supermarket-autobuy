@@ -13,7 +13,7 @@ import java.util.Map;
  * Controller exposing system administration endpoints.
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/system")
 public class SystemController {
 
 	private static final Logger log = LoggerFactory.getLogger(SystemController.class);

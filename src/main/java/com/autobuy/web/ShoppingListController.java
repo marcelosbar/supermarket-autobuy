@@ -13,7 +13,7 @@ import java.util.List;
  * Controller exposing shopping list endpoints.
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/shopping-list")
 public class ShoppingListController {
 
 	private static final Logger log = LoggerFactory.getLogger(ShoppingListController.class);
@@ -25,13 +25,13 @@ public class ShoppingListController {
 		this.shoppingListProvider = shoppingListProvider;
 	}
 
-	@GetMapping("/shopping-list")
+	@GetMapping
 	public ResponseEntity<List<ShoppingItem>> getShoppingList() {
 		List<ShoppingItem> items = shoppingListProvider.getShoppingList(DEFAULT_LIST_PATH);
 		return ResponseEntity.ok(items);
 	}
 
-	@PostMapping("/shopping-list")
+	@PostMapping
 	public ResponseEntity<List<ShoppingItem>> saveShoppingList(@RequestBody List<ShoppingItem> items) {
 		try {
 			shoppingListProvider.saveShoppingList(DEFAULT_LIST_PATH, items);

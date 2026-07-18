@@ -16,7 +16,7 @@ import java.util.Map;
  * Controller exposing product mapping endpoints.
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/mappings")
 public class ProductMappingController {
 
 	private static final Logger log = LoggerFactory.getLogger(ProductMappingController.class);
@@ -30,7 +30,7 @@ public class ProductMappingController {
 		this.productService = productService;
 	}
 
-	@GetMapping("/mappings")
+	@GetMapping
 	public ResponseEntity<Map<String, List<ProductMapping>>> getMappings() {
 		List<ProductMapping> all = productService.findAllMappings();
 		Map<String, List<ProductMapping>> grouped = all.stream()
@@ -42,7 +42,7 @@ public class ProductMappingController {
 		return ResponseEntity.ok(grouped);
 	}
 
-	@PostMapping("/mappings/{id}/promote")
+	@PostMapping("/{id}/promote")
 	public ResponseEntity<Map<String, Object>> promoteMapping(@PathVariable Long id) {
 		try {
 			productService.promoteMapping(id);
@@ -57,7 +57,7 @@ public class ProductMappingController {
 		}
 	}
 
-	@PostMapping("/mappings/{id}/demote")
+	@PostMapping("/{id}/demote")
 	public ResponseEntity<Map<String, Object>> demoteMapping(@PathVariable Long id) {
 		try {
 			productService.demoteMapping(id);
@@ -72,7 +72,7 @@ public class ProductMappingController {
 		}
 	}
 
-	@DeleteMapping("/mappings/{id}")
+	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteMapping(@PathVariable Long id) {
 		if (productService.findMappingById(id).isPresent()) {
 			productService.deleteMapping(id);
@@ -82,7 +82,7 @@ public class ProductMappingController {
 		return ResponseEntity.notFound().build();
 	}
 
-	@PostMapping("/autobuy/add-alternative")
+	@PostMapping("/alternative")
 	public ResponseEntity<Map<String, Object>> addAlternative(
 			@RequestBody com.autobuy.web.dto.AddAlternativeRequest request) {
 		try {

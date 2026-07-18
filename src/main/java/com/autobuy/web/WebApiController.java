@@ -23,7 +23,7 @@ import java.util.Map;
  * interactive resolution.
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/autobuy")
 public class WebApiController {
 
 	private static final Logger log = LoggerFactory.getLogger(WebApiController.class);
@@ -47,7 +47,7 @@ public class WebApiController {
 		this.guestSearchService = guestSearchService;
 	}
 
-	@PostMapping("/autobuy/run")
+	@PostMapping("/run")
 	public ResponseEntity<Map<String, Object>> runAutoBuy(@RequestBody RunRequest request) {
 		try {
 			boolean headless = false;
@@ -68,12 +68,12 @@ public class WebApiController {
 		}
 	}
 
-	@GetMapping("/autobuy/status")
+	@GetMapping("/status")
 	public ResponseEntity<AutoBuyStatusResponse> getStatus() {
 		return ResponseEntity.ok(autoBuyExecutionContext.getStatus());
 	}
 
-	@PostMapping("/autobuy/resolve")
+	@PostMapping("/resolve")
 	public ResponseEntity<Map<String, Object>> resolveMapping(@RequestBody ResolveRequest request) {
 		try {
 			com.autobuy.web.dto.ResolutionResultStatus status = productResolutionService
@@ -96,7 +96,7 @@ public class WebApiController {
 		}
 	}
 
-	@GetMapping("/autobuy/search")
+	@GetMapping("/search")
 	public ResponseEntity<List<SearchResult>> searchSupermarket(@RequestParam String query,
 			@RequestParam(defaultValue = "CONTINENTE") String supermarket) {
 		String sanitizedQuery = query.replace('\n', '_').replace('\r', '_');
@@ -111,7 +111,7 @@ public class WebApiController {
 		}
 	}
 
-	@PostMapping("/autobuy/refine")
+	@PostMapping("/refine")
 	public ResponseEntity<Map<String, Object>> refineSearch(@RequestBody RefineRequest request) {
 		try {
 			productResolutionService.refineSearch(request.query());
@@ -126,7 +126,7 @@ public class WebApiController {
 		}
 	}
 
-	@PostMapping("/autobuy/complete")
+	@PostMapping("/complete")
 	public ResponseEntity<Map<String, Object>> completeRun(
 			@RequestParam(name = "keepBrowser", defaultValue = "false") boolean keepBrowser) {
 		try {
@@ -142,7 +142,7 @@ public class WebApiController {
 		}
 	}
 
-	@PostMapping("/autobuy/cancel")
+	@PostMapping("/cancel")
 	public ResponseEntity<Map<String, Object>> cancelRun() {
 		try {
 			autoBuyOrchestrationService.cancel();

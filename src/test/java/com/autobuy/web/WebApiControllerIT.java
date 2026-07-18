@@ -186,7 +186,7 @@ class WebApiControllerIT {
 
 	@Test
 	void testGetBackupStatus() throws Exception {
-		mockMvc.perform(get("/api/autobuy/backup-status")).andExpect(status().isOk())
+		mockMvc.perform(get("/api/config/backup-status")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.backupDir").exists()).andExpect(jsonPath("$.isConfigured").exists());
 	}
 
@@ -196,7 +196,7 @@ class WebApiControllerIT {
 			stub.backupDir = null;
 		}
 		try {
-			mockMvc.perform(get("/api/autobuy/backup-status")).andExpect(status().isOk())
+			mockMvc.perform(get("/api/config/backup-status")).andExpect(status().isOk())
 					.andExpect(jsonPath("$.backupDir").value("")).andExpect(jsonPath("$.isConfigured").value(false));
 		} finally {
 			if (credentialProvider instanceof StubCredentialProvider stub) {
@@ -357,8 +357,8 @@ class WebApiControllerIT {
 
 	@Test
 	void testShutdown() throws Exception {
-		mockMvc.perform(post("/api/shutdown")).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.message")
+		mockMvc.perform(post("/api/system/shutdown")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true)).andExpect(jsonPath("$.message")
 						.value("Application is shutting down gracefully. Backup will be created."));
 
 		verify(shutdownService).initiateShutdown(1000);
@@ -578,7 +578,7 @@ class WebApiControllerIT {
 				}
 				""";
 
-		mockMvc.perform(post("/api/autobuy/add-alternative").contentType(MediaType.APPLICATION_JSON).content(json))
+		mockMvc.perform(post("/api/mappings/alternative").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
 		verify(productService).saveMappingWithPriority(eq("apples"), eq("CONTINENTE"), any(), eq(0));
@@ -598,7 +598,7 @@ class WebApiControllerIT {
 				}
 				""";
 
-		mockMvc.perform(post("/api/autobuy/add-alternative").contentType(MediaType.APPLICATION_JSON).content(json))
+		mockMvc.perform(post("/api/mappings/alternative").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.message").value("Database error"));
 	}
