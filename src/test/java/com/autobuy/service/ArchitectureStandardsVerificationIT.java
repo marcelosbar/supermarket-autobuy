@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,7 +43,7 @@ class ArchitectureStandardsVerificationIT {
 	@PersistenceContext
 	private EntityManager entityManager;
 
-	@Component
+	@Service
 	public static class TestHelperService {
 		@Autowired
 		private ProductService productService;
@@ -103,16 +103,9 @@ class ArchitectureStandardsVerificationIT {
 		});
 
 		// Test IO exception handling when path is a directory (causing write error)
-		PropertiesCredentialProvider errorProvider = new PropertiesCredentialProvider();
-		assertDoesNotThrow(() -> {
-			java.lang.reflect.Field field = PropertiesCredentialProvider.class.getDeclaredField("secretsPath");
-			field.setAccessible(true);
-			field.set(errorProvider, "target/"); // 'target/' is a directory, writing to it as a file will throw
-													// IOException
-
-			assertThrows(CredentialException.class, () -> {
-				errorProvider.saveCredentials("CONTINENTE", "user", "pass");
-			});
+		PropertiesCredentialProvider errorProvider = new PropertiesCredentialProvider("target/");
+		assertThrows(CredentialException.class, () -> {
+			errorProvider.saveCredentials("CONTINENTE", "user", "pass");
 		});
 	}
 

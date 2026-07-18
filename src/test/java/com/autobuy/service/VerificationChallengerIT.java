@@ -142,9 +142,7 @@ class VerificationChallengerIT {
 		assertEquals("my-secure-password", credentialProvider.getPassword("continente"));
 
 		// Reinitialize provider from file to verify persistence
-		PropertiesCredentialProvider newProvider = new PropertiesCredentialProvider();
-		org.springframework.test.util.ReflectionTestUtils.setField(newProvider, "secretsPath",
-				"target/temp-secrets.properties");
+		PropertiesCredentialProvider newProvider = new PropertiesCredentialProvider("target/temp-secrets.properties");
 		newProvider.init();
 
 		assertEquals("user@test.com", newProvider.getUsername("continente"));

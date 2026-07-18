@@ -50,6 +50,9 @@ class WebApiControllerIT {
 	@Autowired
 	private CredentialProvider credentialProvider;
 
+	@Autowired
+	private SettingsProvider settingsProvider;
+
 	@MockitoBean
 	private ShutdownService shutdownService;
 
@@ -85,6 +88,9 @@ class WebApiControllerIT {
 			stub.throwUnsupported = false;
 			stub.throwCredentialException = false;
 			stub.throwMessage = "";
+		}
+		if (settingsProvider instanceof StubSettingsProvider stub) {
+			stub.backupDir = "C:/mock-backup";
 			stub.throwBackupDirException = false;
 		}
 		when(shoppingListProvider.getShoppingList(anyString())).thenReturn(List.of());
@@ -204,14 +210,14 @@ class WebApiControllerIT {
 
 	@Test
 	void testGetBackupStatus_NotConfigured() throws Exception {
-		if (credentialProvider instanceof StubCredentialProvider stub) {
+		if (settingsProvider instanceof StubSettingsProvider stub) {
 			stub.backupDir = null;
 		}
 		try {
 			mockMvc.perform(get("/api/config/backup-status")).andExpect(status().isOk())
 					.andExpect(jsonPath("$.backupDir").value("")).andExpect(jsonPath("$.isConfigured").value(false));
 		} finally {
-			if (credentialProvider instanceof StubCredentialProvider stub) {
+			if (settingsProvider instanceof StubSettingsProvider stub) {
 				stub.backupDir = "C:/mock-backup";
 			}
 		}
@@ -291,7 +297,7 @@ class WebApiControllerIT {
 
 	@Test
 	void testSaveBackupDir_ProviderException() throws Exception {
-		if (credentialProvider instanceof StubCredentialProvider stub) {
+		if (settingsProvider instanceof StubSettingsProvider stub) {
 			stub.throwBackupDirException = true;
 		}
 		try {
@@ -305,7 +311,7 @@ class WebApiControllerIT {
 					.andExpect(jsonPath("$.message")
 							.value(org.hamcrest.Matchers.containsString("Failed to save backup directory")));
 		} finally {
-			if (credentialProvider instanceof StubCredentialProvider stub) {
+			if (settingsProvider instanceof StubSettingsProvider stub) {
 				stub.throwBackupDirException = false;
 			}
 		}
@@ -383,16 +389,20 @@ class WebApiControllerIT {
 		public StubCredentialProvider stubCredentialProvider() {
 			return new StubCredentialProvider();
 		}
+
+		@Bean
+		@Primary
+		public StubSettingsProvider stubSettingsProvider() {
+			return new StubSettingsProvider();
+		}
 	}
 
-	private static class StubCredentialProvider implements CredentialProvider, SettingsProvider {
+	private static class StubCredentialProvider implements CredentialProvider {
 		private String username = "test-user";
 		private String password = "test-password";
-		private String backupDir = "C:/mock-backup";
 		private boolean throwUnsupported = false;
 		private boolean throwCredentialException = false;
 		private String throwMessage = "";
-		private boolean throwBackupDirException = false;
 
 		@Override
 		public String getUsername(String supermarket) {
@@ -415,6 +425,11 @@ class WebApiControllerIT {
 			this.username = username;
 			this.password = password;
 		}
+	}
+
+	private static class StubSettingsProvider implements SettingsProvider {
+		private String backupDir = "C:/mock-backup";
+		private boolean throwBackupDirException = false;
 
 		@Override
 		public String getBackupDir() {
@@ -700,7 +715,7 @@ class WebApiControllerIT {
 
 	@Test
 	void testSaveBackupDir_Exception() throws Exception {
-		if (credentialProvider instanceof StubCredentialProvider stub) {
+		if (settingsProvider instanceof StubSettingsProvider stub) {
 			stub.throwBackupDirException = true;
 		}
 

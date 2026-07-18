@@ -2,8 +2,6 @@ package com.autobuy.provider;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import com.autobuy.exception.CredentialException;
 
 import java.io.File;
@@ -26,8 +24,7 @@ class PropertiesCredentialProviderTest {
 					""");
 		}
 
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(provider, "secretsPath", tempFile.getAbsolutePath());
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider(tempFile.getAbsolutePath());
 
 		// Act
 		provider.init();
@@ -44,8 +41,7 @@ class PropertiesCredentialProviderTest {
 	@Test
 	void testLoadCredentials_FileNotFound() {
 		// Arrange
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(provider, "secretsPath", "non-existent-secrets.properties");
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider("non-existent-secrets.properties");
 
 		// Act
 		provider.init();
@@ -59,8 +55,7 @@ class PropertiesCredentialProviderTest {
 	void testSaveCredentials_Success(@TempDir Path tempDir) throws Exception {
 		// Arrange
 		File tempFile = tempDir.resolve("secrets.properties").toFile();
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(provider, "secretsPath", tempFile.getAbsolutePath());
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider(tempFile.getAbsolutePath());
 		provider.init();
 
 		// Act
@@ -71,8 +66,7 @@ class PropertiesCredentialProviderTest {
 		assertEquals("new-pass123", provider.getPassword("continente"));
 
 		// Reload and verify persistence
-		PropertiesCredentialProvider reloadProvider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(reloadProvider, "secretsPath", tempFile.getAbsolutePath());
+		PropertiesCredentialProvider reloadProvider = new PropertiesCredentialProvider(tempFile.getAbsolutePath());
 		reloadProvider.init();
 		assertEquals("new-user@example.com", reloadProvider.getUsername("continente"));
 		assertEquals("new-pass123", reloadProvider.getPassword("continente"));
@@ -80,8 +74,7 @@ class PropertiesCredentialProviderTest {
 
 	@Test
 	void testSaveCredentials_ValidationFailure() {
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(provider, "secretsPath", "secrets.properties");
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider("secrets.properties");
 
 		// Null cases
 		assertThrows(CredentialException.class, () -> provider.saveCredentials(null, "user", "pass"));
@@ -95,51 +88,9 @@ class PropertiesCredentialProviderTest {
 	}
 
 	@Test
-	void testBackupDir_GetAndSave(@TempDir Path tempDir) throws Exception {
-		// Arrange
-		File tempFile = tempDir.resolve("secrets.properties").toFile();
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(provider, "secretsPath", tempFile.getAbsolutePath());
-		provider.init();
-
-		// Act & Assert (initial default/null)
-		assertNull(provider.getBackupDir());
-
-		// Act (save path)
-		provider.saveBackupDir("C:/MyBackup");
-
-		// Assert
-		assertEquals("C:/MyBackup", provider.getBackupDir());
-
-		// Reload and verify persistence
-		PropertiesCredentialProvider reloadProvider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(reloadProvider, "secretsPath", tempFile.getAbsolutePath());
-		reloadProvider.init();
-		assertEquals("C:/MyBackup", reloadProvider.getBackupDir());
-
-		// Act (remove path)
-		provider.saveBackupDir(null);
-		assertNull(provider.getBackupDir());
-
-		// Act (empty string / blank path)
-		provider.saveBackupDir("");
-		assertNull(provider.getBackupDir());
-
-		provider.saveBackupDir("   ");
-		assertNull(provider.getBackupDir());
-	}
-
-	@Test
-	void testSaveBackupDir_IOException() {
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(provider, "secretsPath", "target/"); // Writing to a directory throws IOException
-		assertThrows(IOException.class, () -> provider.saveBackupDir("C:/Backup"));
-	}
-
-	@Test
 	void testInit_IOException() {
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider();
-		ReflectionTestUtils.setField(provider, "secretsPath", "target/"); // Reading from a directory throws IOException
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider("target/"); // Reading from a directory
+																								// throws IOException
 		assertDoesNotThrow(provider::init); // catches internally
 	}
 }
