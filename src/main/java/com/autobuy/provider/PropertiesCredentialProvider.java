@@ -6,51 +6,38 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Properties;
 import com.autobuy.exception.CredentialException;
+import java.io.IOException;
 
 /**
  * Implementation of CredentialProvider that loads credentials from a local
  * properties file.
  */
 @Component
-public class PropertiesCredentialProvider implements CredentialProvider, SettingsProvider {
+public class PropertiesCredentialProvider extends BasePropertiesProvider implements CredentialProvider {
 
 	private static final Logger log = LoggerFactory.getLogger(PropertiesCredentialProvider.class);
+	private static final String SECRETS_CONTEXT = "secrets";
 
-	@Value("${autobuy.secrets-path:secrets.properties}")
-	private String secretsPath;
-
-	private static final String BACKUP_DIR_KEY = "autobuy.backup-dir";
-
-	private final Properties properties = new Properties();
+	public PropertiesCredentialProvider(@Value("${autobuy.secrets-path:secrets.properties}") String secretsPath) {
+		super(secretsPath);
+	}
 
 	@PostConstruct
 	public void init() {
-		File file = new File(secretsPath);
-		if (file.exists()) {
-			try (FileInputStream fis = new FileInputStream(file)) {
-				properties.load(fis);
-				log.info("Successfully loaded secrets from {}", secretsPath);
-			} catch (IOException e) {
-				log.error("Failed to load secrets properties from {}", secretsPath, e);
-			}
-		} else {
-			log.warn("Secrets file '{}' not found. Will fall back to interactive prompts.", secretsPath);
-		}
+		loadProperties(log, SECRETS_CONTEXT);
 	}
 
 	@Override
-	public String getUsername(String supermarket) {
+	public synchronized String getUsername(String supermarket) {
+		loadProperties(log, SECRETS_CONTEXT);
 		String key = supermarket.toLowerCase() + ".username";
 		return properties.getProperty(key);
 	}
 
 	@Override
-	public String getPassword(String supermarket) {
+	public synchronized String getPassword(String supermarket) {
+		loadProperties(log, SECRETS_CONTEXT);
 		String key = supermarket.toLowerCase() + ".password";
 		return properties.getProperty(key);
 	}
@@ -71,34 +58,14 @@ public class PropertiesCredentialProvider implements CredentialProvider, Setting
 			throw new CredentialException("Password cannot be null or empty");
 		}
 
+		loadProperties(log, SECRETS_CONTEXT);
 		properties.setProperty(supermarket.toLowerCase() + ".username", username);
 		properties.setProperty(supermarket.toLowerCase() + ".password", password);
-		try (java.io.FileOutputStream fos = new java.io.FileOutputStream(secretsPath)) {
-			properties.store(fos, "Saved via Web UI");
-			log.info("Successfully saved credentials for {} to {}", supermarket, secretsPath);
+		try {
+			saveProperties(log, "credentials for " + supermarket);
 		} catch (IOException e) {
 			log.error("Failed to save credentials for {} to {}", supermarket, secretsPath, e);
 			throw new CredentialException("Failed to save credentials for " + supermarket, e);
-		}
-	}
-
-	@Override
-	public synchronized String getBackupDir() {
-		return properties.getProperty(BACKUP_DIR_KEY);
-	}
-
-	@Override
-	public synchronized void saveBackupDir(String backupDir) throws IOException {
-		if (backupDir == null || backupDir.trim().isEmpty()) {
-			properties.remove(BACKUP_DIR_KEY);
-		} else {
-			properties.setProperty(BACKUP_DIR_KEY, backupDir.trim());
-		}
-		try (java.io.FileOutputStream fos = new java.io.FileOutputStream(secretsPath)) {
-			properties.store(fos, "Saved via Web UI");
-			log.info("Successfully saved backup directory to {}", secretsPath);
-		} catch (IOException e) {
-			throw new java.io.IOException("Failed to save backup directory to " + secretsPath, e);
 		}
 	}
 }
