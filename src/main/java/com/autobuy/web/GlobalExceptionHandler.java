@@ -1,5 +1,6 @@
 package com.autobuy.web;
 
+import com.autobuy.exception.AutoBuyException;
 import com.autobuy.exception.CredentialException;
 import com.autobuy.exception.DriverException;
 import com.autobuy.exception.SettingsException;
@@ -17,6 +18,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+	@ExceptionHandler(AutoBuyException.class)
+	public ResponseEntity<ErrorResponse> handleAutoBuy(AutoBuyException ex) {
+		log.warn("AutoBuy error: {}", ex.getMessage());
+		return ResponseEntity.badRequest()
+				.body(new ErrorResponse(ex.getMessage(), "AUTOBUY_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
+	}
 
 	@ExceptionHandler(CredentialException.class)
 	public ResponseEntity<ErrorResponse> handleCredential(CredentialException ex) {

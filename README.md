@@ -76,7 +76,7 @@ graph TD
     Service --> Driver["Driver Layer (driver/)"]
 ```
 
-1. **Controller Layer (`web/`):** Handles REST API requests, translates between HTTP and typed DTO records (`web/dto/`), and delegates all business logic to services. Exceptions are processed globally by `GlobalExceptionHandler`.
+1. **Controller Layer (`web/`):** Handles REST API requests across domain controllers (`AutoBuyController`, `ConfigController`, `CredentialsController`, `ProductMappingController`, `ShoppingListController`, `SystemController`), translates between HTTP and typed DTO records (`web/dto/`), and delegates all business logic to services. Exceptions are processed globally by `GlobalExceptionHandler`.
 2. **Service Layer (`service/`):** Core business logic and transactional boundaries (`ProductService`, `PriceHistoryService`, `AutoBuyWebService`). Methods modifying persistent state are decorated with `@Transactional`.
 3. **Repository Layer (`repository/` & `model/`):** Spring Data JPA for H2 database access. Entity relations (such as `PriceHistory.product`) are configured with `FetchType.LAZY` for performance.
 4. **Provider Layer (`provider/`):** Interfaces for external data sources (credentials, shopping lists, settings). Implementations are swappable (e.g., `CredentialProvider` → `PropertiesCredentialProvider`, `SettingsProvider` → `PropertiesSettingsProvider`).
@@ -115,13 +115,15 @@ The local H2 database schema is versioned and managed incrementally using **Flyw
 ## Running Tests
 Run the JUnit unit tests using:
 ```powershell
-.\mvnw.cmd test
+.\mvnw.cmd test -q
 ```
+*(or `./mvnw test -q` on Linux/macOS)*
 
 To run both unit and integration tests, verify formatting, and enforce code coverage checks (note that you must commit your changes locally first so that the `diff-coverage` plugin can detect the diff against `origin/main`):
 ```powershell
-.\mvnw.cmd verify
+.\mvnw.cmd verify -q
 ```
+*(or `./mvnw verify -q` on Linux/macOS)*
 
 * **Code Coverage Gate:** The project uses JaCoCo to enforce a **minimum instruction coverage of 80%** on all core logic. Exclusions are defined consistently for both local builds and SonarCloud for non-business boilerplate code (bootstrap, config beans, custom exceptions, entities, records, and the Playwright driver).
 
