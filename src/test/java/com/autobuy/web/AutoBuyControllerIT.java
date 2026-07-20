@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class WebApiControllerIT {
+class AutoBuyControllerIT {
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -370,7 +370,7 @@ class WebApiControllerIT {
 				.thenThrow(new RuntimeException("Search failed"));
 
 		mockMvc.perform(get("/api/autobuy/search").param("query", "milk").param("supermarket", "CONTINENTE"))
-				.andExpect(status().isInternalServerError());
+				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.type").value("INTERNAL_ERROR"));
 	}
 
 	@Test
@@ -445,8 +445,6 @@ class WebApiControllerIT {
 		}
 	}
 
-	// 5. Additional Endpoints Coverage Tests
-
 	@Test
 	void testDeleteMapping_NotFound() throws Exception {
 		mockMvc.perform(delete("/api/mappings/9999")).andExpect(status().isNotFound());
@@ -478,6 +476,38 @@ class WebApiControllerIT {
 	}
 
 	@Test
+	void testRunAutoBuy_HeadlessTrue() throws Exception {
+		String json = """
+				{
+					"supermarket": "CONTINENTE",
+					"headless": true
+				}
+				""";
+
+		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+
+		verify(autoBuyOrchestrationService).startAutoBuy("shopping-list.json", "CONTINENTE", true);
+	}
+
+	@Test
+	void testRunAutoBuy_NullRequest() throws Exception {
+		mockMvc.perform(post("/api/autobuy/run")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(true));
+
+		verify(autoBuyOrchestrationService).startAutoBuy("shopping-list.json", "CONTINENTE", false);
+	}
+
+	@Test
+	void testRunAutoBuy_NullSupermarket() throws Exception {
+		String json = "{}";
+		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+
+		verify(autoBuyOrchestrationService).startAutoBuy("shopping-list.json", "CONTINENTE", false);
+	}
+
+	@Test
 	void testRunAutoBuy_IllegalState() throws Exception {
 		doThrow(new IllegalStateException("Already running")).when(autoBuyOrchestrationService)
 				.startAutoBuy("shopping-list.json", "CONTINENTE", false);
@@ -489,8 +519,8 @@ class WebApiControllerIT {
 				""";
 
 		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.message").value("Already running"));
+				.andExpect(status().isConflict()).andExpect(jsonPath("$.type").value("STATE_ERROR"))
+				.andExpect(jsonPath("$.error").value("Already running"));
 	}
 
 	@Test
@@ -547,8 +577,8 @@ class WebApiControllerIT {
 				""";
 
 		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.message").value("Invalid ID"));
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.error").value("Invalid ID"));
 	}
 
 	@Test
@@ -651,8 +681,9 @@ class WebApiControllerIT {
 	void testCompleteRunEndpoint_Failure() throws Exception {
 		doThrow(new IllegalStateException("Not in review")).when(autoBuyOrchestrationService).completeRun(anyBoolean());
 
-		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Not in review"));
+		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.type").value("STATE_ERROR"))
+				.andExpect(jsonPath("$.error").value("Not in review"));
 	}
 
 	@Test
@@ -667,8 +698,9 @@ class WebApiControllerIT {
 	void testCancelRunEndpoint_Failure() throws Exception {
 		doThrow(new RuntimeException("Cancel failed")).when(autoBuyOrchestrationService).cancel();
 
-		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Cancel failed"));
+		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
+				.andExpect(jsonPath("$.error").value("Cancel failed"));
 	}
 
 	@Test
@@ -808,7 +840,7 @@ class WebApiControllerIT {
 				.refineSearch("red apples");
 
 		mockMvc.perform(post("/api/autobuy/refine").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.message").value("Refinement rejected"));
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("AUTOBUY_ERROR"))
+				.andExpect(jsonPath("$.error").value("Refinement rejected"));
 	}
 }

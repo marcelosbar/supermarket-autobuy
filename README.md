@@ -76,7 +76,7 @@ graph TD
     Service --> Driver["Driver Layer (driver/)"]
 ```
 
-1. **Controller Layer (`web/`):** Handles REST API requests, translates between HTTP and typed DTO records (`web/dto/`), and delegates all business logic to services. Exceptions are processed globally by `GlobalExceptionHandler`.
+1. **Controller Layer (`web/`):** Handles REST API requests across domain controllers (`AutoBuyController`, `ConfigController`, `CredentialsController`, `ProductMappingController`, `ShoppingListController`, `SystemController`), translates between HTTP and typed DTO records (`web/dto/`), and delegates all business logic to services. Exceptions are processed globally by `GlobalExceptionHandler`.
 2. **Service Layer (`service/`):** Core business logic and transactional boundaries (`ProductService`, `PriceHistoryService`, `AutoBuyWebService`). Methods modifying persistent state are decorated with `@Transactional`.
 3. **Repository Layer (`repository/` & `model/`):** Spring Data JPA for H2 database access. Entity relations (such as `PriceHistory.product`) are configured with `FetchType.LAZY` for performance.
 4. **Provider Layer (`provider/`):** Interfaces for external data sources (credentials, shopping lists, settings). Implementations are swappable (e.g., `CredentialProvider` → `PropertiesCredentialProvider`, `SettingsProvider` → `PropertiesSettingsProvider`).

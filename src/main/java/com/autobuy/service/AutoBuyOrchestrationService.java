@@ -1,5 +1,6 @@
 package com.autobuy.service;
 
+import com.autobuy.config.MemoryAppender;
 import com.autobuy.driver.SupermarketDriver;
 import com.autobuy.model.AutoBuyState;
 import com.autobuy.model.ShoppingItem;
@@ -68,6 +69,9 @@ public class AutoBuyOrchestrationService {
 				|| state == AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS) {
 			throw new IllegalStateException("An auto-buy execution is already in progress.");
 		}
+
+		executionProviders.getGuestSearchService().close();
+		MemoryAppender.clear();
 
 		SupermarketDriver activeDriver = executionContext.getActiveDriver();
 		if (activeDriver != null) {

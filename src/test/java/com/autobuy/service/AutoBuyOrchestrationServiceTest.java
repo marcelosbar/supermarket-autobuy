@@ -28,6 +28,7 @@ class AutoBuyOrchestrationServiceTest {
 	private SupermarketDriver supermarketDriver;
 	private CredentialProvider credentialProvider;
 	private ShoppingListProvider shoppingListProvider;
+	private GuestSearchService guestSearchService;
 	private ThreadPoolTaskExecutor taskExecutor;
 
 	private AutoBuyExecutionContext executionContext;
@@ -43,6 +44,7 @@ class AutoBuyOrchestrationServiceTest {
 		supermarketDriver = mock(SupermarketDriver.class);
 		credentialProvider = mock(CredentialProvider.class);
 		shoppingListProvider = mock(ShoppingListProvider.class);
+		guestSearchService = mock(GuestSearchService.class);
 
 		taskExecutor = new ThreadPoolTaskExecutor();
 		taskExecutor.setCorePoolSize(2);
@@ -57,7 +59,7 @@ class AutoBuyOrchestrationServiceTest {
 		executionContext = new AutoBuyExecutionContext();
 		productResolutionService = spy(
 				new ProductResolutionService(productService, priceHistoryService, executionContext));
-		executionProviders = new ExecutionProviders(credentialProvider, shoppingListProvider);
+		executionProviders = new ExecutionProviders(credentialProvider, shoppingListProvider, guestSearchService);
 
 		service = new AutoBuyOrchestrationService(List.of(supermarketDriver), executionContext,
 				productResolutionService, taskExecutor, executionProviders);
@@ -84,6 +86,7 @@ class AutoBuyOrchestrationServiceTest {
 		service.startAutoBuy("list.json", "NONEXISTENT", false);
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("No driver found"));
+		verify(guestSearchService).close();
 	}
 
 	@Test
