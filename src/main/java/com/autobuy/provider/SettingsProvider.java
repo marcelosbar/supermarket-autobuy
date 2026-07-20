@@ -1,6 +1,6 @@
 package com.autobuy.provider;
 
-import java.io.IOException;
+import com.autobuy.exception.SettingsException;
 
 /**
  * Interface defining the contract for managing application
@@ -20,8 +20,8 @@ public interface SettingsProvider {
 	 *
 	 * @param backupDir
 	 *            The directory path to set
-	 * @throws IOException
+	 * @throws SettingsException
 	 *             If saving the configuration fails
 	 */
-	void saveBackupDir(String backupDir) throws IOException;
+	void saveBackupDir(String backupDir);
 }

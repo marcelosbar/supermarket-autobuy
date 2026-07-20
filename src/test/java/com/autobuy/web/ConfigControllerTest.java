@@ -4,8 +4,6 @@ import com.autobuy.provider.SettingsProvider;
 import com.autobuy.service.DatabaseBackupService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
-
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,7 +60,7 @@ class ConfigControllerTest {
 	}
 
 	@Test
-	void testSaveBackupDir_WithDependenciesAndValidPath() throws IOException {
+	void testSaveBackupDir_WithDependenciesAndValidPath() {
 		SettingsProvider settingsProvider = mock(SettingsProvider.class);
 		DatabaseBackupService databaseBackupService = mock(DatabaseBackupService.class);
 

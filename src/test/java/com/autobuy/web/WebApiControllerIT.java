@@ -2,6 +2,7 @@ package com.autobuy.web;
 
 import com.autobuy.exception.CredentialException;
 import com.autobuy.exception.DriverException;
+import com.autobuy.exception.SettingsException;
 import com.autobuy.exception.ShoppingListException;
 import com.autobuy.provider.CredentialProvider;
 import com.autobuy.provider.FolderPicker;
@@ -28,7 +29,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -437,9 +437,9 @@ class WebApiControllerIT {
 		}
 
 		@Override
-		public void saveBackupDir(String backupDir) throws IOException {
+		public void saveBackupDir(String backupDir) {
 			if (throwBackupDirException) {
-				throw new IOException("Failed to save backup dir");
+				throw new SettingsException("Failed to save backup dir");
 			}
 			this.backupDir = backupDir;
 		}
@@ -745,6 +745,15 @@ class WebApiControllerIT {
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadGateway())
 				.andExpect(jsonPath("$.type").value("DRIVER_ERROR"))
 				.andExpect(jsonPath("$.error").value("Driver failed to initialize"));
+	}
+
+	@Test
+	void testGlobalExceptionHandler_SettingsException() throws Exception {
+		when(autoBuyExecutionContext.getState()).thenThrow(new SettingsException("Settings failure"));
+
+		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("SETTINGS_ERROR"))
+				.andExpect(jsonPath("$.error").value("Settings failure"));
 	}
 
 	@Test

@@ -1,10 +1,10 @@
 package com.autobuy.provider;
 
+import com.autobuy.exception.SettingsException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -48,7 +48,7 @@ class PropertiesSettingsProviderTest {
 	void testSaveBackupDir_IOException() {
 		PropertiesSettingsProvider provider = new PropertiesSettingsProvider("target/"); // Writing to a directory
 																							// throws IOException
-		assertThrows(IOException.class, () -> provider.saveBackupDir("C:/Backup"));
+		assertThrows(SettingsException.class, () -> provider.saveBackupDir("C:/Backup"));
 	}
 
 	@Test

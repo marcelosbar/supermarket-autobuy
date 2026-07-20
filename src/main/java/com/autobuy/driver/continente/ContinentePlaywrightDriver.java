@@ -1,6 +1,7 @@
 package com.autobuy.driver.continente;
 
 import com.autobuy.driver.SupermarketDriver;
+import com.autobuy.exception.DriverException;
 import com.autobuy.model.SearchResult;
 import com.microsoft.playwright.*;
 import org.slf4j.Logger;
@@ -158,7 +159,7 @@ public class ContinentePlaywrightDriver implements SupermarketDriver {
 			} catch (Exception ex) {
 				log.error("Failed to take failure screenshot: {}", ex.getMessage());
 			}
-			throw new RuntimeException(
+			throw new DriverException(
 					"Authentication failed: Continente Online login page did not redirect. CAPTCHA, block, or invalid credentials may have occurred.",
 					e);
 		}
