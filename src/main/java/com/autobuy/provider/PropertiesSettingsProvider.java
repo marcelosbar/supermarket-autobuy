@@ -1,5 +1,6 @@
 package com.autobuy.provider;
 
+import com.autobuy.exception.SettingsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,13 +36,17 @@ public class PropertiesSettingsProvider extends BasePropertiesProvider implement
 	}
 
 	@Override
-	public synchronized void saveBackupDir(String backupDir) throws IOException {
+	public synchronized void saveBackupDir(String backupDir) {
 		loadProperties(log, SETTINGS_CONTEXT);
 		if (backupDir == null || backupDir.trim().isEmpty()) {
 			properties.remove(BACKUP_DIR_KEY);
 		} else {
 			properties.setProperty(BACKUP_DIR_KEY, backupDir.trim());
 		}
-		saveProperties(log, "backup directory");
+		try {
+			saveProperties(log, "backup directory");
+		} catch (IOException e) {
+			throw new SettingsException("Failed to save backup directory to " + secretsPath, e);
+		}
 	}
 }

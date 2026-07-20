@@ -1,5 +1,6 @@
 package com.autobuy.provider;
 
+import com.autobuy.exception.ShoppingListException;
 import com.autobuy.model.ShoppingItem;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -52,12 +53,8 @@ class JsonShoppingListProviderTest {
 
 	@Test
 	void testGetShoppingList_FileNotFound() {
-		// Act
-		List<ShoppingItem> items = provider.getShoppingList("non-existent-file.json");
-
-		// Assert
-		assertNotNull(items);
-		assertTrue(items.isEmpty());
+		// Act & Assert
+		assertThrows(ShoppingListException.class, () -> provider.getShoppingList("non-existent-file.json"));
 	}
 
 	@Test
@@ -68,12 +65,8 @@ class JsonShoppingListProviderTest {
 			writer.write("{ invalid json }");
 		}
 
-		// Act
-		List<ShoppingItem> items = provider.getShoppingList(tempFile.getAbsolutePath());
-
-		// Assert
-		assertNotNull(items);
-		assertTrue(items.isEmpty());
+		// Act & Assert
+		assertThrows(ShoppingListException.class, () -> provider.getShoppingList(tempFile.getAbsolutePath()));
 	}
 
 	@Test

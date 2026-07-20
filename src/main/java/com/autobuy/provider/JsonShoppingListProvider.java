@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 import com.autobuy.exception.ShoppingListException;
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -32,7 +31,7 @@ public class JsonShoppingListProvider implements ShoppingListProvider {
 		File file = new File(sourcePath);
 		if (!file.exists()) {
 			log.error("Shopping list file not found: {}", sourcePath);
-			return Collections.emptyList();
+			throw new ShoppingListException("Shopping list file not found: " + sourcePath);
 		}
 
 		try {
@@ -42,7 +41,7 @@ public class JsonShoppingListProvider implements ShoppingListProvider {
 			return items;
 		} catch (IOException e) {
 			log.error("Failed to parse shopping list file: {}", sourcePath, e);
-			return Collections.emptyList();
+			throw new ShoppingListException("Failed to parse shopping list file: " + sourcePath, e);
 		}
 	}
 

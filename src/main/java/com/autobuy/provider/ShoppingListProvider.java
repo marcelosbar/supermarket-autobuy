@@ -24,7 +24,7 @@ public interface ShoppingListProvider {
 	 * @param items
 	 *            List of shopping items to save
 	 * @throws UnsupportedOperationException
-	 *             If saving credentials is not supported by this provider
+	 *             If saving shopping list is not supported by this provider
 	 */
 	default void saveShoppingList(String sourcePath, List<ShoppingItem> items) {
 		throw new UnsupportedOperationException("Saving shopping list is not supported by this provider.");

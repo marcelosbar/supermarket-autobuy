@@ -2,6 +2,7 @@ package com.autobuy.web;
 
 import com.autobuy.exception.CredentialException;
 import com.autobuy.exception.DriverException;
+import com.autobuy.exception.SettingsException;
 import com.autobuy.exception.ShoppingListException;
 import com.autobuy.web.dto.ErrorResponse;
 import java.time.LocalDateTime;
@@ -29,6 +30,13 @@ public class GlobalExceptionHandler {
 		log.warn("Shopping list error: {}", ex.getMessage());
 		return ResponseEntity.badRequest().body(
 				new ErrorResponse(ex.getMessage(), "SHOPPING_LIST_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
+	}
+
+	@ExceptionHandler(SettingsException.class)
+	public ResponseEntity<ErrorResponse> handleSettings(SettingsException ex) {
+		log.warn("Settings error: {}", ex.getMessage());
+		return ResponseEntity.badRequest()
+				.body(new ErrorResponse(ex.getMessage(), "SETTINGS_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(DriverException.class)
