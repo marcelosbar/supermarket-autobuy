@@ -115,13 +115,15 @@ The local H2 database schema is versioned and managed incrementally using **Flyw
 ## Running Tests
 Run the JUnit unit tests using:
 ```powershell
-.\mvnw.cmd test
+.\mvnw.cmd test -q
 ```
+*(or `./mvnw test -q` on Linux/macOS)*
 
 To run both unit and integration tests, verify formatting, and enforce code coverage checks (note that you must commit your changes locally first so that the `diff-coverage` plugin can detect the diff against `origin/main`):
 ```powershell
-.\mvnw.cmd verify
+.\mvnw.cmd verify -q
 ```
+*(or `./mvnw verify -q` on Linux/macOS)*
 
 * **Code Coverage Gate:** The project uses JaCoCo to enforce a **minimum instruction coverage of 80%** on all core logic. Exclusions are defined consistently for both local builds and SonarCloud for non-business boilerplate code (bootstrap, config beans, custom exceptions, entities, records, and the Playwright driver).
 

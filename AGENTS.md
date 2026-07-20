@@ -18,10 +18,9 @@
 ## 2. CLI Commands
 
 * **Build and package** using: `.\mvnw.cmd clean package`.
-* **Run tests** using: `.\mvnw.cmd test 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`.
+* **Run tests** using: `.\mvnw.cmd test -q` (Windows) or `./mvnw test -q` (Linux/macOS).
 * **Run a single test** by adding `-Dtest=TestClassName`.
-* **Always pipe output** when running tests. This filters verbose output and saves LLM token context.
-* **Pre-push verification** using: `.\mvnw.cmd verify 2>$null | Select-String "Results:", "Tests run:", "BUILD", "ERROR", "Failed", "violations"`. Commit locally first so `diff-coverage` can detect modified files. Skip verification for documentation-only changes.
+* **Pre-push verification** using: `.\mvnw.cmd verify -q` (Windows) or `./mvnw verify -q` (Linux/macOS). Commit locally first so `diff-coverage` can detect modified files. Skip verification for documentation-only changes.
 * **Run the application** using: `.\mvnw.cmd spring-boot:run`. Starts the Web UI and runs migrations.
 * **Auto-format code** using: `.\mvnw.cmd spotless:apply`. Applies Eclipse JDT 4-space indent style.
 
