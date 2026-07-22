@@ -1,11 +1,11 @@
 package com.autobuy.web;
 
 import com.autobuy.provider.CredentialProvider;
+import com.autobuy.web.dto.ActionResponse;
+import com.autobuy.web.dto.CredentialStatusResponse;
 import com.autobuy.web.dto.CredentialsRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
-
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -19,13 +19,14 @@ class CredentialsControllerTest {
 		when(provider.getPassword(anyString())).thenReturn(null);
 
 		CredentialsController controller = new CredentialsController(provider);
-		ResponseEntity<Map<String, Object>> response = controller.getCredentialsStatus("CONTINENTE");
+		ResponseEntity<CredentialStatusResponse> response = controller.getCredentialsStatus("CONTINENTE");
 
-		Map<String, Object> body = response.getBody();
-		assertEquals("CONTINENTE", body.get("supermarket"));
-		assertFalse((Boolean) body.get("hasUsername"));
-		assertFalse((Boolean) body.get("hasPassword"));
-		assertEquals("", body.get("username"));
+		CredentialStatusResponse body = response.getBody();
+		assertNotNull(body);
+		assertEquals("CONTINENTE", body.supermarket());
+		assertFalse(body.hasUsername());
+		assertFalse(body.hasPassword());
+		assertEquals("", body.username());
 	}
 
 	@Test
@@ -35,12 +36,13 @@ class CredentialsControllerTest {
 		when(provider.getPassword(anyString())).thenReturn("   ");
 
 		CredentialsController controller = new CredentialsController(provider);
-		ResponseEntity<Map<String, Object>> response = controller.getCredentialsStatus("CONTINENTE");
+		ResponseEntity<CredentialStatusResponse> response = controller.getCredentialsStatus("CONTINENTE");
 
-		Map<String, Object> body = response.getBody();
-		assertFalse((Boolean) body.get("hasUsername"));
-		assertFalse((Boolean) body.get("hasPassword"));
-		assertEquals("   ", body.get("username"));
+		CredentialStatusResponse body = response.getBody();
+		assertNotNull(body);
+		assertFalse(body.hasUsername());
+		assertFalse(body.hasPassword());
+		assertEquals("   ", body.username());
 	}
 
 	@Test
@@ -52,8 +54,9 @@ class CredentialsControllerTest {
 		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", null, "");
 
-		ResponseEntity<Map<String, Object>> response = controller.saveCredentials(request);
-		assertTrue((Boolean) response.getBody().get("success"));
+		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().success());
 		verify(provider).saveCredentials("CONTINENTE", null, "");
 	}
 
@@ -66,9 +69,10 @@ class CredentialsControllerTest {
 		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "user", null);
 
-		ResponseEntity<Map<String, Object>> response = controller.saveCredentials(request);
-		assertTrue((Boolean) response.getBody().get("success"));
-		assertEquals("Credentials unchanged.", response.getBody().get("message"));
+		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().success());
+		assertEquals("Credentials unchanged.", response.getBody().message());
 		verify(provider, never()).saveCredentials(any(), any(), any());
 	}
 
@@ -81,8 +85,9 @@ class CredentialsControllerTest {
 		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "user", "pass");
 
-		ResponseEntity<Map<String, Object>> response = controller.saveCredentials(request);
-		assertTrue((Boolean) response.getBody().get("success"));
+		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().success());
 		verify(provider).saveCredentials("CONTINENTE", "user", "pass");
 	}
 
@@ -95,8 +100,9 @@ class CredentialsControllerTest {
 		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "different-user", "");
 
-		ResponseEntity<Map<String, Object>> response = controller.saveCredentials(request);
-		assertTrue((Boolean) response.getBody().get("success"));
+		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().success());
 		verify(provider).saveCredentials("CONTINENTE", "different-user", "");
 	}
 }

@@ -66,6 +66,13 @@ public class GlobalExceptionHandler {
 				new ErrorResponse(ex.getMessage(), "VALIDATION_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
+	@ExceptionHandler(UnsupportedOperationException.class)
+	public ResponseEntity<ErrorResponse> handleUnsupportedOperation(UnsupportedOperationException ex) {
+		log.warn("Unsupported operation: {}", ex.getMessage());
+		return ResponseEntity.badRequest().body(
+				new ErrorResponse(ex.getMessage(), "UNSUPPORTED_OPERATION", LocalDateTime.now(ZoneId.systemDefault())));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
 		log.error("Unexpected error", ex);

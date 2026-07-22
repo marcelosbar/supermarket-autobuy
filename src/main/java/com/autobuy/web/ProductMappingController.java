@@ -3,14 +3,17 @@ package com.autobuy.web;
 import com.autobuy.model.ProductMapping;
 import com.autobuy.model.SearchResult;
 import com.autobuy.service.ProductService;
+import com.autobuy.web.dto.ActionResponse;
+import com.autobuy.web.dto.AddAlternativeRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Controller exposing product mapping endpoints.
@@ -23,9 +26,6 @@ public class ProductMappingController {
 
 	private final ProductService productService;
 
-	private static final String SUCCESS_KEY = "success";
-	private static final String MESSAGE_KEY = "message";
-
 	public ProductMappingController(ProductService productService) {
 		this.productService = productService;
 	}
@@ -33,43 +33,24 @@ public class ProductMappingController {
 	@GetMapping
 	public ResponseEntity<Map<String, List<ProductMapping>>> getMappings() {
 		List<ProductMapping> all = productService.findAllMappings();
-		Map<String, List<ProductMapping>> grouped = all.stream()
-				.collect(java.util.stream.Collectors.groupingBy(ProductMapping::getSearchText,
-						java.util.stream.Collectors.collectingAndThen(java.util.stream.Collectors.toList(), list -> {
-							list.sort(java.util.Comparator.comparingInt(ProductMapping::getPriority));
-							return list;
-						})));
+		Map<String, List<ProductMapping>> grouped = all.stream().collect(Collectors
+				.groupingBy(ProductMapping::getSearchText, Collectors.collectingAndThen(Collectors.toList(), list -> {
+					list.sort(Comparator.comparingInt(ProductMapping::getPriority));
+					return list;
+				})));
 		return ResponseEntity.ok(grouped);
 	}
 
 	@PostMapping("/{id}/promote")
-	public ResponseEntity<Map<String, Object>> promoteMapping(@PathVariable Long id) {
-		try {
-			productService.promoteMapping(id);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
+	public ResponseEntity<ActionResponse> promoteMapping(@PathVariable Long id) {
+		productService.promoteMapping(id);
+		return ResponseEntity.ok(new ActionResponse(true));
 	}
 
 	@PostMapping("/{id}/demote")
-	public ResponseEntity<Map<String, Object>> demoteMapping(@PathVariable Long id) {
-		try {
-			productService.demoteMapping(id);
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
+	public ResponseEntity<ActionResponse> demoteMapping(@PathVariable Long id) {
+		productService.demoteMapping(id);
+		return ResponseEntity.ok(new ActionResponse(true));
 	}
 
 	@DeleteMapping("/{id}")
@@ -83,26 +64,16 @@ public class ProductMappingController {
 	}
 
 	@PostMapping("/alternative")
-	public ResponseEntity<Map<String, Object>> addAlternative(
-			@RequestBody com.autobuy.web.dto.AddAlternativeRequest request) {
-		try {
-			List<ProductMapping> existing = productService.findMappingsBySearchTextAndSupermarket(
-					request.searchText().toLowerCase().trim(), request.supermarket());
-			int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max().orElse(-1) + 1;
+	public ResponseEntity<ActionResponse> addAlternative(@RequestBody AddAlternativeRequest request) {
+		List<ProductMapping> existing = productService.findMappingsBySearchTextAndSupermarket(
+				request.searchText().toLowerCase().trim(), request.supermarket());
+		int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max().orElse(-1) + 1;
 
-			SearchResult result = new SearchResult(request.externalId(), request.productName(), "",
-					java.math.BigDecimal.ZERO, "", "");
-			productService.saveMappingWithPriority(request.searchText().toLowerCase().trim(), request.supermarket(),
-					result, nextPriority);
+		SearchResult result = new SearchResult(request.externalId(), request.productName(), "",
+				java.math.BigDecimal.ZERO, "", "");
+		productService.saveMappingWithPriority(request.searchText().toLowerCase().trim(), request.supermarket(), result,
+				nextPriority);
 
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, true);
-			return ResponseEntity.ok(response);
-		} catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put(SUCCESS_KEY, false);
-			response.put(MESSAGE_KEY, e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
+		return ResponseEntity.ok(new ActionResponse(true));
 	}
 }

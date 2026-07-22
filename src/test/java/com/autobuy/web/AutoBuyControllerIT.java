@@ -159,9 +159,8 @@ class AutoBuyControllerIT {
 				""";
 
 		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.message")
-						.value("Failed to save credentials: Validation failed: username cannot be empty"));
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("CREDENTIAL_ERROR"))
+				.andExpect(jsonPath("$.error").value("Validation failed: username cannot be empty"));
 	}
 
 	@Test
@@ -179,9 +178,8 @@ class AutoBuyControllerIT {
 				""";
 
 		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.message")
-						.value("Database/properties credentials saving not supported in this profile."));
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("UNSUPPORTED_OPERATION"))
+				.andExpect(jsonPath("$.error").value("Saving credentials is not supported by this provider."));
 	}
 
 	@Test
@@ -307,9 +305,8 @@ class AutoBuyControllerIT {
 					}
 					""";
 			mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
-					.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.message")
-							.value(org.hamcrest.Matchers.containsString("Failed to save backup directory")));
+					.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("SETTINGS_ERROR"))
+					.andExpect(jsonPath("$.error").value("Failed to save backup dir"));
 		} finally {
 			if (settingsProvider instanceof StubSettingsProvider stub) {
 				stub.throwBackupDirException = false;
@@ -339,8 +336,8 @@ class AutoBuyControllerIT {
 		when(folderPicker.selectDirectory()).thenThrow(new RuntimeException("Drive not ready"));
 
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isInternalServerError())
-				.andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.message").value("Error opening native directory chooser: Drive not ready"));
+				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
+				.andExpect(jsonPath("$.error").value("Drive not ready"));
 	}
 
 	@Test
@@ -349,7 +346,7 @@ class AutoBuyControllerIT {
 				"Cannot open native folder picker: Graphics environment is headless."));
 
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message")
+				.andExpect(jsonPath("$.type").value("UNSUPPORTED_OPERATION")).andExpect(jsonPath("$.error")
 						.value("Cannot open native folder picker: Graphics environment is headless."));
 	}
 
@@ -611,8 +608,9 @@ class AutoBuyControllerIT {
 	void testPromoteMappingEndpoint_Failure() throws Exception {
 		doThrow(new RuntimeException("Promote failed")).when(productService).promoteMapping(123L);
 
-		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Promote failed"));
+		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
+				.andExpect(jsonPath("$.error").value("Promote failed"));
 	}
 
 	@Test
@@ -627,8 +625,9 @@ class AutoBuyControllerIT {
 	void testDemoteMappingEndpoint_Failure() throws Exception {
 		doThrow(new RuntimeException("Demote failed")).when(productService).demoteMapping(123L);
 
-		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false)).andExpect(jsonPath("$.message").value("Demote failed"));
+		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
+				.andExpect(jsonPath("$.error").value("Demote failed"));
 	}
 
 	@Test
@@ -665,8 +664,8 @@ class AutoBuyControllerIT {
 				""";
 
 		mockMvc.perform(post("/api/mappings/alternative").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false))
-				.andExpect(jsonPath("$.message").value("Database error"));
+				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
+				.andExpect(jsonPath("$.error").value("Database error"));
 	}
 
 	@Test
@@ -757,7 +756,7 @@ class AutoBuyControllerIT {
 				}
 				""";
 		mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.success").value(false));
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("SETTINGS_ERROR"));
 	}
 
 	@Test
