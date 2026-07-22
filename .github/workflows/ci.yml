@@ -41,6 +41,9 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Build & Test with Coverage
+        run: ./mvnw -B clean verify
+
       - name: Snyk Dependency Scan
         if: github.ref == 'refs/heads/main' && github.actor != 'dependabot[bot]'
         uses: snyk/actions/maven@8e119fbb6c251787721d34ba683ed48eba792766 # master @ 2026-05-27
@@ -71,9 +74,6 @@ jobs:
           JAVA_HOME: ""
         with:
           command: monitor
-
-      - name: Build & Test with Coverage
-        run: ./mvnw -B clean verify
 
       - name: SonarCloud Scan
         if: github.actor != 'dependabot[bot]'
