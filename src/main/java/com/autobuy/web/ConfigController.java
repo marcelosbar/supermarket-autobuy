@@ -46,11 +46,10 @@ public class ConfigController {
 		String resolvedPath = (path == null || path.trim().isEmpty()) ? null : path.trim();
 
 		if (resolvedPath != null) {
-			try {
-				resolvedPath = java.nio.file.Path.of(resolvedPath).normalize().toString().replace('\\', '/');
-			} catch (Exception e) {
+			if (resolvedPath.contains("\0") || resolvedPath.contains("..")) {
 				return ResponseEntity.badRequest().body(new ActionResponse(false));
 			}
+			resolvedPath = java.nio.file.Path.of(resolvedPath).normalize().toString().replace('\\', '/');
 		}
 
 		if (settingsProvider != null) {

@@ -80,6 +80,17 @@ class ConfigControllerTest {
 	}
 
 	@Test
+	void testSaveBackupDir_WithInvalidPath() {
+		ConfigController controller = new ConfigController(null, null, null);
+		BackupDirRequest request = new BackupDirRequest("../invalid");
+
+		ResponseEntity<ActionResponse> response = controller.saveBackupDir(request);
+		assertNotNull(response.getBody());
+		assertFalse(response.getBody().success());
+		assertEquals(400, response.getStatusCode().value());
+	}
+
+	@Test
 	void testGetBackupStatus_WithNullService() {
 		ConfigController controller = new ConfigController(null, null, null);
 		ResponseEntity<BackupStatusResponse> response = controller.getBackupStatus();
