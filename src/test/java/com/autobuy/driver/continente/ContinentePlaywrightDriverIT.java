@@ -8,16 +8,18 @@ import static org.junit.jupiter.api.Assertions.*;
 class ContinentePlaywrightDriverIT {
 
 	@Test
-	void testSearchProductBrandAndUrl() {
+	void searchProduct_validQuery_returnsBrandAndUrl() {
+		// Arrange
 		ContinentePlaywrightDriver driver = new ContinentePlaywrightDriver();
 		try {
 			driver.initialize(null, null, false);
+
+			// Act
 			List<SearchResult> results = driver.searchProduct("Doce de Leite Continente Seleção");
 
+			// Assert
 			assertFalse(results.isEmpty(), "Should find at least one search result");
 			SearchResult first = results.get(0);
-
-			System.out.println("First Search Result: " + first);
 
 			// Assert brand is correctly parsed
 			assertTrue(first.brand().toLowerCase().contains("continente"),

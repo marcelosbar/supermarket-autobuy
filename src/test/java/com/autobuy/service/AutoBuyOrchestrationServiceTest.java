@@ -9,7 +9,10 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.math.BigDecimal;
@@ -21,14 +24,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class AutoBuyOrchestrationServiceTest {
 
+	@Mock
 	private ProductService productService;
+	@Mock
 	private PriceHistoryService priceHistoryService;
+	@Mock
 	private SupermarketDriver supermarketDriver;
+	@Mock
 	private CredentialProvider credentialProvider;
+	@Mock
 	private ShoppingListProvider shoppingListProvider;
+	@Mock
 	private GuestSearchService guestSearchService;
+
 	private ThreadPoolTaskExecutor taskExecutor;
 
 	private AutoBuyExecutionContext executionContext;
@@ -39,12 +50,6 @@ class AutoBuyOrchestrationServiceTest {
 	@BeforeEach
 	void setUp() {
 		MemoryAppender.clear();
-		productService = mock(ProductService.class);
-		priceHistoryService = mock(PriceHistoryService.class);
-		supermarketDriver = mock(SupermarketDriver.class);
-		credentialProvider = mock(CredentialProvider.class);
-		shoppingListProvider = mock(ShoppingListProvider.class);
-		guestSearchService = mock(GuestSearchService.class);
 
 		taskExecutor = new ThreadPoolTaskExecutor();
 		taskExecutor.setCorePoolSize(2);
@@ -53,8 +58,8 @@ class AutoBuyOrchestrationServiceTest {
 		taskExecutor.setThreadNamePrefix("Test-AutoBuy-");
 		taskExecutor.initialize();
 
-		when(supermarketDriver.getSupermarketName()).thenReturn("CONTINENTE");
-		when(supermarketDriver.isProductAvailable(anyString())).thenReturn(true);
+		lenient().when(supermarketDriver.getSupermarketName()).thenReturn("CONTINENTE");
+		lenient().when(supermarketDriver.isProductAvailable(anyString())).thenReturn(true);
 
 		executionContext = new AutoBuyExecutionContext();
 		productResolutionService = spy(
@@ -82,49 +87,65 @@ class AutoBuyOrchestrationServiceTest {
 	}
 
 	@Test
-	void testStartAutoBuy_DriverNotFound() {
+	void startAutoBuy_driverNotFound_transitionsToFailedState() {
+		// Act
 		service.startAutoBuy("list.json", "NONEXISTENT", false);
+
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("No driver found"));
 		verify(guestSearchService).close();
 	}
 
 	@Test
-	void testStartAutoBuy_EmptyShoppingList() {
+	void startAutoBuy_emptyShoppingList_transitionsToFailedState() {
+		// Arrange
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("Shopping list is empty"));
 	}
 
 	@Test
-	void testStartAutoBuy_MissingCredentials() {
+	void startAutoBuy_missingCredentials_transitionsToFailedState() {
+		// Arrange
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(new ShoppingItem("apples", 1)));
 		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("");
 		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("");
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("Credentials for CONTINENTE are not configured"));
 	}
 
 	@Test
-	void testStartAutoBuy_DriverInitFailure() {
+	void startAutoBuy_driverInitFailure_transitionsToFailedState() {
+		// Arrange
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(new ShoppingItem("apples", 1)));
 		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
 		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
 		doThrow(new RuntimeException("Playwright crashed")).when(supermarketDriver).initialize(anyString(), anyString(),
 				anyBoolean());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
+
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("Failed to initialize driver"));
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
-	void testStartAutoBuy_HappyPathWithMappings() {
+	void startAutoBuy_validMappedItem_addsToCartAndCompletes() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
@@ -139,24 +160,27 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(true);
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		assertEquals("apples", executionContext.getCurrentItemQuery());
 		assertEquals(2, executionContext.getCurrentItemQuantity());
 
+		// Act
 		service.completeRun();
 
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
-
 		verify(priceHistoryService).logPrice(searchResult, "CONTINENTE");
 		verify(supermarketDriver).navigateToCart();
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolution() {
+	void startAutoBuy_unmappedItem_awaitsMappingAndCompletesOnResolution() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult1 = new SearchResult("skuA", "Green Apples", "Brand", BigDecimal.valueOf(1.5), "url",
 				"Fruit");
@@ -171,24 +195,28 @@ class AutoBuyOrchestrationServiceTest {
 				.thenReturn(new ArrayList<>(List.of(searchResult1, searchResult2)));
 		when(supermarketDriver.addProductToCart("skuB", 2)).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		productResolutionService.resolveMapping("skuB", true);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		verify(productService).saveMappingWithPriority("apples", "CONTINENTE", searchResult2, 0);
 		verify(supermarketDriver).addProductToCart("skuB", 2);
 
+		// Act
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionSkip() {
+	void startAutoBuy_unmappedItemSkipped_completesWithoutAddingToCart() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult1 = new SearchResult("skuA", "Green Apples", "Brand", BigDecimal.valueOf(1.5), "url",
 				"Fruit");
@@ -199,24 +227,28 @@ class AutoBuyOrchestrationServiceTest {
 		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult1)));
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		productResolutionService.resolveMapping("skip", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		verify(productService, never()).saveMappingWithPriority(anyString(), anyString(), any(), anyInt());
 		verify(supermarketDriver, never()).addProductToCart(anyString(), anyInt());
 
+		// Act
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
-	void testResolveMapping_StateTransitionsToRunning() {
+	void resolveMapping_validSku_transitionsStateAndAddsToCart() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("skuB", "Red Apples", "Brand", BigDecimal.valueOf(1.9), "url",
 				"Fruit");
@@ -226,24 +258,27 @@ class AutoBuyOrchestrationServiceTest {
 		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
 		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
-
 		when(supermarketDriver.addProductToCart("skuB", 2)).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		var status = productResolutionService.resolveMapping("skuB", true);
 
+		// Assert
 		assertTrue(status.added());
 		AutoBuyState currentState = executionContext.getState();
 		assertTrue(currentState == AutoBuyState.RUNNING || currentState == AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Act
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 		service.completeRun();
 	}
 
 	@Test
-	void testCancelRun() {
+	void cancel_duringAwaitingMapping_transitionsToFailedState() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
 		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
@@ -253,36 +288,43 @@ class AutoBuyOrchestrationServiceTest {
 				new ArrayList<>(List.of(new SearchResult("skuA", "Name", "Brand", BigDecimal.ONE, "url", "cat"))));
 
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
+		// Act
 		service.cancel();
 
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("canceled by user"));
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
-	void testIllegalStateTransitions() {
+	void resolveMapping_illegalState_throwsIllegalStateException() {
+		// Arrange & Act & Assert
 		assertThrows(IllegalStateException.class, () -> productResolutionService.resolveMapping("sku123", true));
 		assertThrows(IllegalStateException.class, () -> service.completeRun());
 		assertThrows(IllegalStateException.class, () -> productResolutionService.refineSearch("query"));
 
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
-		when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
-		when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
-		when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
-		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
-		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
+		lenient().when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
+		lenient().when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
+		lenient().when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
+		lenient().when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
+				.thenReturn(List.of());
+		lenient().when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
+		// Assert
 		assertThrows(IllegalStateException.class, () -> service.startAutoBuy("list.json", "CONTINENTE", false));
 	}
 
 	@Test
-	void testProcessingOrder_UnmappedItemsFirst() {
+	void startAutoBuy_mixedMappedAndUnmappedItems_processesUnmappedItemsFirst() {
+		// Arrange
 		ShoppingItem itemA = new ShoppingItem("apples", 1);
 		ShoppingItem itemB = new ShoppingItem("bananas", 2);
 		ShoppingItem itemC = new ShoppingItem("carrots", 3);
@@ -312,16 +354,20 @@ class AutoBuyOrchestrationServiceTest {
 
 		when(supermarketDriver.addProductToCart(anyString(), anyInt())).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
+
+		// Assert
 		assertEquals("bananas", executionContext.getCurrentItemQuery());
 
+		// Act
 		productResolutionService.resolveMapping("skuB", true);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 
 		InOrder inOrder = inOrder(supermarketDriver);
@@ -335,7 +381,8 @@ class AutoBuyOrchestrationServiceTest {
 	}
 
 	@Test
-	void testProcessingOrder_AllMapped() {
+	void startAutoBuy_allMappedItems_processesInOrderAndCompletes() {
+		// Arrange
 		ShoppingItem itemA = new ShoppingItem("apples", 1);
 		ShoppingItem itemC = new ShoppingItem("carrots", 3);
 
@@ -360,11 +407,13 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.isProductAvailable("skuC")).thenReturn(true);
 		when(supermarketDriver.addProductToCart(anyString(), anyInt())).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 
 		InOrder inOrder = inOrder(supermarketDriver);
@@ -376,7 +425,8 @@ class AutoBuyOrchestrationServiceTest {
 	}
 
 	@Test
-	void testStartAutoBuy_MappedSkuNotFound() {
+	void startAutoBuy_mappedSkuNotFound_awaitsExhaustedResolutions() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 
@@ -388,23 +438,27 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of());
 		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		productResolutionService.resolveMapping("skip", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		assertEquals(1, executionContext.getSkippedItems().size());
 		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
+		// Act
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testStartAutoBuy_MappedSkuUnavailable() {
+	void startAutoBuy_mappedSkuUnavailable_awaitsExhaustedResolutions() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
@@ -419,23 +473,27 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.isProductAvailable("sku123")).thenReturn(false);
 		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		productResolutionService.resolveMapping("skip", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		assertEquals(1, executionContext.getSkippedItems().size());
 		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
+		// Act
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testStartAutoBuy_CartAddFailure() {
+	void startAutoBuy_cartAddFailure_awaitsExhaustedResolutions() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
@@ -451,23 +509,27 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(false);
 		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		productResolutionService.resolveMapping("skip", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		assertEquals(1, executionContext.getSkippedItems().size());
 		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
+		// Act
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testStartAutoBuy_NavigateToCartFailure() {
+	void startAutoBuy_navigateToCartFailure_completesSuccessfully() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
@@ -483,20 +545,21 @@ class AutoBuyOrchestrationServiceTest {
 
 		doThrow(new RuntimeException("Navigation failed")).when(supermarketDriver).navigateToCart();
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
 
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
-
 		verify(supermarketDriver).navigateToCart();
 		verify(supermarketDriver, timeout(2000).atLeastOnce()).close();
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionRefine() {
+	void startAutoBuy_interactiveRefining_updatesSearchResultsAndResolves() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult initialResult = new SearchResult("skuA", "Green Apples", "Brand", BigDecimal.valueOf(1.5), "url",
 				"Fruit");
@@ -512,32 +575,39 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.searchProduct("red apples")).thenReturn(new ArrayList<>(List.of(refinedResult)));
 		when(supermarketDriver.addProductToCart("skuB", 2)).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
+		// Assert
 		assertEquals(1, executionContext.getSearchResults().size());
 		assertEquals("skuA", executionContext.getSearchResults().get(0).externalId());
 
+		// Act
 		productResolutionService.refineSearch("red apples");
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
+		// Assert
 		assertEquals(1, executionContext.getSearchResults().size());
 		assertEquals("skuB", executionContext.getSearchResults().get(0).externalId());
 
+		// Act
 		productResolutionService.resolveMapping("skuB", true);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		verify(productService).saveMappingWithPriority("apples", "CONTINENTE", refinedResult, 0);
 
+		// Act
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionSaveMappingException() {
+	void startAutoBuy_saveMappingThrowsException_continuesAndCompletes() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
 				"Fruit");
@@ -552,20 +622,22 @@ class AutoBuyOrchestrationServiceTest {
 		doThrow(new RuntimeException("Database error")).when(productService).saveMappingWithPriority("apples",
 				"CONTINENTE", searchResult, 0);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		productResolutionService.resolveMapping("sku123", true);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionExhaustedSelect() {
+	void startAutoBuy_exhaustedResolutionSelect_addsAlternativeToCartAndCompletes() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
@@ -585,21 +657,26 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.isProductAvailable("sku456")).thenReturn(true);
 		when(supermarketDriver.addProductToCart("sku456", 2)).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		var status = productResolutionService.resolveMapping("sku456", true);
+
+		// Assert
 		assertTrue(status.added());
 
+		// Act
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
-
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionSelect_CartAddFailure() {
+	void resolveMapping_cartAddFailureWithoutSaveMapping_throwsAutoBuyException() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
 				"Fruit");
@@ -611,16 +688,18 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(false);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
+		// Assert
 		assertThrows(com.autobuy.exception.AutoBuyException.class,
 				() -> productResolutionService.resolveMapping("sku123", false));
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionSelect_CartAddFailureSaveMapping() {
+	void resolveMapping_cartAddFailureWithSaveMapping_returnsStatusMessage() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
 				"Fruit");
@@ -632,17 +711,20 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(false);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
 		var status = productResolutionService.resolveMapping("sku123", true);
+
+		// Assert
 		assertFalse(status.added());
 		assertEquals("Saved as mapping, but out of stock. Please select a fallback alternative.", status.message());
 	}
 
 	@Test
-	void testStartAutoBuy_InteractiveResolutionSelect_ProductNotFoundInSearchResults() {
+	void resolveMapping_skuNotFoundInResults_throwsIllegalArgumentException() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
 				"Fruit");
@@ -653,16 +735,18 @@ class AutoBuyOrchestrationServiceTest {
 		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
-
 		awaitState(AutoBuyState.AWAITING_MAPPING);
 
+		// Assert
 		assertThrows(IllegalArgumentException.class,
 				() -> productResolutionService.resolveMapping("nonexistent-sku", false));
 	}
 
 	@Test
-	void testStartAutoBuy_ExhaustedResolution_AddCartFailureAndSaveMappingFalse() {
+	void resolveMapping_exhaustedItemCartAddFailure_skipsItemAndCompletes() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "BrandA", BigDecimal.valueOf(1.99), "url",
@@ -681,39 +765,54 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(alternativeResult)));
 		when(supermarketDriver.addProductToCart("sku456", 2)).thenReturn(false);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		productResolutionService.resolveMapping("sku456", false);
-
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 
+		// Assert
 		assertEquals(1, executionContext.getSkippedItems().size());
 		assertEquals("apples", executionContext.getSkippedItems().get(0));
 
+		// Act
 		service.completeRun();
+
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testShutdown_WithActiveDriver() {
+	void shutdown_withActiveDriver_closesDriverAndClearsContext() {
+		// Arrange
 		executionContext.setActiveDriver(supermarketDriver);
+
+		// Act
 		service.shutdown();
+
+		// Assert
 		verify(supermarketDriver).close();
 		assertNull(executionContext.getActiveDriver());
 	}
 
 	@Test
-	void testShutdown_WithActiveDriverCloseException() {
+	void shutdown_driverCloseThrowsException_clearsActiveDriver() {
+		// Arrange
 		doThrow(new RuntimeException("close failed")).when(supermarketDriver).close();
 		executionContext.setActiveDriver(supermarketDriver);
+
+		// Act
 		service.shutdown();
+
+		// Assert
 		verify(supermarketDriver).close();
 		assertNull(executionContext.getActiveDriver());
 	}
 
 	@Test
-	void testCompleteRun_KeepBrowser() {
+	void completeRun_keepBrowserTrue_completesWithoutClosingBrowser() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
 				"Fruit");
@@ -725,6 +824,7 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.searchProduct("apples")).thenReturn(new ArrayList<>(List.of(searchResult)));
 		when(supermarketDriver.addProductToCart("sku123", 2)).thenReturn(true);
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		awaitState(AutoBuyState.AWAITING_MAPPING);
@@ -734,11 +834,13 @@ class AutoBuyOrchestrationServiceTest {
 
 		service.completeRun(true);
 
+		// Assert
 		awaitState(AutoBuyState.SUCCESS);
 	}
 
 	@Test
-	void testStartAutoBuy_InterruptedDuringExecution() throws InterruptedException {
+	void startAutoBuy_threadInterrupted_transitionsToFailedState() throws InterruptedException {
+		// Arrange
 		ShoppingItem item1 = new ShoppingItem("apples", 1);
 		ShoppingItem item2 = new ShoppingItem("bananas", 2);
 
@@ -752,14 +854,17 @@ class AutoBuyOrchestrationServiceTest {
 			throw new InterruptedException("Simulated interrupt");
 		}).when(productResolutionService).resolveProduct(any(), eq(item1), anyString());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("Execution interrupted"));
 	}
 
 	@Test
-	void testCancelDuringExhaustedResolutionsState() {
+	void cancel_duringExhaustedResolutions_transitionsToFailedState() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		ProductMapping mapping = new ProductMapping("apples", "CONTINENTE", "sku123", "Red Apples");
 
@@ -771,18 +876,21 @@ class AutoBuyOrchestrationServiceTest {
 		when(supermarketDriver.searchProduct("sku123")).thenReturn(List.of());
 		when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
 		awaitState(AutoBuyState.AWAITING_EXHAUSTED_RESOLUTIONS);
 
 		service.cancel();
 
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		assertTrue(executionContext.getErrorMsg().contains("canceled by user"));
 	}
 
 	@Test
-	void testStartAutoBuy_StateFailedDuringLoop() throws InterruptedException {
+	void startAutoBuy_stateFailedDuringLoop_stopsProcessingRemainingItems() throws InterruptedException {
+		// Arrange
 		ShoppingItem item1 = new ShoppingItem("apples", 1);
 		ShoppingItem item2 = new ShoppingItem("bananas", 2);
 
@@ -795,15 +903,17 @@ class AutoBuyOrchestrationServiceTest {
 			return null;
 		}).when(productResolutionService).resolveProduct(any(), eq(item1), anyString());
 
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
+		// Assert
 		awaitState(AutoBuyState.FAILED);
 		verify(productResolutionService, never()).resolveProduct(any(), eq(item2), anyString());
 	}
 
 	@Test
-	void testStartAutoBuy_WhenAwaitingFinalReviewAndActiveDriverCloseException() {
-		// 1. Put into AWAITING_FINAL_REVIEW
+	void startAutoBuy_alreadyAwaitingFinalReview_resetsAndRestarts() {
+		// Arrange
 		ShoppingItem item = new ShoppingItem("apples", 2);
 		SearchResult searchResult = new SearchResult("sku123", "Red Apples", "Brand", BigDecimal.valueOf(1.99), "url",
 				"Fruit");
@@ -821,10 +931,10 @@ class AutoBuyOrchestrationServiceTest {
 		// Make active driver close throw exception
 		doThrow(new RuntimeException("close failed")).when(supermarketDriver).close();
 
-		// Start new auto buy to trigger the state cleanup
+		// Act
 		service.startAutoBuy("list.json", "CONTINENTE", false);
 
-		// Verify it goes back to running or fails
+		// Assert
 		awaitState(AutoBuyState.AWAITING_FINAL_REVIEW);
 	}
 }

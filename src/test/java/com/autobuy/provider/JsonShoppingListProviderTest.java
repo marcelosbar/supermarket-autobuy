@@ -19,7 +19,7 @@ class JsonShoppingListProviderTest {
 			new com.fasterxml.jackson.databind.ObjectMapper());
 
 	@Test
-	void testGetShoppingList_Success(@TempDir Path tempDir) throws IOException {
+	void getShoppingList_validJsonFile_returnsShoppingItems(@TempDir Path tempDir) throws IOException {
 		// Arrange
 		File tempFile = tempDir.resolve("test-list.json").toFile();
 		try (FileWriter writer = new FileWriter(tempFile)) {
@@ -52,13 +52,13 @@ class JsonShoppingListProviderTest {
 	}
 
 	@Test
-	void testGetShoppingList_FileNotFound() {
-		// Act & Assert
+	void getShoppingList_fileNotFound_throwsShoppingListException() {
+		// Arrange & Act & Assert
 		assertThrows(ShoppingListException.class, () -> provider.getShoppingList("non-existent-file.json"));
 	}
 
 	@Test
-	void testGetShoppingList_InvalidJson(@TempDir Path tempDir) throws IOException {
+	void getShoppingList_invalidJson_throwsShoppingListException(@TempDir Path tempDir) throws IOException {
 		// Arrange
 		File tempFile = tempDir.resolve("invalid-list.json").toFile();
 		try (FileWriter writer = new FileWriter(tempFile)) {
@@ -70,7 +70,7 @@ class JsonShoppingListProviderTest {
 	}
 
 	@Test
-	void testSaveShoppingList_Success(@TempDir java.nio.file.Path tempDir) {
+	void saveShoppingList_validList_savesSuccessfully(@TempDir java.nio.file.Path tempDir) {
 		// Arrange
 		File tempFile = tempDir.resolve("save-list.json").toFile();
 		List<ShoppingItem> itemsToSave = List.of(new ShoppingItem("Milk", 2), new ShoppingItem("Eggs", 12));
@@ -89,7 +89,8 @@ class JsonShoppingListProviderTest {
 	}
 
 	@Test
-	void testSaveShoppingList_IOException() {
+	void saveShoppingList_invalidPath_throwsShoppingListException() {
+		// Arrange & Act & Assert
 		// Saving to a directory path should trigger IOException and
 		// ShoppingListException
 		assertThrows(com.autobuy.exception.ShoppingListException.class, () -> {

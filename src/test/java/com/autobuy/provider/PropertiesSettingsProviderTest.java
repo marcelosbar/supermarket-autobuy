@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PropertiesSettingsProviderTest {
 
 	@Test
-	void testBackupDir_GetAndSave(@TempDir Path tempDir) throws Exception {
+	void getBackupDirAndSaveBackupDir_validInput_updatesAndPersistsSetting(@TempDir Path tempDir) throws Exception {
 		// Arrange
 		File tempFile = tempDir.resolve("secrets.properties").toFile();
 		PropertiesSettingsProvider provider = new PropertiesSettingsProvider(tempFile.getAbsolutePath());
@@ -45,16 +45,20 @@ class PropertiesSettingsProviderTest {
 	}
 
 	@Test
-	void testSaveBackupDir_IOException() {
-		PropertiesSettingsProvider provider = new PropertiesSettingsProvider("target/"); // Writing to a directory
-																							// throws IOException
+	void saveBackupDir_directoryPath_throwsSettingsException() {
+		// Arrange
+		PropertiesSettingsProvider provider = new PropertiesSettingsProvider("target/");
+
+		// Act & Assert
 		assertThrows(SettingsException.class, () -> provider.saveBackupDir("C:/Backup"));
 	}
 
 	@Test
-	void testInit_IOException() {
-		PropertiesSettingsProvider provider = new PropertiesSettingsProvider("target/"); // Reading from a directory
-																							// throws IOException
-		assertDoesNotThrow(provider::init); // catches internally
+	void init_directoryPath_handlesIOException() {
+		// Arrange
+		PropertiesSettingsProvider provider = new PropertiesSettingsProvider("target/");
+
+		// Act & Assert
+		assertDoesNotThrow(provider::init);
 	}
 }

@@ -4,23 +4,39 @@ import com.autobuy.provider.CredentialProvider;
 import com.autobuy.web.dto.ActionResponse;
 import com.autobuy.web.dto.CredentialStatusResponse;
 import com.autobuy.web.dto.CredentialsRequest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class CredentialsControllerTest {
 
+	@Mock
+	private CredentialProvider provider;
+
+	private CredentialsController controller;
+
+	@BeforeEach
+	void setUp() {
+		controller = new CredentialsController(provider);
+	}
+
 	@Test
-	void testGetCredentialsStatus_NullUsernameNullPassword() {
-		CredentialProvider provider = mock(CredentialProvider.class);
+	void getCredentialsStatus_nullCredentials_returnsHasFlagsFalse() {
+		// Arrange
 		when(provider.getUsername(anyString())).thenReturn(null);
 		when(provider.getPassword(anyString())).thenReturn(null);
 
-		CredentialsController controller = new CredentialsController(provider);
+		// Act
 		ResponseEntity<CredentialStatusResponse> response = controller.getCredentialsStatus("CONTINENTE");
 
+		// Assert
 		CredentialStatusResponse body = response.getBody();
 		assertNotNull(body);
 		assertEquals("CONTINENTE", body.supermarket());
@@ -30,14 +46,15 @@ class CredentialsControllerTest {
 	}
 
 	@Test
-	void testGetCredentialsStatus_BlankUsernameBlankPassword() {
-		CredentialProvider provider = mock(CredentialProvider.class);
+	void getCredentialsStatus_blankCredentials_returnsHasFlagsFalse() {
+		// Arrange
 		when(provider.getUsername(anyString())).thenReturn("   ");
 		when(provider.getPassword(anyString())).thenReturn("   ");
 
-		CredentialsController controller = new CredentialsController(provider);
+		// Act
 		ResponseEntity<CredentialStatusResponse> response = controller.getCredentialsStatus("CONTINENTE");
 
+		// Assert
 		CredentialStatusResponse body = response.getBody();
 		assertNotNull(body);
 		assertFalse(body.hasUsername());
@@ -46,30 +63,34 @@ class CredentialsControllerTest {
 	}
 
 	@Test
-	void testSaveCredentials_UnchangedButRequestUsernameNull() {
-		CredentialProvider provider = mock(CredentialProvider.class);
+	void saveCredentials_nullUsername_savesCredentials() {
+		// Arrange
 		when(provider.getUsername("CONTINENTE")).thenReturn("user");
 		when(provider.getPassword("CONTINENTE")).thenReturn("pass");
 
-		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", null, "");
 
+		// Act
 		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+
+		// Assert
 		assertNotNull(response.getBody());
 		assertTrue(response.getBody().success());
 		verify(provider).saveCredentials("CONTINENTE", null, "");
 	}
 
 	@Test
-	void testSaveCredentials_UnchangedPasswordNull() {
-		CredentialProvider provider = mock(CredentialProvider.class);
+	void saveCredentials_unchangedPassword_returnsUnchangedMessage() {
+		// Arrange
 		when(provider.getUsername("CONTINENTE")).thenReturn("user");
 		when(provider.getPassword("CONTINENTE")).thenReturn("pass");
 
-		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "user", null);
 
+		// Act
 		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+
+		// Assert
 		assertNotNull(response.getBody());
 		assertTrue(response.getBody().success());
 		assertEquals("Credentials unchanged.", response.getBody().message());
@@ -77,30 +98,34 @@ class CredentialsControllerTest {
 	}
 
 	@Test
-	void testSaveCredentials_NoExistingCredentials() {
-		CredentialProvider provider = mock(CredentialProvider.class);
+	void saveCredentials_noExistingCredentials_savesNewCredentials() {
+		// Arrange
 		when(provider.getUsername("CONTINENTE")).thenReturn(null);
 		when(provider.getPassword("CONTINENTE")).thenReturn(null);
 
-		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "user", "pass");
 
+		// Act
 		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+
+		// Assert
 		assertNotNull(response.getBody());
 		assertTrue(response.getBody().success());
 		verify(provider).saveCredentials("CONTINENTE", "user", "pass");
 	}
 
 	@Test
-	void testSaveCredentials_UsernameChanged() {
-		CredentialProvider provider = mock(CredentialProvider.class);
+	void saveCredentials_usernameChanged_savesUpdatedCredentials() {
+		// Arrange
 		when(provider.getUsername("CONTINENTE")).thenReturn("user");
 		when(provider.getPassword("CONTINENTE")).thenReturn("pass");
 
-		CredentialsController controller = new CredentialsController(provider);
 		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "different-user", "");
 
+		// Act
 		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
+
+		// Assert
 		assertNotNull(response.getBody());
 		assertTrue(response.getBody().success());
 		verify(provider).saveCredentials("CONTINENTE", "different-user", "");

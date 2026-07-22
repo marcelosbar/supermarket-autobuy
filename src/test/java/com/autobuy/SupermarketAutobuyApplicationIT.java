@@ -12,7 +12,8 @@ import org.springframework.test.context.ActiveProfiles;
 class SupermarketAutobuyApplicationIT {
 
 	@Test
-	void contextLoads() {
+	void contextLoads_whenSpringContextInitialized_startsSuccessfully() {
+		// Arrange & Act & Assert
 		// Test passes if context starts up successfully without throwing exceptions
 	}
 }

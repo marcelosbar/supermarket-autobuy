@@ -27,7 +27,7 @@ class SupermarketAutobuyRepositoryIT {
 	private PriceHistoryRepository priceHistoryRepository;
 
 	@Test
-	void testSaveAndFindProduct() {
+	void saveAndFindByExternalIdAndSupermarket_validProduct_persistsAndRetrieves() {
 		// Arrange
 		Product product = new Product("2001923", "CONTINENTE", "Mimosa Leite Meio Gordo 1L", "Mimosa",
 				"https://continente.pt/mimosa", "Leitaria");
@@ -43,7 +43,7 @@ class SupermarketAutobuyRepositoryIT {
 	}
 
 	@Test
-	void testSaveAndFindMapping() {
+	void saveAndFindBySearchTextAndSupermarket_validMapping_persistsAndRetrieves() {
 		// Arrange
 		ProductMapping mapping = new ProductMapping("mimosa meio gordo", "CONTINENTE", "2001923",
 				"Mimosa Leite Meio Gordo 1L");
@@ -60,7 +60,7 @@ class SupermarketAutobuyRepositoryIT {
 	}
 
 	@Test
-	void testPriceHistoryLogging() {
+	void saveAndFindByProductOrderByRecordedAtDesc_multipleEntries_returnsOrderedHistory() {
 		// Arrange
 		Product product = new Product("2001923", "CONTINENTE", "Mimosa Leite Meio Gordo 1L", "Mimosa",
 				"https://continente.pt/mimosa", "Leitaria");

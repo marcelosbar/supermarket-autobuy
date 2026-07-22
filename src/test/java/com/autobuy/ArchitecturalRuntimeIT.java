@@ -32,7 +32,8 @@ class ArchitecturalRuntimeIT {
 
 	@Test
 	@Transactional
-	void testPriceHistoryLazyLoadingAndProxyBehavior() {
+	void findById_lazyProductProxy_defersInitializationUntilNonIdAccess() {
+		// Arrange
 		Product product = new Product("SKU-LAZY-RT", "CONTINENTE", "Lazy Runtime Product", "Brand", "http://url",
 				"Cat");
 		Product savedProduct = productRepository.save(product);
@@ -43,9 +44,11 @@ class ArchitecturalRuntimeIT {
 		entityManager.flush();
 		entityManager.clear();
 
+		// Act
 		PriceHistory retrievedHistory = priceHistoryRepository.findById(savedHistory.getId())
 				.orElseThrow(() -> new AssertionError("Saved PriceHistory not found"));
 
+		// Assert
 		Product lazyProduct = retrievedHistory.getProduct();
 		assertNotNull(lazyProduct);
 		assertFalse(Hibernate.isInitialized(lazyProduct), "Product proxy should NOT be initialized initially");

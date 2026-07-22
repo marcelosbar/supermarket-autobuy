@@ -109,22 +109,26 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testGetCredentialsStatus() throws Exception {
+	void getCredentialsStatus_validSupermarket_returnsStatusOk() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(get("/api/credentials?supermarket=CONTINENTE")).andExpect(status().isOk());
 	}
 
 	@Test
-	void testGetShoppingList() throws Exception {
+	void getShoppingList_validRequest_returnsShoppingList() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(get("/api/shopping-list")).andExpect(status().isOk());
 	}
 
 	@Test
-	void testGetMappings() throws Exception {
+	void getMappings_validRequest_returnsMappingsList() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(get("/api/mappings")).andExpect(status().isOk());
 	}
 
 	@Test
-	void testSaveCredentials_Success() throws Exception {
+	void saveCredentials_validCredentials_savesSuccessfully() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"supermarket": "CONTINENTE",
@@ -133,6 +137,7 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("Credentials saved successfully."));
@@ -144,7 +149,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testSaveCredentials_ValidationError() throws Exception {
+	void saveCredentials_validationError_returnsBadRequest() throws Exception {
+		// Arrange
 		if (credentialProvider instanceof StubCredentialProvider stub) {
 			stub.throwCredentialException = true;
 			stub.throwMessage = "Validation failed: username cannot be empty";
@@ -158,13 +164,15 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("CREDENTIAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("Validation failed: username cannot be empty"));
 	}
 
 	@Test
-	void testSaveCredentials_UnsupportedOperation() throws Exception {
+	void saveCredentials_unsupportedOperation_returnsBadRequest() throws Exception {
+		// Arrange
 		if (credentialProvider instanceof StubCredentialProvider stub) {
 			stub.throwUnsupported = true;
 		}
@@ -177,41 +185,48 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("UNSUPPORTED_OPERATION"))
 				.andExpect(jsonPath("$.error").value("Saving credentials is not supported by this provider."));
 	}
 
 	@Test
-	void testGetBackupDir() throws Exception {
+	void getBackupDir_validRequest_returnsBackupDirResponse() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(get("/api/config/backup-dir")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.backupDir").exists());
 	}
 
 	@Test
-	void testSaveBackupDir() throws Exception {
+	void saveBackupDir_validPath_returnsSuccessResponse() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"backupDir": "C:/mock-backup"
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 	}
 
 	@Test
-	void testGetBackupStatus() throws Exception {
+	void getBackupStatus_configuredPath_returnsBackupStatus() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(get("/api/config/backup-status")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.backupDir").exists()).andExpect(jsonPath("$.isConfigured").exists());
 	}
 
 	@Test
-	void testGetBackupStatus_NotConfigured() throws Exception {
+	void getBackupStatus_notConfigured_returnsNotConfiguredStatus() throws Exception {
+		// Arrange
 		if (settingsProvider instanceof StubSettingsProvider stub) {
 			stub.backupDir = null;
 		}
 		try {
+			// Act & Assert
 			mockMvc.perform(get("/api/config/backup-status")).andExpect(status().isOk())
 					.andExpect(jsonPath("$.backupDir").value("")).andExpect(jsonPath("$.isConfigured").value(false));
 		} finally {
@@ -222,12 +237,14 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testGetCredentialsStatus_NullUsernameOrPassword() throws Exception {
+	void getCredentialsStatus_nullCredentials_returnsHasFlagsFalse() throws Exception {
+		// Arrange
 		if (credentialProvider instanceof StubCredentialProvider stub) {
 			stub.username = null;
 			stub.password = null;
 		}
 		try {
+			// Act & Assert
 			mockMvc.perform(get("/api/credentials?supermarket=CONTINENTE")).andExpect(status().isOk())
 					.andExpect(jsonPath("$.hasUsername").value(false)).andExpect(jsonPath("$.hasPassword").value(false))
 					.andExpect(jsonPath("$.username").value(""));
@@ -240,12 +257,14 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testGetCredentialsStatus_BlankUsernameOrPassword() throws Exception {
+	void getCredentialsStatus_blankCredentials_returnsHasFlagsFalse() throws Exception {
+		// Arrange
 		if (credentialProvider instanceof StubCredentialProvider stub) {
 			stub.username = "   ";
 			stub.password = "   ";
 		}
 		try {
+			// Act & Assert
 			mockMvc.perform(get("/api/credentials?supermarket=CONTINENTE")).andExpect(status().isOk())
 					.andExpect(jsonPath("$.hasUsername").value(false)).andExpect(jsonPath("$.hasPassword").value(false))
 					.andExpect(jsonPath("$.username").value("   "));
@@ -258,7 +277,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testSaveCredentials_UnchangedPasswordOmitted() throws Exception {
+	void saveCredentials_unchangedPasswordOmitted_returnsUnchangedMessage() throws Exception {
+		// Arrange
 		if (credentialProvider instanceof StubCredentialProvider stub) {
 			stub.username = "existing-user";
 			stub.password = "existing-pass";
@@ -271,6 +291,7 @@ class AutoBuyControllerIT {
 						"password": ""
 					}
 					""";
+			// Act & Assert
 			mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
 					.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.message").value("Credentials unchanged."));
@@ -283,18 +304,22 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testSaveBackupDir_EmptyPath() throws Exception {
+	void saveBackupDir_emptyPath_returnsSuccessResponse() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"backupDir": ""
 				}
 				""";
+
+		// Act & Assert
 		mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 	}
 
 	@Test
-	void testSaveBackupDir_ProviderException() throws Exception {
+	void saveBackupDir_providerException_returnsBadRequest() throws Exception {
+		// Arrange
 		if (settingsProvider instanceof StubSettingsProvider stub) {
 			stub.throwBackupDirException = true;
 		}
@@ -304,6 +329,7 @@ class AutoBuyControllerIT {
 						"backupDir": "C:/mock-backup"
 					}
 					""";
+			// Act & Assert
 			mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
 					.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("SETTINGS_ERROR"))
 					.andExpect(jsonPath("$.error").value("Failed to save backup dir"));
@@ -315,63 +341,76 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testSelectNativeDirectory_Success() throws Exception {
+	void selectNativeDirectory_validSelection_returnsSelectedPath() throws Exception {
+		// Arrange
 		when(folderPicker.selectDirectory()).thenReturn("/custom/backup/dir");
 
+		// Act & Assert
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true)).andExpect(jsonPath("$.path").value("/custom/backup/dir"));
 	}
 
 	@Test
-	void testSelectNativeDirectory_Cancelled() throws Exception {
+	void selectNativeDirectory_cancelled_returnsCancelledMessage() throws Exception {
+		// Arrange
 		when(folderPicker.selectDirectory()).thenReturn(null);
 
+		// Act & Assert
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.message").value("Selection cancelled"));
 	}
 
 	@Test
-	void testSelectNativeDirectory_Exception() throws Exception {
+	void selectNativeDirectory_runtimeException_returnsInternalServerError() throws Exception {
+		// Arrange
 		when(folderPicker.selectDirectory()).thenThrow(new RuntimeException("Drive not ready"));
 
+		// Act & Assert
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("Drive not ready"));
 	}
 
 	@Test
-	void testSelectNativeDirectory_Headless() throws Exception {
+	void selectNativeDirectory_headlessEnvironment_returnsBadRequest() throws Exception {
+		// Arrange
 		when(folderPicker.selectDirectory()).thenThrow(new UnsupportedOperationException(
 				"Cannot open native folder picker: Graphics environment is headless."));
 
+		// Act & Assert
 		mockMvc.perform(post("/api/config/select-native-dir")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.type").value("UNSUPPORTED_OPERATION")).andExpect(jsonPath("$.error")
 						.value("Cannot open native folder picker: Graphics environment is headless."));
 	}
 
 	@Test
-	void testSearchSupermarket_Success() throws Exception {
+	void searchSupermarket_validQuery_returnsSearchResults() throws Exception {
+		// Arrange
 		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
 				"cat");
 		when(guestSearchService.performGuestSearch("milk", "CONTINENTE")).thenReturn(List.of(dummyResult));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/search").param("query", "milk").param("supermarket", "CONTINENTE"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$[0].externalId").value("sku"))
 				.andExpect(jsonPath("$[0].name").value("Product"));
 	}
 
 	@Test
-	void testSearchSupermarket_Failure() throws Exception {
+	void searchSupermarket_searchFailure_returnsInternalServerError() throws Exception {
+		// Arrange
 		when(guestSearchService.performGuestSearch("milk", "CONTINENTE"))
 				.thenThrow(new RuntimeException("Search failed"));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/search").param("query", "milk").param("supermarket", "CONTINENTE"))
 				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.type").value("INTERNAL_ERROR"));
 	}
 
 	@Test
-	void testShutdown() throws Exception {
+	void shutdown_validRequest_initiatesGracefulShutdown() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(post("/api/system/shutdown")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true)).andExpect(jsonPath("$.message")
 						.value("Application is shutting down gracefully. Backup will be created."));
@@ -443,28 +482,33 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testDeleteMapping_NotFound() throws Exception {
+	void deleteMapping_nonexistentId_returnsNotFound() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(delete("/api/mappings/9999")).andExpect(status().isNotFound());
 	}
 
 	@Test
-	void testDeleteMapping_Success() throws Exception {
+	void deleteMapping_existingId_deletesAndReturnsNoContent() throws Exception {
+		// Arrange
 		ProductMapping mapping = new ProductMapping("query-del", "CONTINENTE", "sku-del", "Product Delete");
 		when(productService.findMappingById(1L)).thenReturn(Optional.of(mapping));
 
+		// Act & Assert
 		mockMvc.perform(delete("/api/mappings/1")).andExpect(status().isNoContent());
 
 		verify(productService).deleteMapping(1L);
 	}
 
 	@Test
-	void testRunAutoBuy_Success() throws Exception {
+	void runAutoBuy_validSupermarket_startsAutoBuy() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"supermarket": "CONTINENTE"
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("Auto-Buy started successfully."));
@@ -473,7 +517,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testRunAutoBuy_HeadlessTrue() throws Exception {
+	void runAutoBuy_headlessTrue_startsAutoBuyInHeadlessMode() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"supermarket": "CONTINENTE",
@@ -481,6 +526,7 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
@@ -488,7 +534,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testRunAutoBuy_NullRequest() throws Exception {
+	void runAutoBuy_nullRequest_usesDefaultSupermarketAndHeadlessFalse() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(post("/api/autobuy/run")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
@@ -496,8 +543,11 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testRunAutoBuy_NullSupermarket() throws Exception {
+	void runAutoBuy_nullSupermarket_usesDefaultSupermarket() throws Exception {
+		// Arrange
 		String json = "{}";
+
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
@@ -505,7 +555,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testRunAutoBuy_IllegalState() throws Exception {
+	void runAutoBuy_illegalStateException_returnsConflict() throws Exception {
+		// Arrange
 		doThrow(new IllegalStateException("Already running")).when(autoBuyOrchestrationService)
 				.startAutoBuy("shopping-list.json", "CONTINENTE", false);
 
@@ -515,13 +566,15 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isConflict()).andExpect(jsonPath("$.type").value("STATE_ERROR"))
 				.andExpect(jsonPath("$.error").value("Already running"));
 	}
 
 	@Test
-	void testGetAutoBuyStatus() throws Exception {
+	void getAutoBuyStatus_activeExecution_returnsAutoBuyStatus() throws Exception {
+		// Arrange
 		var dummyResult = new com.autobuy.model.SearchResult("sku", "Product", "Brand", java.math.BigDecimal.TEN, "url",
 				"cat");
 
@@ -538,6 +591,7 @@ class AutoBuyControllerIT {
 		MemoryAppender.clear();
 		org.slf4j.LoggerFactory.getLogger("com.autobuy").info("log line");
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.state").value("RUNNING"))
 				.andExpect(jsonPath("$.currentItemQuery").value("query"))
@@ -547,7 +601,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testResolveMappingEndpoint_Success() throws Exception {
+	void resolveMappingEndpoint_validResolution_resolvesMappingSuccessfully() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"externalId": "sku123",
@@ -555,6 +610,7 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
@@ -562,7 +618,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testResolveMappingEndpoint_Failure() throws Exception {
+	void resolveMappingEndpoint_illegalArgumentException_returnsBadRequest() throws Exception {
+		// Arrange
 		doThrow(new IllegalArgumentException("Invalid ID")).when(productResolutionService)
 				.resolveMapping(eq("invalid-sku"), anyBoolean());
 
@@ -573,13 +630,15 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("VALIDATION_ERROR"))
 				.andExpect(jsonPath("$.error").value("Invalid ID"));
 	}
 
 	@Test
-	void testResolveMappingEndpoint_SuccessWithStatus() throws Exception {
+	void resolveMappingEndpoint_resolutionStatusReturned_returnsAddedAndMessage() throws Exception {
+		// Arrange
 		var dummyStatus = new com.autobuy.web.dto.ResolutionResultStatus(true, "Custom status message");
 		when(productResolutionService.resolveMapping("sku123", true)).thenReturn(dummyStatus);
 
@@ -590,6 +649,7 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.added").value(true))
@@ -597,7 +657,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testPromoteMappingEndpoint_Success() throws Exception {
+	void promoteMappingEndpoint_validId_promotesMappingSuccessfully() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
@@ -605,16 +666,19 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testPromoteMappingEndpoint_Failure() throws Exception {
+	void promoteMappingEndpoint_serviceException_returnsInternalServerError() throws Exception {
+		// Arrange
 		doThrow(new RuntimeException("Promote failed")).when(productService).promoteMapping(123L);
 
+		// Act & Assert
 		mockMvc.perform(post("/api/mappings/123/promote")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("Promote failed"));
 	}
 
 	@Test
-	void testDemoteMappingEndpoint_Success() throws Exception {
+	void demoteMappingEndpoint_validId_demotesMappingSuccessfully() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
@@ -622,16 +686,19 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testDemoteMappingEndpoint_Failure() throws Exception {
+	void demoteMappingEndpoint_serviceException_returnsInternalServerError() throws Exception {
+		// Arrange
 		doThrow(new RuntimeException("Demote failed")).when(productService).demoteMapping(123L);
 
+		// Act & Assert
 		mockMvc.perform(post("/api/mappings/123/demote")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("Demote failed"));
 	}
 
 	@Test
-	void testAddAlternativeEndpoint_Success() throws Exception {
+	void addAlternativeEndpoint_validAlternative_savesMappingWithPriority() throws Exception {
+		// Arrange
 		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE")).thenReturn(List.of());
 
 		String json = """
@@ -643,6 +710,7 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/mappings/alternative").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
@@ -650,7 +718,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testAddAlternativeEndpoint_Failure() throws Exception {
+	void addAlternativeEndpoint_serviceException_returnsInternalServerError() throws Exception {
+		// Arrange
 		when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
 				.thenThrow(new RuntimeException("Database error"));
 
@@ -663,13 +732,15 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/mappings/alternative").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("Database error"));
 	}
 
 	@Test
-	void testCompleteRunEndpoint_Success() throws Exception {
+	void completeRunEndpoint_validReviewState_completesRun() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
@@ -677,16 +748,19 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testCompleteRunEndpoint_Failure() throws Exception {
+	void completeRunEndpoint_invalidState_returnsConflict() throws Exception {
+		// Arrange
 		doThrow(new IllegalStateException("Not in review")).when(autoBuyOrchestrationService).completeRun(anyBoolean());
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/complete")).andExpect(status().isConflict())
 				.andExpect(jsonPath("$.type").value("STATE_ERROR"))
 				.andExpect(jsonPath("$.error").value("Not in review"));
 	}
 
 	@Test
-	void testCancelRunEndpoint_Success() throws Exception {
+	void cancelRunEndpoint_validRun_cancelsRunSuccessfully() throws Exception {
+		// Arrange & Act & Assert
 		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
@@ -694,38 +768,47 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testCancelRunEndpoint_Failure() throws Exception {
+	void cancelRunEndpoint_serviceException_returnsInternalServerError() throws Exception {
+		// Arrange
 		doThrow(new RuntimeException("Cancel failed")).when(autoBuyOrchestrationService).cancel();
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/cancel")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("Cancel failed"));
 	}
 
 	@Test
-	void testSaveShoppingList_Success() throws Exception {
+	void saveShoppingList_validList_savesShoppingList() throws Exception {
+		// Arrange
 		String json = """
 				[
 					{"query": "Milk", "quantity": 2},
 					{"query": "Eggs", "quantity": 12}
 				]
 				""";
+
+		// Act & Assert
 		mockMvc.perform(post("/api/shopping-list").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$[0].query").value("Milk"))
 				.andExpect(jsonPath("$[0].quantity").value(2));
 	}
 
 	@Test
-	void testSaveShoppingList_Exception() throws Exception {
+	void saveShoppingList_providerException_returnsInternalServerError() throws Exception {
+		// Arrange
 		doThrow(new RuntimeException("Save error")).when(shoppingListProvider).saveShoppingList(anyString(), anyList());
 
 		String json = "[]";
+
+		// Act & Assert
 		mockMvc.perform(post("/api/shopping-list").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isInternalServerError());
 	}
 
 	@Test
-	void testSaveCredentials_Unchanged() throws Exception {
+	void saveCredentials_unchangedInput_returnsCredentialsUnchangedMessage() throws Exception {
+		// Arrange
 		if (credentialProvider instanceof StubCredentialProvider stub) {
 			stub.username = "test-user";
 			stub.password = "test-password";
@@ -739,13 +822,15 @@ class AutoBuyControllerIT {
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.message").value("Credentials unchanged."));
 	}
 
 	@Test
-	void testSaveBackupDir_Exception() throws Exception {
+	void saveBackupDir_exceptionThrown_returnsBadRequest() throws Exception {
+		// Arrange
 		if (settingsProvider instanceof StubSettingsProvider stub) {
 			stub.throwBackupDirException = true;
 		}
@@ -755,72 +840,88 @@ class AutoBuyControllerIT {
 					"backupDir": "C:/invalid-backup-dir"
 				}
 				""";
+
+		// Act & Assert
 		mockMvc.perform(post("/api/config/backup-dir").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("SETTINGS_ERROR"));
 	}
 
 	@Test
-	void testGlobalExceptionHandler_ShoppingListException() throws Exception {
+	void globalExceptionHandler_shoppingListException_returnsBadRequest() throws Exception {
+		// Arrange
 		when(shoppingListProvider.getShoppingList(anyString()))
 				.thenThrow(new ShoppingListException("Invalid shopping list file"));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/shopping-list")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.type").value("SHOPPING_LIST_ERROR"))
 				.andExpect(jsonPath("$.error").value("Invalid shopping list file"));
 	}
 
 	@Test
-	void testGlobalExceptionHandler_DriverException() throws Exception {
+	void globalExceptionHandler_driverException_returnsBadGateway() throws Exception {
+		// Arrange
 		when(autoBuyExecutionContext.getState()).thenThrow(new DriverException("Driver failed to initialize"));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadGateway())
 				.andExpect(jsonPath("$.type").value("DRIVER_ERROR"))
 				.andExpect(jsonPath("$.error").value("Driver failed to initialize"));
 	}
 
 	@Test
-	void testGlobalExceptionHandler_SettingsException() throws Exception {
+	void globalExceptionHandler_settingsException_returnsBadRequest() throws Exception {
+		// Arrange
 		when(autoBuyExecutionContext.getState()).thenThrow(new SettingsException("Settings failure"));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.type").value("SETTINGS_ERROR"))
 				.andExpect(jsonPath("$.error").value("Settings failure"));
 	}
 
 	@Test
-	void testGlobalExceptionHandler_IllegalArgumentException() throws Exception {
+	void globalExceptionHandler_illegalArgumentException_returnsBadRequest() throws Exception {
+		// Arrange
 		when(autoBuyExecutionContext.getState()).thenThrow(new IllegalArgumentException("Invalid argument"));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.type").value("VALIDATION_ERROR"))
 				.andExpect(jsonPath("$.error").value("Invalid argument"));
 	}
 
 	@Test
-	void testGlobalExceptionHandler_IllegalStateException() throws Exception {
+	void globalExceptionHandler_illegalStateException_returnsConflict() throws Exception {
+		// Arrange
 		when(autoBuyExecutionContext.getState()).thenThrow(new IllegalStateException("State error"));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isConflict())
 				.andExpect(jsonPath("$.type").value("STATE_ERROR")).andExpect(jsonPath("$.error").value("State error"));
 	}
 
 	@Test
-	void testGlobalExceptionHandler_GeneralException() throws Exception {
+	void globalExceptionHandler_generalException_returnsInternalServerError() throws Exception {
+		// Arrange
 		when(autoBuyExecutionContext.getState()).thenThrow(new RuntimeException("General error"));
 
+		// Act & Assert
 		mockMvc.perform(get("/api/autobuy/status")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.type").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.error").value("General error"));
 	}
 
 	@Test
-	void testRefineSearch_Success() throws Exception {
+	void refineSearch_validQuery_refinesSearchSuccessfully() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"query": "red apples"
 				}
 				""";
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/refine").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
 
@@ -828,7 +929,8 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void testRefineSearch_Failure() throws Exception {
+	void refineSearch_autoBuyException_returnsBadRequest() throws Exception {
+		// Arrange
 		String json = """
 				{
 					"query": "red apples"
@@ -838,6 +940,7 @@ class AutoBuyControllerIT {
 		doThrow(new com.autobuy.exception.AutoBuyException("Refinement rejected")).when(productResolutionService)
 				.refineSearch("red apples");
 
+		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/refine").contentType(MediaType.APPLICATION_JSON).content(json))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("AUTOBUY_ERROR"))
 				.andExpect(jsonPath("$.error").value("Refinement rejected"));
