@@ -113,11 +113,13 @@ The local H2 database schema is versioned and managed incrementally using **Flyw
 ---
 
 ## Running Tests
-Run the JUnit unit tests using:
+Run the JUnit unit tests (including ArchUnit static architecture verification tests) using:
 ```powershell
 .\mvnw.cmd test -q
 ```
 *(or `./mvnw test -q` on Linux/macOS)*
+
+* **Static Architecture Analysis:** ArchUnit (`ArchitectureRulesTest`) runs as part of the unit test suite to statically enforce layer dependencies, package access restrictions, DTO return types, and class hierarchy rules in milliseconds without requiring a Spring context.
 
 To run both unit and integration tests, verify formatting, and enforce code coverage checks (note that you must commit your changes locally first so that the `diff-coverage` plugin can detect the diff against `origin/main`):
 ```powershell
