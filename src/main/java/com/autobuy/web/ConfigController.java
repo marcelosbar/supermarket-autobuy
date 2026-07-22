@@ -45,6 +45,14 @@ public class ConfigController {
 		String path = request != null ? request.backupDir() : null;
 		String resolvedPath = (path == null || path.trim().isEmpty()) ? null : path.trim();
 
+		if (resolvedPath != null) {
+			try {
+				resolvedPath = java.nio.file.Path.of(resolvedPath).normalize().toString().replace('\\', '/');
+			} catch (Exception e) {
+				return ResponseEntity.badRequest().body(new ActionResponse(false));
+			}
+		}
+
 		if (settingsProvider != null) {
 			settingsProvider.saveBackupDir(resolvedPath);
 		}
