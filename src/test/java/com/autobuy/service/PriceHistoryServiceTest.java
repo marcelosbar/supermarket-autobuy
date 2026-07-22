@@ -29,7 +29,8 @@ class PriceHistoryServiceTest {
 	private PriceHistoryService priceHistoryService;
 
 	@Test
-	void testLogPrice() {
+	void logPrice_productAndPrice_savesPriceHistory() {
+		// Arrange
 		Product product = new Product("SKU-LOG", "CONTINENTE", "Log Product", "Brand", "http://url", "Cat");
 		product.setId(1L);
 
@@ -41,8 +42,10 @@ class PriceHistoryServiceTest {
 
 		when(priceHistoryRepository.save(any(PriceHistory.class))).thenReturn(mockHistory);
 
+		// Act
 		PriceHistory savedHistory = priceHistoryService.logPrice(product, price, now);
 
+		// Assert
 		assertNotNull(savedHistory);
 		assertEquals(10L, savedHistory.getId());
 		assertEquals(product.getId(), savedHistory.getProduct().getId());
@@ -53,7 +56,8 @@ class PriceHistoryServiceTest {
 	}
 
 	@Test
-	void testLogPrice_SearchResult() {
+	void logPrice_searchResult_findsOrCreateProductAndSavesHistory() {
+		// Arrange
 		SearchResult result = new SearchResult("SKU-2", "Name-2", "Brand-2", new BigDecimal("3.49"), "http://url-2",
 				"Category-2");
 		Product mockProduct = new Product("SKU-2", "CONTINENTE", "Name-2", "Brand-2", "http://url-2", "Category-2");
@@ -67,8 +71,10 @@ class PriceHistoryServiceTest {
 
 		when(priceHistoryRepository.save(any(PriceHistory.class))).thenReturn(mockHistory);
 
+		// Act
 		priceHistoryService.logPrice(result, "CONTINENTE");
 
+		// Assert
 		verify(productService).findOrCreateProduct("SKU-2", "CONTINENTE", "Name-2", "Brand-2", "http://url-2",
 				"Category-2");
 		verify(priceHistoryRepository).save(any(PriceHistory.class));

@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PropertiesCredentialProviderTest {
 
 	@Test
-	void testLoadCredentials_Success(@TempDir Path tempDir) throws IOException {
+	void loadCredentials_validFile_loadsCredentialsSuccessfully(@TempDir Path tempDir) throws IOException {
 		// Arrange
 		File tempFile = tempDir.resolve("secrets.properties").toFile();
 		try (FileWriter writer = new FileWriter(tempFile)) {
@@ -39,7 +39,7 @@ class PropertiesCredentialProviderTest {
 	}
 
 	@Test
-	void testLoadCredentials_FileNotFound() {
+	void loadCredentials_fileNotFound_handlesGracefully() {
 		// Arrange
 		PropertiesCredentialProvider provider = new PropertiesCredentialProvider("non-existent-secrets.properties");
 
@@ -52,7 +52,7 @@ class PropertiesCredentialProviderTest {
 	}
 
 	@Test
-	void testSaveCredentials_Success(@TempDir Path tempDir) throws Exception {
+	void saveCredentials_validInput_persistsCredentials(@TempDir Path tempDir) throws Exception {
 		// Arrange
 		File tempFile = tempDir.resolve("secrets.properties").toFile();
 		PropertiesCredentialProvider provider = new PropertiesCredentialProvider(tempFile.getAbsolutePath());
@@ -73,9 +73,11 @@ class PropertiesCredentialProviderTest {
 	}
 
 	@Test
-	void testSaveCredentials_ValidationFailure() {
+	void saveCredentials_invalidOrNullInput_throwsCredentialException() {
+		// Arrange
 		PropertiesCredentialProvider provider = new PropertiesCredentialProvider("secrets.properties");
 
+		// Act & Assert
 		// Null cases
 		assertThrows(CredentialException.class, () -> provider.saveCredentials(null, "user", "pass"));
 		assertThrows(CredentialException.class, () -> provider.saveCredentials("continente", null, "pass"));
@@ -88,9 +90,11 @@ class PropertiesCredentialProviderTest {
 	}
 
 	@Test
-	void testInit_IOException() {
-		PropertiesCredentialProvider provider = new PropertiesCredentialProvider("target/"); // Reading from a directory
-																								// throws IOException
-		assertDoesNotThrow(provider::init); // catches internally
+	void init_directoryPath_handlesIOException() {
+		// Arrange
+		PropertiesCredentialProvider provider = new PropertiesCredentialProvider("target/");
+
+		// Act & Assert
+		assertDoesNotThrow(provider::init);
 	}
 }

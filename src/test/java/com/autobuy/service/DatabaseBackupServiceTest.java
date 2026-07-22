@@ -18,7 +18,7 @@ import com.autobuy.exception.AutoBuyException;
 class DatabaseBackupServiceTest {
 
 	@Test
-	void testPerformBackup_Success(@TempDir Path tempDir) {
+	void performBackup_validDatabaseAndDir_createsZipArchive(@TempDir Path tempDir) {
 		// Arrange: Use a file-persisted database because H2's 'BACKUP TO' does not
 		// perform actions on in-memory DBs
 		String dbFilePath = tempDir.resolve("testdb").toAbsolutePath().toString();
@@ -54,7 +54,7 @@ class DatabaseBackupServiceTest {
 	}
 
 	@Test
-	void testPerformBackup_JdbcError(@TempDir Path tempDir) {
+	void performBackup_jdbcConnectionError_handlesGracefullyWithoutException(@TempDir Path tempDir) {
 		// Arrange: Point to an invalid JDBC URL to force connection errors
 		DriverManagerDataSource dataSource = new DriverManagerDataSource();
 		dataSource.setUrl("jdbc:invalid:url");
@@ -72,7 +72,7 @@ class DatabaseBackupServiceTest {
 	}
 
 	@Test
-	void testPerformBackup_RetentionPolicyApplied(@TempDir Path tempDir) throws Exception {
+	void performBackup_exceedingMaxHistory_prunesOldBackups(@TempDir Path tempDir) throws Exception {
 		// Arrange: Setup H2 datasource
 		String dbFilePath = tempDir.resolve("testdb_ret").toAbsolutePath().toString();
 		DriverManagerDataSource dataSource = new DriverManagerDataSource();
@@ -126,9 +126,11 @@ class DatabaseBackupServiceTest {
 	}
 
 	@Test
-	void testValidateBackupDir_ValidPaths() {
+	void validateBackupDir_validPathFormats_doesNotThrowException() {
+		// Arrange
 		DatabaseBackupService service = new DatabaseBackupService(null);
 
+		// Act & Assert
 		// Valid absolute path with forward slashes
 		ReflectionTestUtils.setField(service, "backupDir", "C:/Users/marce/OneDrive/Applications/SupermarketBackup");
 		assertDoesNotThrow(service::validateBackupDir);
@@ -150,9 +152,11 @@ class DatabaseBackupServiceTest {
 	}
 
 	@Test
-	void testValidateBackupDir_WindowsDriveBackslashEscapingError() {
+	void validateBackupDir_windowsDriveEscapingError_throwsAutoBuyException() {
+		// Arrange
 		DatabaseBackupService service = new DatabaseBackupService(null);
 
+		// Act & Assert
 		// Drive letter but missing separator (escaped backslash issue)
 		ReflectionTestUtils.setField(service, "backupDir", "C:UsersmarceOneDriveApplicationsSupermarketBackup");
 		AutoBuyException exception = assertThrows(AutoBuyException.class, service::validateBackupDir);
@@ -160,9 +164,11 @@ class DatabaseBackupServiceTest {
 	}
 
 	@Test
-	void testValidateBackupDir_RelativePathBackslashEscapingError() {
+	void validateBackupDir_missingSeparatorsInPath_throwsAutoBuyException() {
+		// Arrange
 		DatabaseBackupService service = new DatabaseBackupService(null);
 
+		// Act & Assert
 		// Contains 'Users' but no path separators (escaped backslash issue starting
 		// from root without drive)
 		ReflectionTestUtils.setField(service, "backupDir", "UsersmarceOneDriveApplicationsSupermarketBackup");
@@ -171,21 +177,30 @@ class DatabaseBackupServiceTest {
 	}
 
 	@Test
-	void testGetAndSetBackupDir() {
+	void setBackupDir_validPath_updatesBackupDir() {
+		// Arrange
 		DatabaseBackupService service = new DatabaseBackupService(null);
+
+		// Act
 		service.setBackupDir("./custom");
+
+		// Assert
 		org.junit.jupiter.api.Assertions.assertEquals("./custom", service.getBackupDir());
 	}
 
 	@Test
-	void testPerformBackup_DirCreationFailure() {
+	void performBackup_invalidDirectoryPath_handlesGracefully() {
+		// Arrange
 		DatabaseBackupService service = new DatabaseBackupService(null);
 		ReflectionTestUtils.setField(service, "backupDir", "invalid?dir|path/backup");
+
+		// Act & Assert
 		assertDoesNotThrow(service::performBackup);
 	}
 
 	@Test
-	void testPerformBackup_DeleteIOException(@TempDir Path tempDir) throws Exception {
+	void performBackup_fileDeletionFailure_handlesGracefully(@TempDir Path tempDir) throws Exception {
+		// Arrange
 		String dbFilePath = tempDir.resolve("testdb_io").toAbsolutePath().toString();
 		DriverManagerDataSource dataSource = new DriverManagerDataSource();
 		dataSource.setDriverClassName("org.h2.Driver");
@@ -214,6 +229,7 @@ class DatabaseBackupServiceTest {
 		ReflectionTestUtils.setField(service, "backupDir", backupDirPath.toString());
 		ReflectionTestUtils.setField(service, "maxHistory", 5);
 
+		// Act & Assert
 		assertDoesNotThrow(service::performBackup);
 	}
 }
