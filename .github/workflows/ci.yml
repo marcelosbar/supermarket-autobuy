@@ -47,6 +47,7 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          JAVA_HOME: ""
         with:
           args: --severity-threshold=high
 
@@ -56,6 +57,7 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          JAVA_HOME: ""
         with:
           command: code test
           args: --severity-threshold=high --include-ignores
@@ -66,6 +68,7 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          JAVA_HOME: ""
         with:
           command: monitor
 
