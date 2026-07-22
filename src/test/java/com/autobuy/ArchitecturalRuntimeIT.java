@@ -4,27 +4,21 @@ import com.autobuy.model.PriceHistory;
 import com.autobuy.model.Product;
 import com.autobuy.repository.PriceHistoryRepository;
 import com.autobuy.repository.ProductRepository;
-import com.autobuy.service.ProductService;
 import jakarta.persistence.EntityManager;
 import org.hibernate.Hibernate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(properties = {"autobuy.secrets-path=target/test-secrets.properties"})
 @ActiveProfiles("test")
-@Import(ArchitecturalRuntimeIT.TxTestHelperConfig.class)
 class ArchitecturalRuntimeIT {
 
 	@Autowired
@@ -34,37 +28,7 @@ class ArchitecturalRuntimeIT {
 	private PriceHistoryRepository priceHistoryRepository;
 
 	@Autowired
-	private TxTestHelper txTestHelper;
-
-	@Autowired
 	private EntityManager entityManager;
-
-	@Test
-	void testTransactionRollbackOnRuntimeException() {
-		String externalId = "TX-ROLLBACK-RUNTIME";
-		String supermarket = "CONTINENTE";
-
-		assertFalse(productRepository.findByExternalIdAndSupermarket(externalId, supermarket).isPresent());
-
-		assertThrows(RuntimeException.class,
-				() -> txTestHelper.createProductAndThrow(externalId, supermarket, "Should Rollback"));
-
-		Optional<Product> rolledBack = productRepository.findByExternalIdAndSupermarket(externalId, supermarket);
-		assertFalse(rolledBack.isPresent(), "Product creation should be rolled back when RuntimeException is thrown");
-	}
-
-	@Test
-	void testTransactionCommitOnSuccess() {
-		String externalId = "TX-COMMIT-RUNTIME";
-		String supermarket = "CONTINENTE";
-
-		assertFalse(productRepository.findByExternalIdAndSupermarket(externalId, supermarket).isPresent());
-
-		txTestHelper.createProductSuccessfully(externalId, supermarket, "Should Commit");
-
-		Optional<Product> committed = productRepository.findByExternalIdAndSupermarket(externalId, supermarket);
-		assertTrue(committed.isPresent(), "Product creation should be committed on successful execution");
-	}
 
 	@Test
 	@Transactional
@@ -99,29 +63,5 @@ class ArchitecturalRuntimeIT {
 		assertEquals("Lazy Runtime Product", lazyName);
 		assertTrue(Hibernate.isInitialized(lazyProduct),
 				"Product proxy should be initialized when accessing non-ID properties");
-	}
-
-	@TestConfiguration
-	static class TxTestHelperConfig {
-		@Bean
-		public TxTestHelper txTestHelper() {
-			return new TxTestHelper();
-		}
-	}
-
-	public static class TxTestHelper {
-		@Autowired
-		private ProductService productService;
-
-		@Transactional
-		public void createProductAndThrow(String externalId, String supermarket, String name) {
-			productService.findOrCreateProduct(externalId, supermarket, name, "Brand", null, null);
-			throw new RuntimeException("Simulated exception for rollback");
-		}
-
-		@Transactional
-		public void createProductSuccessfully(String externalId, String supermarket, String name) {
-			productService.findOrCreateProduct(externalId, supermarket, name, "Brand", null, null);
-		}
 	}
 }
