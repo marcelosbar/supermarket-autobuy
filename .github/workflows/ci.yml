@@ -44,10 +44,6 @@ jobs:
       - name: Build & Test with Coverage
         run: ./mvnw -B clean verify
 
-      - name: Clean Build Target Permissions
-        if: github.ref == 'refs/heads/main' && github.actor != 'dependabot[bot]'
-        run: sudo rm -rf target
-
       - name: Snyk Dependency Scan
         if: github.ref == 'refs/heads/main' && github.actor != 'dependabot[bot]'
         uses: snyk/actions/maven@8e119fbb6c251787721d34ba683ed48eba792766 # master @ 2026-05-27
