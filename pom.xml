@@ -18,6 +18,8 @@
     <properties>
         <java.version>25</java.version>
         <playwright.version>1.60.0</playwright.version>
+        <logback.version>1.5.36</logback.version>
+        <tomcat.version>10.1.36</tomcat.version>
         <!-- SonarCloud analysis configuration -->
         <sonar.organization>marcelosbar</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
