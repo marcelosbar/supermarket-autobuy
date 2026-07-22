@@ -89,10 +89,17 @@ public class AutoBuyOrchestrationService {
 
 		log.info("Starting background auto-buy run for {}...", targetSupermarket);
 
-		currentExecutionFuture = taskExecutor.submit(() -> runExecutionFlow(listPath, targetSupermarket, headless));
+		synchronized (this) {
+			currentExecutionFuture = taskExecutor.submit(() -> runExecutionFlow(listPath, targetSupermarket, headless));
+		}
 	}
 
 	private void runExecutionFlow(String listPath, String targetSupermarket, boolean headless) {
+		Future<?> myFuture;
+		synchronized (this) {
+			myFuture = this.currentExecutionFuture;
+		}
+
 		SupermarketDriver driver = drivers.stream()
 				.filter(d -> d.getSupermarketName().equalsIgnoreCase(targetSupermarket)).findFirst().orElse(null);
 
@@ -140,11 +147,13 @@ public class AutoBuyOrchestrationService {
 				log.info("Keeping browser session open as requested.");
 			}
 			synchronized (this) {
-				AutoBuyState state = executionContext.getState();
-				if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
-					executionContext.transitionTo(AutoBuyState.SUCCESS);
+				if (this.currentExecutionFuture == myFuture) {
+					AutoBuyState state = executionContext.getState();
+					if (state == AutoBuyState.RUNNING || state == AutoBuyState.AWAITING_FINAL_REVIEW) {
+						executionContext.transitionTo(AutoBuyState.SUCCESS);
+					}
+					currentExecutionFuture = null;
 				}
-				currentExecutionFuture = null;
 			}
 			log.info("Auto-buy background thread completed.");
 		}
