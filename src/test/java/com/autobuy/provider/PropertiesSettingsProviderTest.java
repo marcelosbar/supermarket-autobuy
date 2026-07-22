@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PropertiesSettingsProviderTest {
 
 	@Test
-	void getBackupDirAndSaveBackupDir_validInput_updatesAndPersistsSetting(@TempDir Path tempDir) throws Exception {
+	void getBackupDirAndSaveBackupDir_validInput_updatesAndPersistsSetting(@TempDir Path tempDir) {
 		// Arrange
 		File tempFile = tempDir.resolve("secrets.properties").toFile();
 		PropertiesSettingsProvider provider = new PropertiesSettingsProvider(tempFile.getAbsolutePath());

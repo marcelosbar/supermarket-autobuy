@@ -66,7 +66,8 @@ class JsonShoppingListProviderTest {
 		}
 
 		// Act & Assert
-		assertThrows(ShoppingListException.class, () -> provider.getShoppingList(tempFile.getAbsolutePath()));
+		String filePath = tempFile.getAbsolutePath();
+		assertThrows(ShoppingListException.class, () -> provider.getShoppingList(filePath));
 	}
 
 	@Test
