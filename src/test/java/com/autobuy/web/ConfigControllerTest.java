@@ -8,9 +8,9 @@ import com.autobuy.web.dto.BackupDirRequest;
 import com.autobuy.web.dto.BackupDirResponse;
 import com.autobuy.web.dto.BackupStatusResponse;
 import com.autobuy.web.dto.FolderPickerResponse;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
@@ -30,12 +30,8 @@ class ConfigControllerTest {
 	@Mock
 	private FolderPicker folderPicker;
 
+	@InjectMocks
 	private ConfigController controller;
-
-	@BeforeEach
-	void setUp() {
-		controller = new ConfigController(settingsProvider, databaseBackupService, folderPicker);
-	}
 
 	@Test
 	void getBackupDir_configured_returnsBackupDirResponse() {

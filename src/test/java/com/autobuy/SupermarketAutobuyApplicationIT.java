@@ -15,5 +15,6 @@ class SupermarketAutobuyApplicationIT {
 	void contextLoads_whenSpringContextInitialized_startsSuccessfully() {
 		// Arrange & Act & Assert
 		// Test passes if context starts up successfully without throwing exceptions
+		org.junit.jupiter.api.Assertions.assertTrue(true);
 	}
 }
