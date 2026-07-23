@@ -3,6 +3,7 @@ package com.autobuy.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * Logs historical prices of products.
@@ -73,6 +74,23 @@ public class PriceHistory {
 	}
 	public void setSource(String source) {
 		this.source = source;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		PriceHistory history = (PriceHistory) o;
+		return Objects.equals(product, history.product) && Objects.equals(recordedAt, history.recordedAt);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(product, recordedAt);
 	}
 
 	@Override
