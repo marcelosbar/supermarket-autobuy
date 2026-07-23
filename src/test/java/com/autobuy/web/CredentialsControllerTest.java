@@ -4,9 +4,9 @@ import com.autobuy.provider.CredentialProvider;
 import com.autobuy.web.dto.ActionResponse;
 import com.autobuy.web.dto.CredentialStatusResponse;
 import com.autobuy.web.dto.CredentialsRequest;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +20,8 @@ class CredentialsControllerTest {
 	@Mock
 	private CredentialProvider provider;
 
+	@InjectMocks
 	private CredentialsController controller;
-
-	@BeforeEach
-	void setUp() {
-		controller = new CredentialsController(provider);
-	}
 
 	@Test
 	void getCredentialsStatus_nullCredentials_returnsHasFlagsFalse() {
