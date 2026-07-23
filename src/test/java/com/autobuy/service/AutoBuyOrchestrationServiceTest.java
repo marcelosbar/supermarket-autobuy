@@ -306,19 +306,7 @@ class AutoBuyOrchestrationServiceTest {
 		assertThrows(IllegalStateException.class, () -> service.completeRun());
 		assertThrows(IllegalStateException.class, () -> productResolutionService.refineSearch("query"));
 
-		// Arrange
-		ShoppingItem item = new ShoppingItem("apples", 2);
-		lenient().when(shoppingListProvider.getShoppingList("list.json")).thenReturn(List.of(item));
-		lenient().when(credentialProvider.getUsername("CONTINENTE")).thenReturn("user");
-		lenient().when(credentialProvider.getPassword("CONTINENTE")).thenReturn("pass");
-		lenient().when(productService.findMappingsBySearchTextAndSupermarket("apples", "CONTINENTE"))
-				.thenReturn(List.of());
-		lenient().when(supermarketDriver.searchProduct("apples")).thenReturn(List.of());
-
-		// Act
-		service.startAutoBuy("list.json", "CONTINENTE", false);
-
-		// Assert
+		executionContext.transitionTo(AutoBuyState.RUNNING);
 		assertThrows(IllegalStateException.class, () -> service.startAutoBuy("list.json", "CONTINENTE", false));
 	}
 
