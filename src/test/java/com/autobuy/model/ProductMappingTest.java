@@ -47,8 +47,8 @@ class ProductMappingTest {
 		ProductMapping mapping = new ProductMapping("leite gordo", "continente", "ext-123", "Leite Gordo 1L");
 
 		// Act & Assert
-		assertFalse(mapping.equals(null));
-		assertFalse(mapping.equals("Not A Mapping"));
+		assertNotEquals(null, mapping);
+		assertNotEquals("Not A Mapping", mapping);
 	}
 
 	@Test

@@ -57,8 +57,8 @@ class PriceHistoryTest {
 		PriceHistory history = new PriceHistory(product, new BigDecimal("1.29"), LocalDateTime.now(), "SCRAPER");
 
 		// Act & Assert
-		assertFalse(history.equals(null));
-		assertFalse(history.equals("Not Price History"));
+		assertNotEquals(null, history);
+		assertNotEquals("Not Price History", history);
 	}
 
 	@Test

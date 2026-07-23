@@ -46,8 +46,8 @@ class ProductTest {
 		Product product = new Product("ext-101", "continente", "Leite", "Mimosa", "http://example.com", "Lacticínios");
 
 		// Act & Assert
-		assertFalse(product.equals(null));
-		assertFalse(product.equals("Not A Product"));
+		assertNotEquals(null, product);
+		assertNotEquals("Not A Product", product);
 	}
 
 	@Test
