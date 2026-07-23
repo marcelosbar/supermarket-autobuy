@@ -1,4 +1,6 @@
 package com.autobuy.web.dto;
 
-public record RunRequest(String supermarket, Boolean headless) {
+import jakarta.validation.constraints.NotBlank;
+
+public record RunRequest(@NotBlank String supermarket, Boolean headless) {
 }

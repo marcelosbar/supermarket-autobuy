@@ -1,4 +1,7 @@
 package com.autobuy.web.dto;
 
-public record AddAlternativeRequest(String searchText, String supermarket, String externalId, String productName) {
+import jakarta.validation.constraints.NotBlank;
+
+public record AddAlternativeRequest(@NotBlank String searchText, @NotBlank String supermarket,
+		@NotBlank String externalId, @NotBlank String productName) {
 }

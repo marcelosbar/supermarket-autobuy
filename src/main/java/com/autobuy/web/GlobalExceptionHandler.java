@@ -8,16 +8,20 @@ import com.autobuy.exception.ShoppingListException;
 import com.autobuy.web.dto.ErrorResponse;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+	private static final String VALIDATION_ERROR = "VALIDATION_ERROR";
 
 	@ExceptionHandler(AutoBuyException.class)
 	public ResponseEntity<ErrorResponse> handleAutoBuy(AutoBuyException ex) {
@@ -60,10 +64,26 @@ public class GlobalExceptionHandler {
 				.body(new ErrorResponse(ex.getMessage(), "STATE_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
+		String errors = ex.getBindingResult().getFieldErrors().stream()
+				.map(error -> error.getField() + ": " + error.getDefaultMessage()).collect(Collectors.joining(", "));
+		log.warn("Validation error: {}", errors);
+		return ResponseEntity.badRequest()
+				.body(new ErrorResponse(errors, VALIDATION_ERROR, LocalDateTime.now(ZoneId.systemDefault())));
+	}
+
+	@ExceptionHandler(HandlerMethodValidationException.class)
+	public ResponseEntity<ErrorResponse> handleHandlerMethodValidation(HandlerMethodValidationException ex) {
+		log.warn("Handler method validation error: {}", ex.getMessage());
+		return ResponseEntity.badRequest()
+				.body(new ErrorResponse(ex.getMessage(), VALIDATION_ERROR, LocalDateTime.now(ZoneId.systemDefault())));
+	}
+
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleIllegalArg(IllegalArgumentException ex) {
-		return ResponseEntity.badRequest().body(
-				new ErrorResponse(ex.getMessage(), "VALIDATION_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
+		return ResponseEntity.badRequest()
+				.body(new ErrorResponse(ex.getMessage(), VALIDATION_ERROR, LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(UnsupportedOperationException.class)

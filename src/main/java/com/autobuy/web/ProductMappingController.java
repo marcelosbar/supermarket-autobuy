@@ -5,6 +5,7 @@ import com.autobuy.model.SearchResult;
 import com.autobuy.service.ProductService;
 import com.autobuy.web.dto.ActionResponse;
 import com.autobuy.web.dto.AddAlternativeRequest;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -64,7 +65,7 @@ public class ProductMappingController {
 	}
 
 	@PostMapping("/alternative")
-	public ResponseEntity<ActionResponse> addAlternative(@RequestBody AddAlternativeRequest request) {
+	public ResponseEntity<ActionResponse> addAlternative(@Valid @RequestBody AddAlternativeRequest request) {
 		List<ProductMapping> existing = productService.findMappingsBySearchTextAndSupermarket(
 				request.searchText().toLowerCase().trim(), request.supermarket());
 		int nextPriority = existing.stream().mapToInt(ProductMapping::getPriority).max().orElse(-1) + 1;

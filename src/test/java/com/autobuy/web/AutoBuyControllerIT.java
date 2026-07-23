@@ -149,7 +149,7 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void saveCredentials_validationError_returnsBadRequest() throws Exception {
+	void saveCredentials_credentialException_returnsBadRequest() throws Exception {
 		// Arrange
 		if (credentialProvider instanceof StubCredentialProvider stub) {
 			stub.throwCredentialException = true;
@@ -159,7 +159,7 @@ class AutoBuyControllerIT {
 		String json = """
 				{
 					"supermarket": "CONTINENTE",
-					"username": "",
+					"username": "test-user",
 					"password": "new-password"
 				}
 				""";
@@ -277,30 +277,18 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void saveCredentials_unchangedPasswordOmitted_returnsUnchangedMessage() throws Exception {
+	void saveCredentials_blankPassword_returnsBadRequest() throws Exception {
 		// Arrange
-		if (credentialProvider instanceof StubCredentialProvider stub) {
-			stub.username = "existing-user";
-			stub.password = "existing-pass";
-		}
-		try {
-			String json = """
-					{
-						"supermarket": "CONTINENTE",
-						"username": "existing-user",
-						"password": ""
-					}
-					""";
-			// Act & Assert
-			mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
-					.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
-					.andExpect(jsonPath("$.message").value("Credentials unchanged."));
-		} finally {
-			if (credentialProvider instanceof StubCredentialProvider stub) {
-				stub.username = "test-user";
-				stub.password = "test-password";
-			}
-		}
+		String json = """
+				{
+					"supermarket": "CONTINENTE",
+					"username": "existing-user",
+					"password": ""
+				}
+				""";
+		// Act & Assert
+		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("VALIDATION_ERROR"));
 	}
 
 	@Test
@@ -543,15 +531,13 @@ class AutoBuyControllerIT {
 	}
 
 	@Test
-	void runAutoBuy_nullSupermarket_usesDefaultSupermarket() throws Exception {
+	void runAutoBuy_blankSupermarket_returnsBadRequest() throws Exception {
 		// Arrange
 		String json = "{}";
 
 		// Act & Assert
 		mockMvc.perform(post("/api/autobuy/run").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
-
-		verify(autoBuyOrchestrationService).startAutoBuy("shopping-list.json", "CONTINENTE", false);
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("VALIDATION_ERROR"));
 	}
 
 	@Test
@@ -818,14 +804,59 @@ class AutoBuyControllerIT {
 				{
 					"supermarket": "CONTINENTE",
 					"username": "test-user",
-					"password": ""
+					"password": "test-password"
 				}
 				""";
 
 		// Act & Assert
 		mockMvc.perform(post("/api/credentials").contentType(MediaType.APPLICATION_JSON).content(json))
-				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.message").value("Credentials unchanged."));
+				.andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+	}
+
+	@Test
+	void resolveMapping_blankExternalId_returnsBadRequest() throws Exception {
+		// Arrange
+		String json = """
+				{
+					"externalId": "",
+					"saveMapping": true
+				}
+				""";
+
+		// Act & Assert
+		mockMvc.perform(post("/api/autobuy/resolve").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("VALIDATION_ERROR"));
+	}
+
+	@Test
+	void refineSearch_blankQuery_returnsBadRequest() throws Exception {
+		// Arrange
+		String json = """
+				{
+					"query": "   "
+				}
+				""";
+
+		// Act & Assert
+		mockMvc.perform(post("/api/autobuy/refine").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("VALIDATION_ERROR"));
+	}
+
+	@Test
+	void addAlternative_blankSearchText_returnsBadRequest() throws Exception {
+		// Arrange
+		String json = """
+				{
+					"searchText": "",
+					"supermarket": "CONTINENTE",
+					"externalId": "123",
+					"productName": "Milk"
+				}
+				""";
+
+		// Act & Assert
+		mockMvc.perform(post("/api/mappings/alternative").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.type").value("VALIDATION_ERROR"));
 	}
 
 	@Test

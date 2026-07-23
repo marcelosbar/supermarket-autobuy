@@ -8,6 +8,7 @@ import com.autobuy.web.dto.BackupDirRequest;
 import com.autobuy.web.dto.BackupDirResponse;
 import com.autobuy.web.dto.BackupStatusResponse;
 import com.autobuy.web.dto.FolderPickerResponse;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +42,7 @@ public class ConfigController {
 	}
 
 	@PostMapping("/backup-dir")
-	public ResponseEntity<ActionResponse> saveBackupDir(@RequestBody BackupDirRequest request) {
+	public ResponseEntity<ActionResponse> saveBackupDir(@Valid @RequestBody BackupDirRequest request) {
 		String path = request != null ? request.backupDir() : null;
 		String resolvedPath = (path == null || path.trim().isEmpty()) ? null : path.trim();
 
