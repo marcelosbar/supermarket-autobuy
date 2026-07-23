@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Month;
 import org.junit.jupiter.api.Test;
 
 class PriceHistoryTest {
@@ -23,7 +24,7 @@ class PriceHistoryTest {
 	void equals_sameBusinessKey_returnsTrue() {
 		// Arrange
 		Product product = new Product("ext-101", "continente", "Leite", "Mimosa", "http://example.com", "Lacticínios");
-		LocalDateTime now = LocalDateTime.of(2026, 7, 23, 10, 0);
+		LocalDateTime now = LocalDateTime.of(2026, Month.JULY, 23, 10, 0);
 		PriceHistory history1 = new PriceHistory(product, new BigDecimal("1.29"), now, "SCRAPER");
 		PriceHistory history2 = new PriceHistory(product, new BigDecimal("1.49"), now, "MANUAL_UPDATE");
 
@@ -37,8 +38,8 @@ class PriceHistoryTest {
 		// Arrange
 		Product product1 = new Product("ext-101", "continente", "Leite", "Mimosa", "http://example.com", "Lacticínios");
 		Product product2 = new Product("ext-102", "continente", "Leite", "Mimosa", "http://example.com", "Lacticínios");
-		LocalDateTime now = LocalDateTime.of(2026, 7, 23, 10, 0);
-		LocalDateTime later = LocalDateTime.of(2026, 7, 23, 11, 0);
+		LocalDateTime now = LocalDateTime.of(2026, Month.JULY, 23, 10, 0);
+		LocalDateTime later = LocalDateTime.of(2026, Month.JULY, 23, 11, 0);
 
 		PriceHistory history1 = new PriceHistory(product1, new BigDecimal("1.29"), now, "SCRAPER");
 		PriceHistory history2 = new PriceHistory(product2, new BigDecimal("1.29"), now, "SCRAPER");
@@ -56,15 +57,15 @@ class PriceHistoryTest {
 		PriceHistory history = new PriceHistory(product, new BigDecimal("1.29"), LocalDateTime.now(), "SCRAPER");
 
 		// Act & Assert
-		assertNotEquals(null, history);
-		assertNotEquals(history, "Not Price History");
+		assertFalse(history.equals(null));
+		assertFalse(history.equals("Not Price History"));
 	}
 
 	@Test
 	void equals_transitiveContract_holdsTrue() {
 		// Arrange
 		Product product = new Product("ext-101", "continente", "Leite", "Mimosa", "http://example.com", "Lacticínios");
-		LocalDateTime timestamp = LocalDateTime.of(2026, 7, 23, 12, 0);
+		LocalDateTime timestamp = LocalDateTime.of(2026, Month.JULY, 23, 12, 0);
 
 		PriceHistory history1 = new PriceHistory(product, new BigDecimal("1.00"), timestamp, "Source 1");
 		PriceHistory history2 = new PriceHistory(product, new BigDecimal("2.00"), timestamp, "Source 2");
@@ -80,7 +81,7 @@ class PriceHistoryTest {
 	void hashCode_sameBusinessKey_returnsSameHashCode() {
 		// Arrange
 		Product product = new Product("ext-101", "continente", "Leite", "Mimosa", "http://example.com", "Lacticínios");
-		LocalDateTime now = LocalDateTime.of(2026, 7, 23, 10, 0);
+		LocalDateTime now = LocalDateTime.of(2026, Month.JULY, 23, 10, 0);
 
 		PriceHistory history1 = new PriceHistory(product, new BigDecimal("1.29"), now, "SCRAPER");
 		PriceHistory history2 = new PriceHistory(product, new BigDecimal("1.49"), now, "MANUAL_UPDATE");
