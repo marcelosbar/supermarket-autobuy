@@ -40,7 +40,8 @@ final class ContinenteParser {
 			String name = extractProductName(titleLink);
 			String url = extractProductUrl(titleLink, tile);
 			String brand = extractProductBrand(tile, name);
-			BigDecimal priceValue = extractProductPrice(tile, name);
+			ParsedPrices prices = extractPrices(tile, name);
+			String quantity = extractProductQuantity(tile);
 			String category = "Supermercado";
 
 			// Determine availability from elements on the page
@@ -51,7 +52,8 @@ final class ContinenteParser {
 					|| (addBtn.isVisible() && addBtn.isEnabled());
 
 			if (externalId != null && !externalId.isBlank() && !name.isBlank()) {
-				results.add(new SearchResult(externalId, name, brand, priceValue, url, category, available));
+				results.add(new SearchResult(externalId, name, brand, prices.itemPrice(), url, category, available,
+						quantity, prices.unitPrice()));
 			}
 		} catch (Exception e) {
 			log.warn("Failed to parse single product tile: {}", e.getMessage());
@@ -158,10 +160,15 @@ final class ContinenteParser {
 		return null;
 	}
 
+	public record ParsedPrices(BigDecimal itemPrice, String unitPrice) {
+	}
+
 	/**
-	 * Extracts and parses the product price from the tile.
+	 * Extracts both item price and unit price (e.g. per kg/L), handling cases where
+	 * primary and secondary price elements are inverted (e.g. fresh meat displaying
+	 * price/kg in primary position).
 	 */
-	public static BigDecimal extractProductPrice(Locator tile, String name) {
+	public static ParsedPrices extractPrices(Locator tile, String name) {
 		Locator primaryLoc = tile.locator(ContinenteSelectors.PRICE_PRIMARY).first();
 		if (primaryLoc.count() == 0) {
 			primaryLoc = tile.locator(ContinenteSelectors.PRICE_FALLBACK).first();
@@ -170,22 +177,55 @@ final class ContinenteParser {
 
 		String primaryText = (primaryLoc.count() > 0) ? primaryLoc.innerText().trim() : "";
 		String secondaryText = (secondaryLoc.count() > 0) ? secondaryLoc.innerText().trim() : "";
+
 		String chosenPriceText = primaryText;
+		String chosenUnitPriceText = secondaryText;
 
 		if (!primaryText.isEmpty() && !secondaryText.isEmpty()) {
-			boolean primaryIsUnit = primaryText.contains("/");
-			boolean secondaryIsUnit = secondaryText.contains("/");
-			if (primaryIsUnit && !secondaryIsUnit) {
-				log.info("Detected price inversion for '{}': Primary='{}', Secondary='{}'. Using Secondary.", name,
+			boolean primaryIsWeightOrVolume = isWeightOrVolumeRate(primaryText);
+			boolean secondaryIsItemOrUnit = isPerItemUnit(secondaryText);
+
+			if (primaryIsWeightOrVolume && secondaryIsItemOrUnit) {
+				log.info("Detected price inversion for '{}': Primary='{}', Secondary='{}'. Inverting.", name,
 						primaryText, secondaryText);
 				chosenPriceText = secondaryText;
+				chosenUnitPriceText = primaryText;
+			} else if (primaryText.contains("/") && !secondaryText.contains("/")) {
+				chosenPriceText = secondaryText;
+				chosenUnitPriceText = primaryText;
 			}
+		} else if (primaryText.contains("/") && secondaryText.isEmpty()) {
+			chosenUnitPriceText = primaryText;
 		}
 
-		if (!chosenPriceText.isEmpty()) {
-			return parsePrice(chosenPriceText);
+		BigDecimal priceVal = parsePrice(chosenPriceText);
+		String unitPriceStr = chosenUnitPriceText.isEmpty() ? null : chosenUnitPriceText;
+
+		return new ParsedPrices(priceVal, unitPriceStr);
+	}
+
+	private static boolean isWeightOrVolumeRate(String text) {
+		if (text == null || text.isBlank()) {
+			return false;
 		}
-		return BigDecimal.ZERO;
+		String lower = text.toLowerCase();
+		return lower.contains("/kg") || lower.contains("/g") || lower.contains("/l") || lower.contains("/lt")
+				|| lower.contains("/cl") || lower.contains("/ml") || lower.contains("/dose");
+	}
+
+	private static boolean isPerItemUnit(String text) {
+		if (text == null || text.isBlank()) {
+			return true;
+		}
+		String lower = text.toLowerCase();
+		return lower.contains("/un") || !lower.contains("/");
+	}
+
+	/**
+	 * Extracts and parses the product price from the tile.
+	 */
+	public static BigDecimal extractProductPrice(Locator tile, String name) {
+		return extractPrices(tile, name).itemPrice();
 	}
 
 	/**
@@ -219,5 +259,27 @@ final class ContinenteParser {
 			log.warn("Failed to parse price string '{}': {}", priceText, e.getMessage());
 			return BigDecimal.ZERO;
 		}
+	}
+
+	/**
+	 * Extracts the package size / quantity descriptor (e.g. "emb. 500 gr") from the
+	 * product tile.
+	 */
+	public static String extractProductQuantity(Locator tile) {
+		Locator qtyLoc = tile.locator(ContinenteSelectors.PACKAGE_QUANTITY).first();
+		if (qtyLoc.count() > 0) {
+			String text = qtyLoc.innerText().trim();
+			if (!text.isEmpty()) {
+				return text;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Extracts the unit price text (e.g. "3,98 € / kg") from the product tile.
+	 */
+	public static String extractUnitPrice(Locator tile) {
+		return extractPrices(tile, "").unitPrice();
 	}
 }

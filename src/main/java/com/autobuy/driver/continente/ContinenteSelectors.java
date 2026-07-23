@@ -46,6 +46,7 @@ final class ContinenteSelectors {
 	public static final String PRICE_PRIMARY = ".pwc-tile--price-primary, .ct-price-value, .ct-price-formatted";
 	public static final String PRICE_FALLBACK = ".value, .price";
 	public static final String PRICE_SECONDARY = ".pwc-tile--price-secondary, .ct-price-unit, .price-per-unit";
+	public static final String PACKAGE_QUANTITY = ".pwc-tile--quantity, .ct-tile-quantity, .product-quantity, .ct-tile--quantity, .quantity-value";
 
 	// Add to Cart / Quantity selectors
 	public static final String PRODUCT_TILE_BY_PID = "div[data-pid='%s'], .product-tile[data-pid='%s']";

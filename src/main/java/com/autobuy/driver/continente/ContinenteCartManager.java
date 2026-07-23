@@ -39,8 +39,7 @@ class ContinenteCartManager {
 	public void clearCart() {
 		log.info("Checking if cart needs to be cleared...");
 		try {
-			Locator qtyBadge = page.locator(ContinenteSelectors.MINICART_QUANTITY).first();
-			int count = getCartQuantity(qtyBadge);
+			int count = getCartQuantity();
 
 			if (count == 0) {
 				log.info("Cart is already empty.");
@@ -49,31 +48,41 @@ class ContinenteCartManager {
 
 			log.info("Cart has {} items. Initiating cart clearing...", count);
 
-			// Method 1: Direct AJAX API Call (GET & POST)
-			if (clearCartViaApi(qtyBadge)) {
+			// Step 1: Execute direct API call to remove all items
+			if (clearCartViaApi()) {
 				return;
 			}
 
-			// Method 2: UI-based hover and Clear All button click
-			clearCartViaUi(qtyBadge);
-
+			// Step 2: Fallback — Navigate to Cart Page and clear
+			clearCartViaCartPage();
 		} catch (Exception e) {
 			log.error("Failed to clear cart: {}", e.getMessage(), e);
 		}
 	}
 
-	private int getCartQuantity(Locator qtyBadge) {
+	private int getCartQuantity() {
 		try {
-			qtyBadge.waitFor(new Locator.WaitForOptions().setTimeout(5000));
-			String qtyText = qtyBadge.innerText().trim();
-			return Integer.parseInt(qtyText.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
-		} catch (Exception _) {
-			log.info("Minicart quantity badge not visible after 5s. Cart is likely empty.");
-			return 0;
+			Locator badges = page.locator(ContinenteSelectors.MINICART_QUANTITY);
+			int totalBadges = badges.count();
+			for (int i = 0; i < totalBadges; i++) {
+				String text = badges.nth(i).textContent();
+				if (text != null && !text.isBlank()) {
+					String digits = text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, "");
+					if (!digits.isEmpty()) {
+						int val = Integer.parseInt(digits);
+						if (val > 0) {
+							return val;
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.debug("Error reading minicart quantity: {}", e.getMessage());
 		}
+		return 0;
 	}
 
-	private boolean clearCartViaApi(Locator qtyBadge) {
+	private boolean clearCartViaApi() {
 		log.info("Attempting direct API call to clear cart...");
 		try {
 			page.evaluate(
@@ -90,9 +99,8 @@ class ContinenteCartManager {
 			log.info("Direct API call finished. Reloading page to update minicart...");
 			page.navigate(ContinenteSelectors.BASE_URL);
 			page.waitForLoadState();
-			waitForNetworkIdle(4000);
 
-			int remainingCount = getCartQuantityFallback(qtyBadge);
+			int remainingCount = getCartQuantity();
 			if (remainingCount == 0) {
 				log.info("Cart cleared successfully via direct API call.");
 				return true;
@@ -104,155 +112,31 @@ class ContinenteCartManager {
 		return false;
 	}
 
-	private int getCartQuantityFallback(Locator qtyBadge) {
+	private boolean clearCartViaCartPage() {
+		log.info("Navigating to Cart page to clear cart...");
 		try {
-			if (qtyBadge.isVisible()) {
-				String text = qtyBadge.innerText().trim();
-				return Integer.parseInt(text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
+			page.navigate(ContinenteSelectors.CART_URL);
+			page.waitForLoadState();
+
+			Locator cleanBtn = page.locator(
+					"button.minicart-clean-button, button.cart-clean-button, button:has-text('Limpar carrinho'), button:has-text('Limpar todos'), button:has-text('Esvaziar')")
+					.first();
+			if (cleanBtn.isVisible()) {
+				cleanBtn.click();
+				page.waitForTimeout(800);
+				Locator confirmBtn = page.locator(ContinenteSelectors.CONFIRM_CLEAN_MODAL_BUTTON).first();
+				if (confirmBtn.isVisible()) {
+					confirmBtn.click();
+					page.waitForTimeout(1500);
+				}
+				log.info("Cleared cart on Cart page.");
 			}
-			// Wait up to 3 seconds for the badge to become visible if it has items
-			qtyBadge.waitFor(new Locator.WaitForOptions().setTimeout(3000));
-			String text = qtyBadge.innerText().trim();
-			return Integer.parseInt(text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
-		} catch (Exception _) {
-			return 0;
-		}
-	}
-
-	private void clearCartViaUi(Locator qtyBadge) {
-		log.info("API call did not clear cart. Falling back to minicart popover...");
-		openMinicartPopover();
-
-		// Try clicking the Clear All button first
-		if (tryClickClearAllButton(qtyBadge)) {
-			return;
-		}
-
-		// Fallback: Remove items one by one
-		removeItemsOneByOne();
-
-		// Verify quantity after clearing
-		String finalQtyText = "0";
-		try {
-			if (qtyBadge.isVisible()) {
-				finalQtyText = qtyBadge.innerText().trim();
-			}
-		} catch (Exception _) {
-			// Ignore read exceptions during validation
-		}
-		log.info("Cart clearing process completed. Final cart quantity: {}", finalQtyText);
-
-		// Close popover to clean up the screen
-		Locator closeBtn = page.locator(ContinenteSelectors.MINICART_CLOSE_BUTTON).first();
-		if (closeBtn.isVisible()) {
-			closeBtn.click();
-			page.waitForTimeout(500);
-		}
-	}
-
-	private void openMinicartPopover() {
-		log.info("Opening minicart popover...");
-		Locator minicart = page.locator(ContinenteSelectors.MINICART_SELECTOR).first();
-		if (minicart.count() > 0) {
-			try {
-				minicart.scrollIntoViewIfNeeded();
-				minicart.hover(new Locator.HoverOptions().setTimeout(3000));
-				log.info("Hovered over minicart container.");
-			} catch (Exception e) {
-				log.warn("Failed to hover over minicart container: {}", e.getMessage());
-			}
-		}
-
-		// Also hover over minicart-link as a backup
-		try {
-			Locator link = page.locator(".minicart-link:visible, .minicart-wrapper:visible").first();
-			if (link.count() > 0) {
-				link.hover(new Locator.HoverOptions().setTimeout(2000));
-				log.info("Hovered over minicart link.");
-			}
-		} catch (Exception _) {
-			// Ignore hover failures
-		}
-
-		// Dispatch hover events programmatically to trigger site JS reliably
-		try {
-			page.dispatchEvent(ContinenteSelectors.MINICART_SELECTOR, "mouseenter");
-			page.dispatchEvent(ContinenteSelectors.MINICART_SELECTOR, "mouseover");
-			page.dispatchEvent(ContinenteSelectors.MINICART_LINK_SELECTOR, "mouseenter");
-			page.dispatchEvent(ContinenteSelectors.MINICART_LINK_SELECTOR, "mouseover");
+			page.navigate(ContinenteSelectors.BASE_URL);
+			page.waitForLoadState();
+			return getCartQuantity() == 0;
 		} catch (Exception e) {
-			log.warn("Failed to dispatch hover events: {}", e.getMessage());
-		}
-		page.waitForTimeout(1500);
-
-		// Wait up to 5 seconds for the minicart contents to load asynchronously (AJAX)
-		try {
-			page.locator(ContinenteSelectors.MINICART_CLEAN_OR_REMOVE).first()
-					.waitFor(new Locator.WaitForOptions().setTimeout(5000));
-			log.info("Minicart popover contents loaded successfully.");
-		} catch (Exception e) {
-			log.warn("Timed out waiting for minicart contents to load: {}", e.getMessage());
-		}
-	}
-
-	private boolean tryClickClearAllButton(Locator qtyBadge) {
-		Locator cleanAllBtn = page.locator(ContinenteSelectors.MINICART_CLEAN_ALL).first();
-		if (!cleanAllBtn.isVisible()) {
+			log.warn("Cart page cleanup encountered an error: {}", e.getMessage());
 			return false;
-		}
-
-		log.info("Found 'Clear All' button. Clicking it...");
-		cleanAllBtn.click();
-		page.waitForTimeout(800);
-
-		// Handle confirmation modal if it appears
-		Locator confirmBtn = page.locator(ContinenteSelectors.CONFIRM_CLEAN_MODAL_BUTTON).first();
-		if (confirmBtn.isVisible()) {
-			log.info("Found confirmation dialog. Clicking confirm button...");
-			confirmBtn.click();
-			page.waitForTimeout(1500);
-		}
-
-		// Wait to see if cart is cleared
-		for (int i = 0; i < 10; i++) {
-			page.waitForTimeout(200);
-			try {
-				if (!qtyBadge.isVisible()) {
-					log.info("Cart cleared successfully using 'Clear All' button (badge is no longer visible).");
-					return true;
-				}
-				String text = qtyBadge.innerText().trim();
-				if (Integer.parseInt(text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, "")) == 0) {
-					log.info("Cart cleared successfully using 'Clear All' button.");
-					return true;
-				}
-			} catch (Exception _) {
-				log.info("Cart cleared successfully (exception reading badge, likely removed).");
-				return true;
-			}
-		}
-		log.warn("'Clear All' button did not clear the cart. Falling back to individual item removal...");
-		return false;
-	}
-
-	private void removeItemsOneByOne() {
-		int attempts = 0;
-		while (attempts < 50) {
-			Locator removeButtons = page.locator(ContinenteSelectors.MINICART_REMOVE_ITEM_BUTTON);
-			int buttonsCount = removeButtons.count();
-			if (buttonsCount == 0) {
-				log.info("No more visible remove buttons in minicart popover.");
-				break;
-			}
-
-			log.info("Removing item from cart (attempts={})...", attempts + 1);
-			Locator firstBtn = removeButtons.first();
-			firstBtn.scrollIntoViewIfNeeded();
-			firstBtn.click();
-			attempts++;
-
-			// Wait for minicart quantities to update or AJAX call to finish.
-			page.waitForTimeout(1000);
 		}
 	}
 
@@ -263,28 +147,15 @@ class ContinenteCartManager {
 	public boolean addProductToCart(String externalId, int quantity) {
 		log.info("Adding product SKU {} (quantity={}) to cart...", externalId, quantity);
 		try {
-			Locator qtyBadge = page.locator(ContinenteSelectors.MINICART_QUANTITY).first();
-			int initialCartQty = getCartQuantityFast(qtyBadge);
+			int initialCartQty = getCartQuantity();
 
-			// Find the product tile by data-pid
-			Locator tile = page.locator(String.format(ContinenteSelectors.PRODUCT_TILE_BY_PID, externalId, externalId))
-					.first();
-			if (!tile.isVisible()) {
-				// Try searching for it first to get it on screen
-				searchCallback.accept(externalId);
-				tile = page.locator(String.format(ContinenteSelectors.PRODUCT_TILE_BY_PID, externalId, externalId))
-						.first();
-			}
-
-			if (!tile.isVisible()) {
-				log.error("Product tile with SKU {} not found on page.", externalId);
+			Locator tile = locateProductTile(externalId);
+			if (tile == null) {
 				return false;
 			}
 
-			// Scroll the tile into view
 			tile.scrollIntoViewIfNeeded();
 
-			// Define locators for quantity controls
 			Locator plusBtn = tile.locator(ContinenteSelectors.INCREASE_QTY_BUTTON).first();
 			Locator qtyInput = tile.locator(ContinenteSelectors.QTY_INPUT).first();
 			Locator qtyDisplay = tile.locator(ContinenteSelectors.QTY_DISPLAY).first();
@@ -292,57 +163,87 @@ class ContinenteCartManager {
 			int currentQty = getExistingQuantity(qtyInput, qtyDisplay, plusBtn, externalId);
 
 			if (currentQty >= quantity) {
-				log.info("Product SKU {} already has quantity {} (target is {}). No action needed.", externalId,
+				log.info("Product SKU {} already has quantity {} (target is {}). Confirmed in cart.", externalId,
 						currentQty, quantity);
 				return true;
 			}
 
 			if (currentQty == 0) {
-				// Locate add-to-cart button inside the tile
-				Locator addBtn = tile.locator(ContinenteSelectors.ADD_TO_CART_BUTTON).first();
-				if (!addBtn.isVisible() || addBtn.getAttribute("class").contains("disabled")) {
-					log.error("Add to cart button not visible or is disabled for product SKU {}", externalId);
-					return false;
-				}
-
-				// Click it to add the first item
-				addBtn.click();
-
-				// Verify plus button is now visible to confirm it was added
-				boolean updated = waitForFirstCartAddition(plusBtn, tile, addBtn, externalId);
-				if (!updated) {
-					log.error("Failed to add SKU {} to cart (plus button did not appear).", externalId);
+				if (!performInitialAddToCart(tile, plusBtn, externalId)) {
 					return false;
 				}
 				currentQty = 1;
 			}
 
-			// If target quantity is greater than current quantity, adjust
 			if (quantity > currentQty) {
 				adjustProductQuantity(qtyInput, plusBtn, qtyDisplay, currentQty, quantity);
 			}
 
-			// Verify minicart quantity increased
-			boolean cartUpdated = false;
-			for (int attempt = 0; attempt < 25; attempt++) {
-				int currentCartQty = getCartQuantityFast(qtyBadge);
-				if (currentCartQty > initialCartQty) {
-					cartUpdated = true;
-					break;
-				}
-				page.waitForTimeout(200);
-			}
-			if (!cartUpdated) {
-				log.error("Failed to add SKU {} to cart: Minicart quantity did not increase.", externalId);
-				return false;
-			}
-
-			log.info("Successfully set SKU {} quantity to {} in cart.", externalId, quantity);
-			return true;
+			return verifyAdditionConfirmed(plusBtn, qtyInput, qtyDisplay, externalId, initialCartQty, quantity);
 		} catch (Exception e) {
 			log.error("Failed to add SKU {} to cart: {}", externalId, e.getMessage());
 			return false;
 		}
+	}
+
+	private Locator locateProductTile(String externalId) {
+		Locator tile = page.locator(String.format(ContinenteSelectors.PRODUCT_TILE_BY_PID, externalId, externalId))
+				.first();
+		if (!tile.isVisible()) {
+			searchCallback.accept(externalId);
+			tile = page.locator(String.format(ContinenteSelectors.PRODUCT_TILE_BY_PID, externalId, externalId)).first();
+		}
+		if (!tile.isVisible()) {
+			log.error("Product tile with SKU {} not found on page.", externalId);
+			return null;
+		}
+		return tile;
+	}
+
+	private boolean performInitialAddToCart(Locator tile, Locator plusBtn, String externalId) {
+		Locator addBtn = tile.locator(ContinenteSelectors.ADD_TO_CART_BUTTON).first();
+		if (!addBtn.isVisible() || addBtn.getAttribute("class").contains("disabled")) {
+			log.error("Add to cart button not visible or is disabled for product SKU {}", externalId);
+			return false;
+		}
+
+		addBtn.click();
+
+		boolean updated = waitForFirstCartAddition(plusBtn, tile, addBtn, externalId);
+		if (!updated) {
+			log.error("Failed to add SKU {} to cart (plus button did not appear).", externalId);
+			return false;
+		}
+		return true;
+	}
+
+	private boolean verifyAdditionConfirmed(Locator plusBtn, Locator qtyInput, Locator qtyDisplay, String externalId,
+			int initialCartQty, int quantity) {
+		if (plusBtn.isVisible() || getExistingQuantity(qtyInput, qtyDisplay, plusBtn, externalId) > 0) {
+			log.info("Successfully added SKU {} (quantity={}) to cart (confirmed via tile controls).", externalId,
+					quantity);
+			return true;
+		}
+
+		for (int attempt = 0; attempt < 25; attempt++) {
+			if (plusBtn.isVisible() || getExistingQuantity(qtyInput, qtyDisplay, plusBtn, externalId) > 0) {
+				log.info("Successfully added SKU {} to cart (confirmed via tile controls after wait).", externalId);
+				return true;
+			}
+			if (getCartQuantity() > initialCartQty) {
+				log.info("Successfully added SKU {} to cart (confirmed via minicart badge).", externalId);
+				return true;
+			}
+			page.waitForTimeout(200);
+		}
+
+		if (plusBtn.isVisible() || getExistingQuantity(qtyInput, qtyDisplay, plusBtn, externalId) > 0) {
+			log.info("Successfully added SKU {} to cart (confirmed via final tile check).", externalId);
+			return true;
+		}
+
+		log.error("Failed to add SKU {} to cart: item addition not confirmed on tile or minicart.", externalId);
+		return false;
 	}
 
 	private boolean waitForFirstCartAddition(Locator plusBtn, Locator tile, Locator addBtn, String externalId) {
@@ -381,18 +282,6 @@ class ContinenteCartManager {
 			log.debug("Ignore element detached errors during state transition: {}", e.getMessage());
 		}
 		return false;
-	}
-
-	private int getCartQuantityFast(Locator qtyBadge) {
-		try {
-			if (qtyBadge.isVisible()) {
-				String text = qtyBadge.innerText().trim();
-				return Integer.parseInt(text.replaceAll(ContinenteSelectors.NON_DIGIT_REGEX, ""));
-			}
-		} catch (Exception e) {
-			log.debug("Fast minicart quantity check failed: {}", e.getMessage());
-		}
-		return 0;
 	}
 
 	private int getExistingQuantity(Locator qtyInput, Locator qtyDisplay, Locator plusBtn, String externalId) {
@@ -507,14 +396,5 @@ class ContinenteCartManager {
 			}
 		}
 		return false;
-	}
-
-	private void waitForNetworkIdle(int timeoutMs) {
-		try {
-			page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
-					new Page.WaitForLoadStateOptions().setTimeout(timeoutMs));
-		} catch (Exception e) {
-			log.debug("Network idle wait timed out: {}", e.getMessage());
-		}
 	}
 }

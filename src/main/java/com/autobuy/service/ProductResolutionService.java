@@ -185,8 +185,8 @@ public class ProductResolutionService {
 		for (int i = 0; i < searchResultsList.size(); i++) {
 			SearchResult r = searchResultsList.get(i);
 			if (r.externalId().equals(externalId)) {
-				searchResultsList.set(i,
-						new SearchResult(r.externalId(), r.name(), r.brand(), r.price(), r.url(), r.category(), false));
+				searchResultsList.set(i, new SearchResult(r.externalId(), r.name(), r.brand(), r.price(), r.url(),
+						r.category(), false, r.quantity(), r.unitPrice()));
 			}
 		}
 	}

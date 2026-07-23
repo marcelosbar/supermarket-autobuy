@@ -809,8 +809,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <h4 class="pm-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</h4>
                 <div class="pm-brand">Brand: ${escapeHtml(p.brand || 'N/A')}</div>
+                ${p.quantity ? `<div class="pm-quantity">Size/Qty: ${escapeHtml(p.quantity)}</div>` : ''}
                 <div class="pm-footer">
-                    <span class="pm-price">${p.price.toFixed(2)} €</span>
+                    <div class="pm-price-container">
+                        <span class="pm-price">${p.price.toFixed(2)} €</span>
+                        ${p.unitPrice ? `<span class="pm-unit-price">${escapeHtml(p.unitPrice)}</span>` : ''}
+                    </div>
                     <a href="${p.url}" target="_blank" class="pm-link">View Page ↗</a>
                 </div>
                 <div class="pm-buttons-container">
