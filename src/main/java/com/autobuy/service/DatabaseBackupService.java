@@ -87,24 +87,36 @@ public class DatabaseBackupService {
 		}
 		log.info("Initiating database snapshot backup...");
 
-		File directory = new File(backupDir);
+		File directory;
+		try {
+			directory = new File(backupDir).getCanonicalFile();
+			if (directory.getPath().contains("..")) {
+				log.error("Invalid path traversal in backup directory: {}", backupDir);
+				return;
+			}
+		} catch (Exception e) {
+			log.error("Invalid backup directory: {}", backupDir);
+			return;
+		}
+
 		if (!directory.exists()) {
 			if (directory.mkdirs()) {
-				log.info("Created backup directory at {}", backupDir);
+				log.info("Created backup directory at {}", directory.getAbsolutePath());
 			} else {
-				log.error("Failed to create backup directory at {}", backupDir);
+				log.error("Failed to create backup directory at {}", directory.getAbsolutePath());
 				return;
 			}
 		}
 
 		String timestamp = LocalDateTime.now(java.time.ZoneId.systemDefault())
 				.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-		String backupFilePath = new File(directory, "backup_" + timestamp + ".zip").getAbsolutePath();
+		File backupFile = new File(directory, "backup_" + timestamp + ".zip");
+		String safeBackupFilePath = backupFile.getAbsolutePath().replace('\\', '/').replace("'", "''");
 
 		try {
 			// H2 SQL command to safely back up the database into a compressed zip file
-			jdbcTemplate.execute("BACKUP TO '" + backupFilePath + "'");
-			log.info("SUCCESS: Database backup saved to {}", backupFilePath);
+			jdbcTemplate.execute("BACKUP TO '" + safeBackupFilePath + "'");
+			log.info("SUCCESS: Database backup saved to {}", safeBackupFilePath);
 
 			// Clean up old backups based on retention policy
 			cleanOldBackups(directory);
