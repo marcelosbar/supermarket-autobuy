@@ -1,6 +1,7 @@
 package com.autobuy.model;
 
 import jakarta.persistence.*;
+import java.util.Objects;
 
 /**
  * Maps a generic search query to an exact supermarket SKU.
@@ -90,6 +91,24 @@ public class ProductMapping {
 	}
 	public void setFallbackForId(Long fallbackForId) {
 		this.fallbackForId = fallbackForId;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ProductMapping productMapping = (ProductMapping) o;
+		return priority == productMapping.priority && Objects.equals(searchText, productMapping.searchText)
+				&& Objects.equals(supermarket, productMapping.supermarket);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(searchText, supermarket, priority);
 	}
 
 	@Override

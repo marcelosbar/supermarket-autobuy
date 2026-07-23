@@ -1,6 +1,7 @@
 package com.autobuy.model;
 
 import jakarta.persistence.*;
+import java.util.Objects;
 
 /**
  * Represents a unique product in a supermarket.
@@ -90,6 +91,23 @@ public class Product {
 	}
 	public void setCategory(String category) {
 		this.category = category;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		Product product = (Product) o;
+		return Objects.equals(externalId, product.externalId) && Objects.equals(supermarket, product.supermarket);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(externalId, supermarket);
 	}
 
 	@Override
