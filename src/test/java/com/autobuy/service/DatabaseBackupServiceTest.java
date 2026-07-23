@@ -7,6 +7,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -189,10 +190,24 @@ class DatabaseBackupServiceTest {
 	}
 
 	@Test
-	void performBackup_invalidDirectoryPath_handlesGracefully() {
+	void performBackup_mkdirsFails_handlesGracefully(@TempDir Path tempDir) throws Exception {
+		// Arrange
+		Path fileAsParent = tempDir.resolve("somefile.txt");
+		Files.writeString(fileAsParent, "content");
+		String invalidChildPath = fileAsParent.toAbsolutePath() + "/subfolder";
+
+		DatabaseBackupService service = new DatabaseBackupService(null);
+		ReflectionTestUtils.setField(service, "backupDir", invalidChildPath);
+
+		// Act & Assert
+		assertDoesNotThrow(service::performBackup);
+	}
+
+	@Test
+	void performBackup_pathTraversal_handlesGracefully() {
 		// Arrange
 		DatabaseBackupService service = new DatabaseBackupService(null);
-		ReflectionTestUtils.setField(service, "backupDir", "invalid?dir|path/backup");
+		ReflectionTestUtils.setField(service, "backupDir", "../path/traversal");
 
 		// Act & Assert
 		assertDoesNotThrow(service::performBackup);

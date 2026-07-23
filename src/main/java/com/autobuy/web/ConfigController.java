@@ -49,7 +49,7 @@ public class ConfigController {
 			if (resolvedPath.contains("\0") || resolvedPath.contains("..")) {
 				return ResponseEntity.badRequest().body(new ActionResponse(false));
 			}
-			java.nio.file.Path normalized = java.nio.file.Path.of(resolvedPath).toAbsolutePath().normalize();
+			java.nio.file.Path normalized = java.nio.file.Path.of(resolvedPath).normalize();
 			resolvedPath = normalized.toString().replace('\\', '/');
 		}
 

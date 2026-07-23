@@ -90,22 +90,14 @@ public class DatabaseBackupService {
 		File directory;
 		try {
 			directory = new File(backupDir).getCanonicalFile();
-			if (directory.getPath().contains("..")) {
-				log.error("Invalid path traversal in backup directory: {}", backupDir);
-				return;
-			}
 		} catch (Exception e) {
 			log.error("Invalid backup directory: {}", backupDir);
 			return;
 		}
 
-		if (!directory.exists()) {
-			if (directory.mkdirs()) {
-				log.info("Created backup directory at {}", directory.getAbsolutePath());
-			} else {
-				log.error("Failed to create backup directory at {}", directory.getAbsolutePath());
-				return;
-			}
+		if (!directory.exists() && !directory.mkdirs()) {
+			log.error("Failed to create backup directory at {}", directory.getAbsolutePath());
+			return;
 		}
 
 		String timestamp = LocalDateTime.now(java.time.ZoneId.systemDefault())
