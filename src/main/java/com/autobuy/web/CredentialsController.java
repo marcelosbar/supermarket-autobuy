@@ -4,6 +4,7 @@ import com.autobuy.provider.CredentialProvider;
 import com.autobuy.web.dto.ActionResponse;
 import com.autobuy.web.dto.CredentialStatusResponse;
 import com.autobuy.web.dto.CredentialsRequest;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -40,7 +41,7 @@ public class CredentialsController {
 	}
 
 	@PostMapping
-	public ResponseEntity<ActionResponse> saveCredentials(@RequestBody CredentialsRequest request) {
+	public ResponseEntity<ActionResponse> saveCredentials(@Valid @RequestBody CredentialsRequest request) {
 		String existingUsername = credentialProvider.getUsername(request.supermarket());
 		String existingPassword = credentialProvider.getPassword(request.supermarket());
 		boolean hasExisting = existingUsername != null && !existingUsername.isBlank() && existingPassword != null

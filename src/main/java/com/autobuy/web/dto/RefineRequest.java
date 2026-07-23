@@ -1,4 +1,6 @@
 package com.autobuy.web.dto;
 
-public record RefineRequest(String query) {
+import jakarta.validation.constraints.NotBlank;
+
+public record RefineRequest(@NotBlank String query) {
 }

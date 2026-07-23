@@ -1,4 +1,6 @@
 package com.autobuy.web.dto;
 
-public record CredentialsRequest(String supermarket, String username, String password) {
+import jakarta.validation.constraints.NotBlank;
+
+public record CredentialsRequest(@NotBlank String supermarket, @NotBlank String username, @NotBlank String password) {
 }

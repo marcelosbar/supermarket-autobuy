@@ -14,6 +14,7 @@ import com.autobuy.web.dto.ResolutionResultStatus;
 import com.autobuy.web.dto.ResolveRequest;
 import com.autobuy.web.dto.ResolveResponse;
 import com.autobuy.web.dto.RunRequest;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -50,7 +51,7 @@ public class AutoBuyController {
 	}
 
 	@PostMapping("/run")
-	public ResponseEntity<ActionResponse> runAutoBuy(@RequestBody(required = false) RunRequest request) {
+	public ResponseEntity<ActionResponse> runAutoBuy(@Valid @RequestBody(required = false) RunRequest request) {
 		String supermarket = (request != null && request.supermarket() != null)
 				? request.supermarket()
 				: DEFAULT_SUPERMARKET;
@@ -74,7 +75,7 @@ public class AutoBuyController {
 	}
 
 	@PostMapping("/resolve")
-	public ResponseEntity<ResolveResponse> resolveMapping(@RequestBody ResolveRequest request) {
+	public ResponseEntity<ResolveResponse> resolveMapping(@Valid @RequestBody ResolveRequest request) {
 		ResolutionResultStatus status = productResolutionService.resolveMapping(request.externalId(),
 				request.saveMapping());
 		boolean added = status == null || status.added();
@@ -94,7 +95,7 @@ public class AutoBuyController {
 	}
 
 	@PostMapping("/refine")
-	public ResponseEntity<ActionResponse> refineSearch(@RequestBody RefineRequest request) {
+	public ResponseEntity<ActionResponse> refineSearch(@Valid @RequestBody RefineRequest request) {
 		productResolutionService.refineSearch(request.query());
 		return ResponseEntity.ok(new ActionResponse(true));
 	}

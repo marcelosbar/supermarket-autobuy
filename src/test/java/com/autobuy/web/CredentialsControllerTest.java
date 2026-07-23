@@ -59,12 +59,12 @@ class CredentialsControllerTest {
 	}
 
 	@Test
-	void saveCredentials_nullUsername_savesCredentials() {
+	void saveCredentials_newUsername_savesCredentials() {
 		// Arrange
 		when(provider.getUsername("CONTINENTE")).thenReturn("user");
 		when(provider.getPassword("CONTINENTE")).thenReturn("pass");
 
-		CredentialsRequest request = new CredentialsRequest("CONTINENTE", null, "");
+		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "new-user", "pass");
 
 		// Act
 		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
@@ -72,25 +72,7 @@ class CredentialsControllerTest {
 		// Assert
 		assertNotNull(response.getBody());
 		assertTrue(response.getBody().success());
-		verify(provider).saveCredentials("CONTINENTE", null, "");
-	}
-
-	@Test
-	void saveCredentials_unchangedPassword_returnsUnchangedMessage() {
-		// Arrange
-		when(provider.getUsername("CONTINENTE")).thenReturn("user");
-		when(provider.getPassword("CONTINENTE")).thenReturn("pass");
-
-		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "user", null);
-
-		// Act
-		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
-
-		// Assert
-		assertNotNull(response.getBody());
-		assertTrue(response.getBody().success());
-		assertEquals("Credentials unchanged.", response.getBody().message());
-		verify(provider, never()).saveCredentials(any(), any(), any());
+		verify(provider).saveCredentials("CONTINENTE", "new-user", "pass");
 	}
 
 	@Test
@@ -116,7 +98,7 @@ class CredentialsControllerTest {
 		when(provider.getUsername("CONTINENTE")).thenReturn("user");
 		when(provider.getPassword("CONTINENTE")).thenReturn("pass");
 
-		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "different-user", "");
+		CredentialsRequest request = new CredentialsRequest("CONTINENTE", "different-user", "new-pass");
 
 		// Act
 		ResponseEntity<ActionResponse> response = controller.saveCredentials(request);
@@ -124,6 +106,6 @@ class CredentialsControllerTest {
 		// Assert
 		assertNotNull(response.getBody());
 		assertTrue(response.getBody().success());
-		verify(provider).saveCredentials("CONTINENTE", "different-user", "");
+		verify(provider).saveCredentials("CONTINENTE", "different-user", "new-pass");
 	}
 }
