@@ -19,9 +19,14 @@ import java.math.BigDecimal;
  *            The category of the product
  */
 public record SearchResult(String externalId, String name, String brand, BigDecimal price, String url, String category,
-		boolean available) {
+		boolean available, String quantity, String unitPrice) {
 
 	public SearchResult(String externalId, String name, String brand, BigDecimal price, String url, String category) {
-		this(externalId, name, brand, price, url, category, true);
+		this(externalId, name, brand, price, url, category, true, null, null);
+	}
+
+	public SearchResult(String externalId, String name, String brand, BigDecimal price, String url, String category,
+			boolean available) {
+		this(externalId, name, brand, price, url, category, available, null, null);
 	}
 }

@@ -1062,6 +1062,13 @@ input:focus, select:focus {
     font-weight: 500;
 }
 
+.pm-quantity {
+    font-size: 0.8125rem;
+    color: #cbd5e1;
+    font-weight: 500;
+    margin-top: 0.15rem;
+}
+
 .pm-footer {
     margin-top: auto;
     display: flex;
@@ -1071,10 +1078,21 @@ input:focus, select:focus {
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.pm-price-container {
+    display: flex;
+    flex-direction: column;
+}
+
 .pm-price {
     font-size: 1.15rem;
     font-weight: 700;
     color: var(--color-accent);
+}
+
+.pm-unit-price {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 400;
 }
 
 .pm-link {
