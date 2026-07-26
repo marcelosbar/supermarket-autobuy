@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(properties = {"autobuy.secrets-path=target/test-secrets.properties"})
+@SpringBootTest
 @ActiveProfiles("test")
 class ArchitecturalRuntimeIT {
 
