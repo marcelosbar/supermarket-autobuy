@@ -1,15 +1,15 @@
 package com.autobuy.provider;
 
 import com.autobuy.model.ShoppingItem;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.autobuy.exception.ShoppingListException;
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -39,7 +39,7 @@ public class JsonShoppingListProvider implements ShoppingListProvider {
 			});
 			log.info("Loaded {} items from shopping list: {}", items.size(), sourcePath);
 			return items;
-		} catch (IOException e) {
+		} catch (JacksonException e) {
 			log.error("Failed to parse shopping list file: {}", sourcePath, e);
 			throw new ShoppingListException("Failed to parse shopping list file: " + sourcePath, e);
 		}
@@ -50,7 +50,7 @@ public class JsonShoppingListProvider implements ShoppingListProvider {
 		try {
 			objectMapper.writeValue(new File(sourcePath), items);
 			log.info("Saved updated shopping list to {}", sourcePath);
-		} catch (IOException e) {
+		} catch (JacksonException e) {
 			log.error("Failed to write shopping list file: {}", sourcePath, e);
 			throw new ShoppingListException("Failed to save shopping list to " + sourcePath, e);
 		}
