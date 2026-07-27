@@ -6,8 +6,11 @@ import com.autobuy.service.DatabaseBackupService;
 import com.autobuy.web.dto.ActionResponse;
 import com.autobuy.web.dto.BackupDirRequest;
 import com.autobuy.web.dto.BackupDirResponse;
+import com.autobuy.web.dto.BackupFileResponse;
 import com.autobuy.web.dto.BackupStatusResponse;
 import com.autobuy.web.dto.FolderPickerResponse;
+import com.autobuy.web.dto.RestoreBackupRequest;
+import java.util.List;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,5 +84,22 @@ public class ConfigController {
 		} else {
 			return ResponseEntity.ok(new FolderPickerResponse(false, null, "Selection cancelled"));
 		}
+	}
+
+	@GetMapping("/backups")
+	public ResponseEntity<List<BackupFileResponse>> getBackups() {
+		if (databaseBackupService == null) {
+			return ResponseEntity.ok(List.of());
+		}
+		return ResponseEntity.ok(databaseBackupService.listBackups());
+	}
+
+	@PostMapping("/restore")
+	public ResponseEntity<ActionResponse> restoreBackup(@Valid @RequestBody RestoreBackupRequest request) {
+		if (databaseBackupService == null) {
+			return ResponseEntity.badRequest().body(new ActionResponse(false, "Database backup service is disabled."));
+		}
+		databaseBackupService.restoreBackup(request.fileName());
+		return ResponseEntity.ok(new ActionResponse(true, "Database restored successfully."));
 	}
 }

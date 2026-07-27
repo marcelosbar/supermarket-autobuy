@@ -7,7 +7,10 @@ import com.autobuy.web.dto.ActionResponse;
 import com.autobuy.web.dto.BackupDirRequest;
 import com.autobuy.web.dto.BackupDirResponse;
 import com.autobuy.web.dto.BackupStatusResponse;
+import com.autobuy.web.dto.BackupFileResponse;
 import com.autobuy.web.dto.FolderPickerResponse;
+import com.autobuy.web.dto.RestoreBackupRequest;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -115,5 +118,61 @@ class ConfigControllerTest {
 		assertNotNull(response.getBody());
 		assertFalse(response.getBody().success());
 		assertEquals("Selection cancelled", response.getBody().message());
+	}
+
+	@Test
+	void getBackups_serviceAvailable_returnsBackupList() {
+		// Arrange
+		BackupFileResponse file = new BackupFileResponse("backup_20260727_200000.zip", 1024L, "2026-07-27T20:00:00Z");
+		when(databaseBackupService.listBackups()).thenReturn(List.of(file));
+
+		// Act
+		ResponseEntity<List<BackupFileResponse>> response = controller.getBackups();
+
+		// Assert
+		assertNotNull(response.getBody());
+		assertEquals(1, response.getBody().size());
+		assertEquals("backup_20260727_200000.zip", response.getBody().get(0).fileName());
+	}
+
+	@Test
+	void getBackups_serviceNull_returnsEmptyList() {
+		// Arrange
+		ConfigController controllerWithoutBackupService = new ConfigController(settingsProvider, null, folderPicker);
+
+		// Act
+		ResponseEntity<List<BackupFileResponse>> response = controllerWithoutBackupService.getBackups();
+
+		// Assert
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().isEmpty());
+	}
+
+	@Test
+	void restoreBackup_validRequest_callsServiceAndReturnsSuccess() {
+		// Arrange
+		RestoreBackupRequest request = new RestoreBackupRequest("backup_20260727_200000.zip");
+
+		// Act
+		ResponseEntity<ActionResponse> response = controller.restoreBackup(request);
+
+		// Assert
+		verify(databaseBackupService).restoreBackup("backup_20260727_200000.zip");
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().success());
+	}
+
+	@Test
+	void restoreBackup_serviceNull_returnsBadRequest() {
+		// Arrange
+		ConfigController controllerWithoutBackupService = new ConfigController(settingsProvider, null, folderPicker);
+		RestoreBackupRequest request = new RestoreBackupRequest("backup_20260727_200000.zip");
+
+		// Act
+		ResponseEntity<ActionResponse> response = controllerWithoutBackupService.restoreBackup(request);
+
+		// Assert
+		assertNotNull(response.getBody());
+		assertFalse(response.getBody().success());
 	}
 }

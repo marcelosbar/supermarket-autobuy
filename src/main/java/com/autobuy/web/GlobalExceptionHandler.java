@@ -2,6 +2,7 @@ package com.autobuy.web;
 
 import com.autobuy.exception.AutoBuyException;
 import com.autobuy.exception.CredentialException;
+import com.autobuy.exception.DatabaseRestoreException;
 import com.autobuy.exception.DriverException;
 import com.autobuy.exception.SettingsException;
 import com.autobuy.exception.ShoppingListException;
@@ -49,6 +50,13 @@ public class GlobalExceptionHandler {
 		log.warn("Settings error: {}", ex.getMessage());
 		return ResponseEntity.badRequest()
 				.body(new ErrorResponse(ex.getMessage(), "SETTINGS_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
+	}
+
+	@ExceptionHandler(DatabaseRestoreException.class)
+	public ResponseEntity<ErrorResponse> handleDatabaseRestore(DatabaseRestoreException ex) {
+		log.warn("Database restore error: {}", ex.getMessage());
+		return ResponseEntity.badRequest()
+				.body(new ErrorResponse(ex.getMessage(), "RESTORE_ERROR", LocalDateTime.now(ZoneId.systemDefault())));
 	}
 
 	@ExceptionHandler(DriverException.class)

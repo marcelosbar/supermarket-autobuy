@@ -52,9 +52,11 @@ continente.username=your-email@example.com
 continente.password=your-password
 ```
 
-### 2. Database Backup & OneDrive Sync
+### 2. Database Backup & Restore
 By default, the database is persisted locally in `./data/db.mv.db`. On shutdown, a zipped backup is written to `./data/backups/backup_[timestamp].zip`.
-To sync backups to OneDrive, configure the backup directory in your settings:
+Available backups can be listed and restored directly from the web dashboard in the Settings modal. Before restoring, the system automatically creates a safety snapshot (`backup_before_restore_[timestamp].zip`) and rolls back if restoration fails.
+
+To configure a custom backup directory or sync backups with OneDrive:
 ```properties
 autobuy.backup-dir=C:/Users/your-username/OneDrive/SupermarketBackup
 ```
