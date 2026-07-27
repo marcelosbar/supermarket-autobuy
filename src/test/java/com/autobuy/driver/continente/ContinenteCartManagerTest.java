@@ -2,9 +2,9 @@ package com.autobuy.driver.continente;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -63,12 +63,8 @@ class ContinenteCartManagerTest {
 	@Mock
 	private Locator confirmBtnLocator;
 
+	@InjectMocks
 	private ContinenteCartManager cartManager;
-
-	@BeforeEach
-	void setUp() {
-		cartManager = new ContinenteCartManager(page, searchCallback);
-	}
 
 	@Test
 	void clearCart_cartAlreadyEmpty_doesNotTriggerClearActions() {
