@@ -202,6 +202,12 @@
                                 ℹ️ Optional. If left blank, database backup is skipped on shutdown.
                             </small>
                         </div>
+                        <div style="margin-top: 1rem;">
+                            <label style="font-weight: 600; font-size: 0.875rem; color: var(--text-main); margin-bottom: 0.5rem; display: block;">Available Backups</label>
+                            <div id="backups-list-container" style="max-height: 180px; overflow-y: auto; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius-sm); padding: 0.5rem;">
+                                <p style="color: var(--text-muted); font-size: 0.8125rem; text-align: center; margin: 0.5rem 0;">Loading backups...</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" id="btn-cancel-creds">Cancel</button>

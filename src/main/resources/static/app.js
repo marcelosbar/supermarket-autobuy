@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Failed to load backup directory config', err);
         }
 
+        loadAvailableBackups();
         credsModal.style.display = 'flex';
     });
 
@@ -198,6 +199,83 @@ document.addEventListener('DOMContentLoaded', () => {
             await showAlert('Connection Error', 'Error communicating with backend settings API.');
         }
     });
+
+    const backupsListContainer = document.getElementById('backups-list-container');
+
+    async function loadAvailableBackups() {
+        if (!backupsListContainer) return;
+        backupsListContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8125rem; text-align: center; margin: 0.5rem 0;">Loading backups...</p>';
+        try {
+            const res = await fetch('/api/config/backups');
+            if (!res.ok) {
+                backupsListContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8125rem; text-align: center; margin: 0.5rem 0;">Unable to load backups.</p>';
+                return;
+            }
+            const backups = await res.json();
+            if (!backups || backups.length === 0) {
+                backupsListContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8125rem; text-align: center; margin: 0.5rem 0;">No backup files found.</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 0.375rem;">';
+            backups.forEach(item => {
+                const sizeKb = (item.sizeBytes / 1024).toFixed(1) + ' KB';
+                const dateStr = item.lastModified ? new Date(item.lastModified).toLocaleString() : '';
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.375rem 0.5rem; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.05);">
+                        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 0.5rem;">
+                            <div style="font-size: 0.8125rem; font-weight: 500; color: var(--text-main); text-overflow: ellipsis; overflow: hidden;" title="${escapeHtml(item.fileName)}">${escapeHtml(item.fileName)}</div>
+                            <div style="font-size: 0.725rem; color: var(--text-muted);">${dateStr} &bull; ${sizeKb}</div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-small btn-restore-item" data-filename="${escapeHtml(item.fileName)}" style="white-space: nowrap; padding: 0.25rem 0.6rem; font-size: 0.75rem;">Restore</button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            backupsListContainer.innerHTML = html;
+
+            backupsListContainer.querySelectorAll('.btn-restore-item').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const fileName = e.currentTarget.getAttribute('data-filename');
+                    if (fileName) {
+                        restoreBackupFile(fileName);
+                    }
+                });
+            });
+        } catch (err) {
+            console.error('Failed to load backups:', err);
+            backupsListContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8125rem; text-align: center; margin: 0.5rem 0;">Error loading backups.</p>';
+        }
+    }
+
+    async function restoreBackupFile(fileName) {
+        const confirmed = await showConfirm(
+            'Restore Database',
+            `Are you sure you want to restore the database from "${fileName}"?\n\nA safety snapshot of your current database will be created first.`
+        );
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch('/api/config/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                await showAlert('Database Restored', `Database successfully restored from ${fileName}`);
+                credsModal.style.display = 'none';
+                loadShoppingList();
+                loadMappings();
+            } else {
+                await showAlert('Restore Failed', data.message || 'Failed to restore database from backup.');
+            }
+        } catch (err) {
+            console.error('Restore database failed:', err);
+            await showAlert('Restore Error', 'An error occurred while restoring the database.');
+        }
+    }
 
     // -------------------------------------------------------------
     // SHOPPING LIST MANAGEMENT

@@ -15,7 +15,7 @@ class ContinentePlaywrightDriverIT {
 			driver.initialize(null, null, false);
 
 			// Act
-			List<SearchResult> results = driver.searchProduct("Doce de Leite Continente Seleção");
+			List<SearchResult> results = driver.searchProduct("Leite Meio Gordo Continente");
 
 			// Assert
 			assertFalse(results.isEmpty(), "Should find at least one search result");
